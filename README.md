@@ -1,4 +1,4 @@
-# FikoRE: 5g-network-emulator
+# FikoRE: 5g-network-emulator v1.0
 
 Nokia Extended Reality Lab in Spain is focused on Immersive Media Technologies, with a special focus on what we denominated Distributed Reality (DR). The goal of (DR) is to be able to merge different local realities into a single real-time remote immersive experience. One key feature of DR is to allow the users to see his/her own hands and body within a fully immersive VR experience. However, this goal requires high-end hardware to run in real-time. Consequently, we are currently working on offloading architectures and implementations which allow us to run our demanding algorithms (AI/ML) on light VR/AR devices in real-time. 
 

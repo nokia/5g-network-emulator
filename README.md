@@ -23,4 +23,21 @@ Besides, we need the emulator to be simple to use and, more importantly, easy to
 
 Furthermore, as the goal is to test actual applications on different possible scenarios and understand the most optimal network configurations, we understand is crucial to allow to easily modify the resource allocation algorithms and procedures. We believe it’s a crucial step in which an optimal algorithm design can produce an optimal behavior of the network for very specific applications. For this reason, we have designed the algorithm to allow the users to easily implement and test their own resource allocation algorithms.  
 
+## Citing
+
+If you want to use FikoRE in your research, don't forget to cite us!
+
+```
+@misc{GonzalezD2022,
+  doi = {10.48550/ARXIV.2204.04290},
+  url = {https://arxiv.org/abs/2204.04290},
+  author = {Gonzalez Morin, Diego and Lopez Morales, Manuel-Jose and Pérez, Pablo and Villegas, Alvaro and García-Armada, Ana},
+  title = {FikoRE: 5G and Beyond RAN Emulator for Application Level Experimentation and Prototyping},
+  publisher = {arXiv},
+  year = {2022},
+}
+```
+
+## Description and Usage
+
 For more info and usage check the [wiki](https://github.com/nokia/5g-network-emulator/wiki)

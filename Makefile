@@ -34,6 +34,7 @@ main.o: $(SRCFLAGS)
 	$(CXX) $(CXX_FLAGS) -I$(INCLUDE) -o $(BIN)/main.o -c main.cpp
 
 netfilter.o: $(SRCNETFILTER)
+	mkdir -p $(BIN)  
 	$(CXX) $(CXX_FLAGS) -I$(INCLUDE) -o $(BIN)/netfilter.o -c $(SRC_NETFILTER)/netfilter_interface.cpp
 
 clean:

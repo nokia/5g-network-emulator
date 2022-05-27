@@ -100,14 +100,14 @@ public:
         return mob_model->get_max_speed(); 
     }
 
-float x()
+	float x()
     {
-        mob_model->x();
+        return mob_model->x();
     }
 
     float y()
     {
-        mob_model->y();
+        return mob_model->y();
     }
 private: 
     void limit_distance(float &distance, int scenario)

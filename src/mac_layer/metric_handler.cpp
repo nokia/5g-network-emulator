@@ -76,7 +76,7 @@ metric_handler::metric_handler(int _metric_type, float _priority, float _beta, f
 
 float metric_handler::get_metric(metric_info metric_i, float current_t, int f)
 {
-    (this->*metric_f_ptr)(metric_i, current_t, f);
+    return (this->*metric_f_ptr)(metric_i, current_t, f);
 }
 
 void metric_handler::assign_metric()

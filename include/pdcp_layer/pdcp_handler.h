@@ -41,7 +41,6 @@ public:
     void step(int tx, float t);
     void step(float t);
     void drop_pkt(int tx, harq_pkt pkt);
-    void add_pkt(int tx, ip_pkt pkt);
     float get_ip_pkts(int tx);
     void init_pkt_capture();
     void generate_pkts(int tx, float bits, float pkt_size, float t);

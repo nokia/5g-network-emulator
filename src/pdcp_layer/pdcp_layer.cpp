@@ -65,12 +65,7 @@ void pdcp_layer::init(int _mod_i, int _layers, int _logic_units)
 
 float pdcp_layer::release()
 {
-   _release_h->release_one(); 
-}
-
-void pdcp_layer::add_pkt(ip_pkt pkt)
-{
-    _ip_buffer.add_pkt(std::move(pkt));
+	return _release_h->release_one(); 
 }
 
 void pdcp_layer::step(float t)
@@ -170,10 +165,11 @@ float pdcp_layer::handle_pkt(float bits, int mcs, float sinr, float distance)
                     bits = pkt.bits;
                     release_pkts(std::move(pkt));
                     return bits; 
-                }
-                    
+                }       
             }
+			return 0.0; 
         }
+		return 0.0; 
     }
     else
     {

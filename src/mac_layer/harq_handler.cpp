@@ -63,22 +63,21 @@ bool harq_handler::is_pkt_ready()
 
 harq_pkt harq_handler::get_pkt()
 {
-    if(is_pkt_ready())
+	
+    assert(is_pkt_ready());
+    harq_pkt pkt = harq_buffer.front();
+    if(harq_buffer.size() > 1)
     {
-        harq_pkt pkt = harq_buffer.front();
-        if(harq_buffer.size() > 1)
-        {
-            harq_buffer.pop_front();
-            oldest_t = harq_buffer.front().current_t; 
-            t_out = harq_buffer.front().t_out; 
-        }
-        else
-        {
-            t_out = INF; 
-            harq_buffer.pop_front();
-        }
-        return std::move(pkt); 
+        harq_buffer.pop_front();
+        oldest_t = harq_buffer.front().current_t; 
+        t_out = harq_buffer.front().t_out; 
     }
+    else
+    {
+        t_out = INF; 
+        harq_buffer.pop_front();
+    }
+    return std::move(pkt); 
 }
 
 float harq_handler::get_oldest_t()

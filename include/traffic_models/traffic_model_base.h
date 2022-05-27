@@ -49,14 +49,9 @@ public:
 public:
     float generate(int tx, float t)
     {
-        if(tx == T_DL)
-        {
-           return generate_dl(t);
-        }
-        if(tx == T_UL)
-        {
-            return generate_ul(t); 
-        }
+		assert(tx == T_DL || tx == T_UL); 
+        if(tx == T_DL) return generate_dl(t);
+        else return generate_ul(t); 
     }
 
     float generate_ul(float t)

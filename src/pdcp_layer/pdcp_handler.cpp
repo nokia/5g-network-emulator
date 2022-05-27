@@ -48,8 +48,9 @@ void pdcp_handler::release(float &ul_bits, float &dl_bits)
 
 void pdcp_handler::step(int tx, float t)
 {
+	assert(tx==T_DL||tx==T_UL); 
     if(tx == T_DL) pdcp_dl->step(t);
-    if(tx == T_UL) pdcp_ul->step(t);
+    else pdcp_ul->step(t);
 }
 
 void pdcp_handler::step(float t)
@@ -66,8 +67,9 @@ void pdcp_handler::init_pkt_capture()
 
 float pdcp_handler::get_ip_pkts(int tx)
 {
-    if(tx == T_DL) pdcp_dl->get_ip_pkts();
-    if(tx == T_UL) pdcp_ul->get_ip_pkts();
+    assert(tx==T_DL||tx==T_UL); 
+    if(tx == T_DL) return pdcp_dl->get_ip_pkts();
+    else return pdcp_ul->get_ip_pkts();
 }
 /*
 void pdcp_handler::drop_pkt(int tx, harq_pkt pkt)
@@ -79,14 +81,9 @@ void pdcp_handler::drop_pkt(int tx, harq_pkt pkt)
 
 void pdcp_handler::generate_pkts(int tx, float bits, float pkt_size, float t)
 {
+    assert(tx==T_DL||tx==T_UL); 
     if(tx == T_DL) pdcp_dl->generate_pkts(bits, pkt_size, t);
-    if(tx == T_UL) pdcp_ul->generate_pkts(bits, pkt_size, t);
-}
-
-void pdcp_handler::add_pkt(int tx, ip_pkt pkt)
-{
-    if(tx == T_DL) pdcp_dl->add_pkt(std::move(pkt));
-    if(tx == T_UL) pdcp_ul->add_pkt(std::move(pkt));
+    else pdcp_ul->generate_pkts(bits, pkt_size, t);
 }
 
 /*float pdcp_handler::release_pkts(int tx, ip_pkt pkt)
@@ -109,49 +106,58 @@ float pdcp_handler::release_pkts(int tx, std::deque<ip_pkt> *pkts)
 
 bool pdcp_handler::has_pkts(int tx)
 {
+    assert(tx==T_DL||tx==T_UL); 
     if(tx == T_DL) return pdcp_dl->has_pkts();
-    if(tx == T_UL) return pdcp_ul->has_pkts();}
+    else return pdcp_ul->has_pkts();
+}
 
 float pdcp_handler::get_oldest_timestamp(int tx)
 {
+    assert(tx==T_DL||tx==T_UL); 
     if(tx == T_DL) return pdcp_dl->get_oldest_timestamp();
-    if(tx == T_UL) return pdcp_ul->get_oldest_timestamp(); 
+    else return pdcp_ul->get_oldest_timestamp(); 
 }
 
 float pdcp_handler::handle_pkt(int tx, float bits, int mcs, float sinr, float distance)
 {
+    assert(tx==T_DL||tx==T_UL); 
     if(tx == T_DL) return pdcp_dl->handle_pkt(bits,  mcs, sinr, distance);
-    if(tx == T_UL) return pdcp_ul->handle_pkt(bits, mcs, sinr, distance);
+    else return pdcp_ul->handle_pkt(bits, mcs, sinr, distance);
 }
 
 float pdcp_handler::get_generated(int tx, bool elapsed)
 {
+    assert(tx==T_DL||tx==T_UL); 
     if(tx == T_DL) return pdcp_dl->get_generated(elapsed);
-    if(tx == T_UL) return pdcp_ul->get_generated(elapsed);
+    else return pdcp_ul->get_generated(elapsed);
 }
 
 float pdcp_handler::get_error(int tx, bool elapsed)
 {
+    assert(tx==T_DL||tx==T_UL); 
     if(tx == T_DL) return pdcp_dl->get_error(elapsed);
-    if(tx == T_UL) return pdcp_ul->get_error(elapsed);
+    else return pdcp_ul->get_error(elapsed);
 }
 
 float pdcp_handler::get_tp(int tx, bool elapsed)
 {
+    assert(tx==T_DL||tx==T_UL); 
     if(tx == T_DL) return pdcp_dl->get_tp(elapsed);
-    if(tx == T_UL) return pdcp_ul->get_tp(elapsed);
+    else return pdcp_ul->get_tp(elapsed);
 }
 
 float pdcp_handler::get_latency(int tx, bool elapsed)
 {
+    assert(tx==T_DL||tx==T_UL); 
     if(tx == T_DL) return pdcp_dl->get_latency(elapsed);
-    if(tx == T_UL) return pdcp_ul->get_latency(elapsed);
+    else return pdcp_ul->get_latency(elapsed);
 }
 
 float pdcp_handler::get_ip_latency(int tx, bool elapsed)
 {
+    assert(tx==T_DL||tx==T_UL); 
     if(tx == T_DL) return pdcp_dl->get_ip_latency(elapsed);
-    if(tx == T_UL) return pdcp_ul->get_ip_latency(elapsed);
+    else return pdcp_ul->get_ip_latency(elapsed);
 }
 
 

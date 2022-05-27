@@ -14,6 +14,7 @@
 #include <mac_layer/mac_definitions.h>
 #include <utils/conversions.h>
 #include <pkts/pkts.h>
+#include <assert.h>     /* assert */
 
 #define TARGET_BLER 0.1f
 #define ERROR_RED_HARQ 0.2f

@@ -58,17 +58,14 @@ public:
     float request_pkts(float bits);
     void drop_pkt(int bits);
     void generate_pkts(float bits, float pkt_size, float t);
-    void add_pkt(ip_pkt pkt);
-    //float release_pkts(ip_pkt pkt);
-    //float release_pkts(std::deque<ip_pkt> *pkts);
     void release_pkts(harq_pkt pkt);
     bool has_pkts();
     float get_oldest_timestamp();
     virtual float handle_pkt(float bits, int mcs, float sinr, float distance);
     float get_generated(bool partial = true);
     float get_error(bool partial = true);
-    virtual float get_ip_pkts(){}
-    virtual void init_pkt_capture() {} 
+    virtual float get_ip_pkts(){return 0.0;}
+    virtual void init_pkt_capture(){}
     float get_ip_latency(bool partial = true);
     float get_latency(bool partial = true);
     float get_tp(bool partial = true);

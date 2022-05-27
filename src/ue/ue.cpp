@@ -225,7 +225,7 @@ void ue::step()
 {    
     update_pdcp(); 
     update_pos(); 
-    generate_traffic(); 
+	generate_traffic(); 
     if(log_ue) add_ts(); 
     float distance = mobility_m.get_distance();
     phy_h.estimate_channel_estate(TX_DL, distance, *mobility_m.get_pos(), get_oldest_timestamp(TX_DL), get_avg_tp(TX_DL), current_t); 

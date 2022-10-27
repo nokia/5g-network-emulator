@@ -43,7 +43,15 @@ void ip_buffer::generate(float bits, float pkt_size, float t, float bh_d, float 
         }
         current_size += bits; 
     }
-    else bits = 0; 
+    else
+    {
+        if(bits > 0 && verbosity > 0)
+        {
+            e_mean.add(bits);
+        }
+        bits = 0; 
+        
+    }
     if(verbosity > 0) g_mean.add(bits);
 }
 
@@ -55,6 +63,7 @@ float ip_buffer::drop_pkt(int bits)
 
 void ip_buffer::add_pkt(ip_pkt pkt)
 {
+    current_size += pkt.size; 
     if(verbosity > 0) g_mean.add(pkt.size);
     if(pkt_list.size() == 0) oldest_t = pkt.current_t; 
     pkt_list.push_back(std::move(pkt));

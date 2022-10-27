@@ -49,7 +49,7 @@ mac_layer::mac_layer(bool _threading, std::vector<ue> *ue_list, mac_config mac_c
                 threading = _threading;
                 if(threading) 
                 {
-                    tp.init(2);
+                    tp.init(8);
                     tp.do_job(std::bind (&grid::step, &grid_dl));
                     tp.do_job(std::bind (&grid::step, &grid_ul));
                 } 

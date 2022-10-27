@@ -34,8 +34,8 @@ class random_waypoint_model : public mobility_model_base
 public:
     random_waypoint_model(int id, pos2d _init_pos, bool _random_init, float _speed, float _speed_var,
                     float _max_distance, float _time_target, 
-                    float _time_target_var)
-    :mobility_model_base(id, _init_pos, _random_init, _speed, _speed_var, _max_distance, _time_target, _time_target_var){}
+                    float _time_target_var, bool _random_v)
+    :mobility_model_base(id, _init_pos, _random_init, _speed, _speed_var, _max_distance, _time_target, _time_target_var, _random_v){}
 public:
     void update_pos(float current_t)
     {

@@ -31,6 +31,17 @@ static const std::vector<float> RI_THRES_DEFAULT{-20, 15};
 #define TX_UL 1
 #endif
 
+
+#define URBAN_MICROCELL 0
+#define URBAN_MACROCELL 1
+#define RURAL_MACROCELL 2
+#define INDOOR_HOTSPOT 3
+#define INDOOR_FACTORY 4
+
+#define BC_CORRELATION_DEFAULT 5.0
+
+#define LIGHTSPEED 300000000
+
 // STANDARD TABLES
 #define NUM_CQI_VALUES 15
 static const float EFF_2_CQI[2][NUM_CQI_VALUES + 1] = {{0,0.1523,0.2344,0.3770,0.6016,

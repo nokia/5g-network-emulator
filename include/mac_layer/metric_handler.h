@@ -12,6 +12,8 @@
 #include <algorithm>
 #include <vector>
 #include <iostream>
+#include <math.h>
+
 #include <mac_layer/mac_definitions.h>
 
 class max_metric_handler

@@ -7,9 +7,9 @@
 #include <phy_layer/phy_handler.h>
 
 
-phy_handler::phy_handler(int id, scenario_config _scenario_c, phy_ue_config _phy_ue_config, phy_enb_config _phy_enb_config,  int _verbosity)
-            :phy_dl(TX_DL, id, _scenario_c, _phy_ue_config, _phy_enb_config, _verbosity),
-             phy_ul(TX_UL, id, _scenario_c, _phy_ue_config, _phy_enb_config, _verbosity)
+phy_handler::phy_handler(int id, scenario_config _scenario_c, phy_ue_config _phy_ue_config, phy_enb_config _phy_enb_config, bool _stochastics, int _verbosity)
+            :phy_dl(TX_DL, id, _scenario_c, _phy_ue_config, _phy_enb_config, _stochastics, _verbosity),
+             phy_ul(TX_UL, id, _scenario_c, _phy_ue_config, _phy_enb_config, _stochastics, _verbosity)
              {
                  verbosity = _verbosity;
              }

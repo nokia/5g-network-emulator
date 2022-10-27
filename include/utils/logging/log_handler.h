@@ -114,10 +114,10 @@ public:
 
     void flush(std::string info)
     {
-        if(is_ready) 
+        if(is_ready && info_out.size() > 0) 
         {
             info_out += info; 
-            logger->info(info_out);
+            if(info_out.size() > 0) logger->info(info_out);
             reset_info(); 
         }
         if(use_counter) handle_counter(); 
@@ -129,7 +129,7 @@ public:
         if(is_ready)
         {
             info_out += fmt::format(fmt, std::forward<Args>(args)...);
-            logger->info(info_out);
+            if(info_out.size() > 0) logger->info(info_out);
             reset_info(); 
         }
         if(use_counter) handle_counter(); 
@@ -139,7 +139,7 @@ public:
     {
         if(is_ready)
         {
-            logger->info(info_out);
+            if(info_out.size() > 0) logger->info(info_out);
             reset_info(); 
         }
         if(use_counter) handle_counter(); 

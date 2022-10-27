@@ -7,10 +7,10 @@
 #include <ue/ue.h>
 #include <chrono>
 
-ue::ue(int _id, ue_config ue_c, scenario_config _scenario_c,  phy_enb_config _phy_enb_config, pdcp_config _pdcp_config_ul, pdcp_config _pdcp_config_dl, harq_config _harq_config, log_config log_c)
-    :phy_h(_id, _scenario_c, ue_c.get_phy_config(), _phy_enb_config, log_c.verbosity),
+ue::ue(int _id, ue_config ue_c, scenario_config _scenario_c,  phy_enb_config _phy_enb_config, pdcp_config _pdcp_config_ul, pdcp_config _pdcp_config_dl, harq_config _harq_config, bool _stochastics)
+    :phy_h(_id, _scenario_c, ue_c.get_phy_config(), _phy_enb_config, _stochastics, ue_c.log_quality),
     mobility_m(_id, ue_c.mobility_c, _scenario_c.type), 
-    pdcp_h(_pdcp_config_ul, _pdcp_config_dl, log_c.verbosity)
+    pdcp_h(_pdcp_config_ul, _pdcp_config_dl, ue_c.log_traffic)
 {
     is_ip = false; 
     if(!is_ip) traffic_m = std::shared_ptr<traffic_model>(new traffic_model(_id, ue_c.traffic_c));
@@ -20,10 +20,10 @@ ue::ue(int _id, ue_config ue_c, scenario_config _scenario_c,  phy_enb_config _ph
     beta_metric = ue_c.beta_metric; 
 
     verbosity = ue_c.log_ue; 
-    log_ue = ue_c.log_ue && log_c.log_id != "";
+    log_ue = ue_c.log_ue && ue_c.log_id != "";
     if(log_ue)
     {
-        ue_log.init("logs/" + log_c.log_id + "/ue/", "ue_log_" + std::to_string(id), log_c.log_freq);
+        ue_log.init("logs/" + ue_c.log_id + "/ue/", "ue_log_" + std::to_string(id), ue_c.log_freq);
     }
     log_mobility = ue_c.log_mobility && log_ue;
     log_traffic = ue_c.log_traffic && log_ue;
@@ -34,10 +34,10 @@ ue::ue(int _id, ue_config ue_c, scenario_config _scenario_c,  phy_enb_config _ph
     pdcp_h.init(_harq_config.mod, _harq_config.layers, _harq_config.log_units); 
 }
 
-ue::ue(int _queue_num_ul, int _queue_num_dl, std::chrono::microseconds * _init_t, int _id, ue_config ue_c, scenario_config _scenario_c,  phy_enb_config _phy_enb_config, pdcp_config _pdcp_config_ul, pdcp_config _pdcp_config_dl, harq_config _harq_config, log_config log_c)
-    :phy_h(_id, _scenario_c, ue_c.get_phy_config(), _phy_enb_config, log_c.verbosity),
+ue::ue(int _queue_num_ul, int _queue_num_dl, std::chrono::microseconds * _init_t, int _id, ue_config ue_c, scenario_config _scenario_c,  phy_enb_config _phy_enb_config, pdcp_config _pdcp_config_ul, pdcp_config _pdcp_config_dl, harq_config _harq_config, bool _stochastics)
+    :phy_h(_id, _scenario_c, ue_c.get_phy_config(), _phy_enb_config, _stochastics, ue_c.log_quality),
      mobility_m(_id, ue_c.mobility_c, _scenario_c.type),
-     pdcp_h(_queue_num_ul, _queue_num_dl, _init_t, _pdcp_config_ul, _pdcp_config_dl, log_c.verbosity)
+     pdcp_h(_queue_num_ul, _queue_num_dl, _init_t, _pdcp_config_ul, _pdcp_config_dl, ue_c.log_quality)
 {
     is_ip = true; 
     if(!is_ip) traffic_m = std::shared_ptr<traffic_model>(new traffic_model(_id, ue_c.traffic_c));
@@ -47,10 +47,10 @@ ue::ue(int _queue_num_ul, int _queue_num_dl, std::chrono::microseconds * _init_t
     beta_metric = ue_c.beta_metric; 
 
     verbosity = ue_c.log_ue; 
-    log_ue = ue_c.log_ue && log_c.log_id != "";
+    log_ue = ue_c.log_ue && ue_c.log_id != "";
     if(log_ue)
     {
-        ue_log.init("logs/" + log_c.log_id + "/ue/", "ue_log_" + std::to_string(id), log_c.log_freq);
+        ue_log.init("logs/" + ue_c.log_id + "/ue/", "ue_log_" + std::to_string(id), ue_c.log_freq);
     }
     log_mobility = ue_c.log_mobility && log_ue;
     log_traffic = ue_c.log_traffic && log_ue;
@@ -127,6 +127,11 @@ float ue::get_avg_tp(int tx_dir)
     return pdcp_h.get_tp(tx_dir, false);
 }
 
+bool ue::get_traffic_verbosity()
+{
+    return verbosity & log_traffic; 
+}
+
 float ue::get_avg_l(int tx_dir)
 {
     return pdcp_h.get_latency(tx_dir, false);
@@ -184,6 +189,7 @@ void ue::update_pdcp()
     {
         ue_log.log_partial("rul:{} rdl:{} ", pdcp_h.get_tp(T_UL, true), pdcp_h.get_tp(T_DL, true));     
         ue_log.log_partial("lul:{} ldl:{} ", pdcp_h.get_latency(T_UL, true), pdcp_h.get_latency(T_DL, true));     
+        ue_log.log_partial("ilul:{} ildl:{} ", pdcp_h.get_ip_latency(T_UL, true), pdcp_h.get_ip_latency(T_DL, true));     
         ue_log.log_partial("eul:{} edl:{} ", pdcp_h.get_error(T_UL, true), pdcp_h.get_error(T_DL, true));     
     } 
 }
@@ -218,7 +224,11 @@ void ue::generate_traffic()
 
 void ue::add_ts()
 {
-    if(log_ue) ue_log.log_partial("ts:{} \n", current_t);
+    if(log_ue)
+    {
+        ue_log.log_partial("ts:{}", current_t);
+        ue_log.flush(); 
+    }
 }
 
 void ue::step()
@@ -231,7 +241,6 @@ void ue::step()
     phy_h.estimate_channel_estate(TX_DL, distance, *mobility_m.get_pos(), get_oldest_timestamp(TX_DL), get_avg_tp(TX_DL), current_t); 
     phy_h.estimate_channel_estate(TX_UL, distance, *mobility_m.get_pos(), get_oldest_timestamp(TX_UL), get_avg_tp(TX_UL), current_t); 
     
-    if(log_ue) ue_log.flush();
     return; 
 }
 
@@ -246,7 +255,7 @@ void ue::print_traffic()
             LOG_INFO_I("ue::print_traffic") << " UE: " << id << " Mbps - UL error rate " << pdcp_h.get_error(TX_UL, false) << " Mbps - DL error rate " << pdcp_h.get_error(TX_DL, false) << END();
             LOG_INFO_I("ue::print_traffic") << " " << id << " Mbps - UL cons. rate " << pdcp_h.get_tp(TX_UL, false) << " Mbps - DL cons. rate " << pdcp_h.get_tp(TX_DL, false) << END();
             LOG_INFO_I("ue::print_traffic") << " " << id << " Mbps - UL latency " << pdcp_h.get_latency(TX_UL, false) << " s - DL latency " << pdcp_h.get_latency(TX_DL, false) << END();
-            LOG_INFO_I("ue::print_traffic") << " " << id << " Mbps - UL IP latency " << pdcp_h.get_ip_latency(TX_UL, true) << " s - DL IP latency " << pdcp_h.get_ip_latency(TX_DL, true) << END();
+            LOG_INFO_I("ue::print_traffic") << " " << id << " Mbps - UL IP latency " << pdcp_h.get_ip_latency(TX_UL, false) << " s - DL IP latency " << pdcp_h.get_ip_latency(TX_DL, false) << END();
         }
     }
 }

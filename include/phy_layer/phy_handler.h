@@ -52,7 +52,7 @@
 class phy_handler
 {
 public: 
-    phy_handler(int id, scenario_config _scenario_c, phy_ue_config _phy_ue_config, phy_enb_config _phy_enb_config,  int _verbosity = 0);
+    phy_handler(int id, scenario_config _scenario_c, phy_ue_config _phy_ue_config, phy_enb_config _phy_enb_config, bool _stochastics = true,  int _verbosity = 0);
     void init(int n_rbs, int bandwidth);
     int get_cqi(int tx_dir, int f_index);
     float get_eff(int tx_dir, int f_index);

@@ -113,7 +113,7 @@ struct phy_ue_config
     phy_ue_config(){}
     phy_ue_config(float _tx_power, int _cqi_period, 
               int _ri_period, int _max_ri, float _ue_h, float _priority, 
-              float _delay_t, float _delta, float _max_speed, float _scaling_factor)
+              float _delay_t, float _delta, float _beta, float _max_speed, float _scaling_factor)
               {
                     tx_power = _tx_power; 
                     cqi_period = _cqi_period; 
@@ -125,6 +125,7 @@ struct phy_ue_config
                     ue_h = _ue_h; 
                     delay_t = _delay_t; 
                     delta = _delta;
+                    beta = _beta;
                     max_speed = _max_speed;
 
                     scaling_factor = _scaling_factor; 
@@ -138,6 +139,7 @@ struct phy_ue_config
     float ue_h; 
     float delay_t; 
     float delta;
+    float beta;
     float max_speed; 
     float scaling_factor; 
     float priority = 1; 

@@ -388,7 +388,6 @@ static void *run(void *arg) {
 
 
 static void netfilter_interface_free(netfilter_interface_t *iface) {
-	printf("FREEING POINTERS \n"); 
 	if(iface) {
 		mnl_socket_close(iface->nl);
 		if(iface->buf)

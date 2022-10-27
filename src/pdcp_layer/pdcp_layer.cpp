@@ -12,7 +12,7 @@ pdcp_layer::pdcp_layer( int _max_rtx, float _air_delay_var,
            :_harq_buffer(_max_rtx, _air_delay_var, _rtx_period, _rtx_period_var, _rtx_proc_delay, _rtx_proc_delay_var, _verbosity), 
             _ip_buffer(_verbosity)
            {
-                _release_h = std::shared_ptr<release_handler>(new release_handler(_verbosity));
+                _release_h = std::shared_ptr<release_handler>(new release_handler());
                 bh_d = _bh_d; 
                 bh_d_var = _bh_d_var;
                 verbosity = _verbosity; 
@@ -23,7 +23,7 @@ pdcp_layer::pdcp_layer( pdcp_config pdcp_c, int _verbosity)
                             pdcp_c.rtx_period, pdcp_c.rtx_period_var, pdcp_c.rtx_proc_delay, pdcp_c.rtx_proc_delay_var, _verbosity), 
             _ip_buffer(_verbosity)
             {
-                _release_h = std::shared_ptr<release_handler>(new release_handler(_verbosity));
+                _release_h = std::shared_ptr<release_handler>(new release_handler());
                 bh_d = pdcp_c.bh_d; 
                 bh_d_var = pdcp_c.bh_d_var; 
                 verbosity = _verbosity;
@@ -35,7 +35,7 @@ pdcp_layer::pdcp_layer( int is_ip, int _max_rtx, float _air_delay_var,
            :_harq_buffer(_max_rtx, _air_delay_var, _rtx_period, _rtx_period_var, _rtx_proc_delay, _rtx_proc_delay_var, _verbosity), 
             _ip_buffer(_verbosity)
            {
-                _release_h = std::shared_ptr<release_handler>(new release_handler_ip(_order_pkts, _verbosity));
+                _release_h = std::shared_ptr<release_handler>(new release_handler_ip(_order_pkts));
                 bh_d = _bh_d; 
                 bh_d_var = _bh_d_var;
                 verbosity = _verbosity; 
@@ -46,7 +46,7 @@ pdcp_layer::pdcp_layer( int is_ip, pdcp_config pdcp_c, int _verbosity)
                             pdcp_c.rtx_period, pdcp_c.rtx_period_var, pdcp_c.rtx_proc_delay, pdcp_c.rtx_proc_delay_var, _verbosity), 
             _ip_buffer(_verbosity)
             {
-                _release_h = std::shared_ptr<release_handler>(new release_handler_ip(pdcp_c.order_packets, _verbosity));
+                _release_h = std::shared_ptr<release_handler>(new release_handler_ip(pdcp_c.order_packets));
                 bh_d = pdcp_c.bh_d; 
                 bh_d_var = pdcp_c.bh_d_var; 
                 verbosity = _verbosity;

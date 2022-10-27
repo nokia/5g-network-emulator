@@ -38,7 +38,7 @@ public:
         for(std::list<ue_full_config>::iterator it = ue_c_list.begin(); it != ue_c_list.end(); it++)
         {
             harq_config harq_c(phy_c.modulation_m, it->ue_c.get_phy_config().max_ri, mac_l.get_logical_units());
-            ue_h.add_ues(ticker.get_init_t(), *it, phy_c, scenario_c , pdcp_c_ul, pdcp_c_ul, harq_c, config_loader.get_log_config());
+            ue_h.add_ues(ticker.get_init_t(), *it, phy_c, scenario_c , pdcp_c_ul, pdcp_c_ul, harq_c, config_loader.get_stochastics());
         }
         ue_h.init();
     }
@@ -78,6 +78,7 @@ private:
         {
             LOG_INFO_I("simulator::handle_time_log") << " MAC Layer processing time: " << _ts << ":" << (time_mac.count()/step_c) << END();      
             LOG_INFO_I("simulator::handle_time_log") << " UEs processing time: " << _ts << ":" << (time_ue.count()/step_c) << END();      
+            LOG_INFO_I("simulator::handle_time_log") << " Step Processing time: " << _ts << ":" << ((time_ue.count()+time_mac.count())/step_c) << END();      
             print_traffic();
             step_c = 0;
             time_mac = std::chrono::duration<double>().zero(); 
@@ -87,7 +88,7 @@ private:
 
     void step(unsigned int _ts)
     {
-        float ts = (float)_ts*US2S; 
+        double ts = (double)_ts*US2S; 
         std::chrono::steady_clock::time_point t = std::chrono::steady_clock::now();
         mac_l.step(ts); 
         time_mac += std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - t);

@@ -26,13 +26,16 @@ public:
     void add(T v)
     { 
         value += v; 
-        total_value = (total_value*(total_counter - 1) + v)/total_counter; 
+        t_value += v; 
     }
 
     void step()
     {
         counter++; 
+        total_value = (total_value*(total_counter - 1) + t_value)/total_counter; 
+        t_value = 0;
         total_counter++; 
+        
     }
 
     T get()
@@ -51,7 +54,8 @@ public:
 
 private: 
     T value = 0; 
+    T t_value = 0; 
     T total_value = 0; 
-    T counter = 0; 
-    T total_counter = 1; 
+    int counter = 0; 
+    int total_counter = 1; 
 };

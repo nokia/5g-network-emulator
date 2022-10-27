@@ -141,12 +141,13 @@ struct ue_config
     bool log_ue = false; 
     bool log_mobility = false; 
     bool log_traffic = false; 
-    bool log_quality = false;   
+    bool log_quality = false;
+    std::string log_id = "";   
     float priority = 1; 
     phy_ue_config get_phy_config()
     {
         return phy_ue_config(ue_m.tx_power, ue_m.cqi_period, ue_m.ri_period,
                                   ue_m.n_antennas,  ue_m.ue_h, priority,
-                                  delay_t_metric, delta_metric, mobility_c.get_max_speed(), ue_m.scaling_factor);
+                                  delay_t_metric, delta_metric, beta_metric, mobility_c.get_max_speed(), ue_m.scaling_factor);
     }
 };

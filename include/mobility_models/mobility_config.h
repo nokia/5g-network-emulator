@@ -52,5 +52,6 @@ struct mobility_config
     float max_distance; 
     float time_target; 
     float time_target_var; 
+    bool random_v = true; 
     float get_max_speed(){ return speed + speed_var;}
 };

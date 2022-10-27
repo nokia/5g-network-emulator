@@ -25,7 +25,7 @@
 class release_handler
 {
 public: 
-    release_handler(int _verbosity = 0);
+    release_handler();
     ~release_handler();
     float release_one();
     void init();
@@ -54,7 +54,6 @@ protected:
     std::deque<harq_pkt> pkt_list; 
     float current_t = 0; 
     bool is_awake = false; 
-    int verbosity = 0; 
 
 protected: 
     mean_handler<float> tp_mean; 

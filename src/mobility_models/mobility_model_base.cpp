@@ -8,8 +8,8 @@
 
 mobility_model_base::mobility_model_base(int id, pos2d _init_pos, bool _random_init, float _speed, float _speed_var, 
                                float _max_distance, float _time_target, 
-                               float _time_target_var)
-                    :uniform_gen(time(NULL) + id)
+                               float _time_target_var, bool _random_v)
+                    :uniform_gen(time(NULL)*_random_v + id)
 
 {
     if(!_random_init) current_pos = pos2d(_init_pos.x, _init_pos.y); 
@@ -32,7 +32,7 @@ mobility_model_base::mobility_model_base(int id, pos2d _init_pos, bool _random_i
 }
 
 mobility_model_base::mobility_model_base(int id, mobility_config mobility_c)
-                    :uniform_gen(time(NULL) + id)
+                    :uniform_gen(time(NULL)*mobility_c.random_v + id)
 {
     if(!mobility_c.random_init) current_pos = mobility_c.init_pos; 
     else

@@ -31,7 +31,7 @@ public:
     }
 
 public: 
-    void add_ues(std::chrono::microseconds * _init_t, ue_full_config ue_c, phy_enb_config _phy_enb_config, scenario_config _scenario_c,  pdcp_config _pdcp_config_ul, pdcp_config _pdcp_config_dl, harq_config _harq_config, log_config log_c)
+    void add_ues(std::chrono::microseconds * _init_t, ue_full_config ue_c, phy_enb_config _phy_enb_config, scenario_config _scenario_c,  pdcp_config _pdcp_config_ul, pdcp_config _pdcp_config_dl, harq_config _harq_config, bool _stochastics = true)
     {
         n_ues += ue_c.n_ues; 
         int init_ids = id; 
@@ -39,14 +39,14 @@ public:
         {
             for(; id < init_ids + ue_c.n_ues; id++)
             {
-                ue_list.emplace_back(id, ue_c.ue_c, _scenario_c, _phy_enb_config, _pdcp_config_ul, _pdcp_config_dl, _harq_config, log_c);  
+                ue_list.emplace_back(id, ue_c.ue_c, _scenario_c, _phy_enb_config, _pdcp_config_ul, _pdcp_config_dl, _harq_config, _stochastics);  
             }
         }
         else
         {
             for(; id < init_ids + ue_c.n_ues; id++)
             {
-                ue_list.emplace_back(ue_c.ue_c.ul_queue_n, ue_c.ue_c.dl_queue_n, _init_t, id, ue_c.ue_c, _scenario_c, _phy_enb_config, _pdcp_config_ul, _pdcp_config_dl, _harq_config, log_c);  
+                ue_list.emplace_back(ue_c.ue_c.ul_queue_n, ue_c.ue_c.dl_queue_n, _init_t, id, ue_c.ue_c, _scenario_c, _phy_enb_config, _pdcp_config_ul, _pdcp_config_dl, _harq_config, _stochastics);  
             }
         }
         
@@ -62,12 +62,12 @@ public:
         }
     }
 
-    void add_ue(std::chrono::microseconds * _init_t, ue_full_config ue_c, phy_enb_config _phy_enb_config, scenario_config _scenario_c, pdcp_config _pdcp_config_ul, pdcp_config _pdcp_config_dl, harq_config _harq_config, log_config log_c)
+    void add_ue(std::chrono::microseconds * _init_t, ue_full_config ue_c, phy_enb_config _phy_enb_config, scenario_config _scenario_c, pdcp_config _pdcp_config_ul, pdcp_config _pdcp_config_dl, harq_config _harq_config, bool _stochastics = true)
     {
         n_ues++; 
         id++; 
-        if(ue_c.ue_type == SIM_UE) ue_list.emplace_back(id, ue_c.ue_c, _scenario_c, _phy_enb_config, _pdcp_config_ul, _pdcp_config_dl, _harq_config, log_c);
-        if(ue_c.ue_type == REAL_UE) ue_list.emplace_back(ue_c.ue_c.ul_queue_n, ue_c.ue_c.dl_queue_n,_init_t, id, ue_c.ue_c, _scenario_c, _phy_enb_config, _pdcp_config_ul, _pdcp_config_dl, _harq_config, log_c);
+        if(ue_c.ue_type == SIM_UE) ue_list.emplace_back(id, ue_c.ue_c, _scenario_c, _phy_enb_config, _pdcp_config_ul, _pdcp_config_dl, _harq_config, _stochastics);
+        if(ue_c.ue_type == REAL_UE) ue_list.emplace_back(ue_c.ue_c.ul_queue_n, ue_c.ue_c.dl_queue_n,_init_t, id, ue_c.ue_c, _scenario_c, _phy_enb_config, _pdcp_config_ul, _pdcp_config_dl, _harq_config, _stochastics);
 
         log_ue_creation(id, ue_c.ue_type, ue_c.ue_c.ue_m.n_antennas,
                         ue_c.ue_c.ue_m.cqi_period, ue_c.ue_c.ue_m.ri_period, ue_c.ue_c.ue_m.scaling_factor);
@@ -78,7 +78,7 @@ public:
 public: 
 
 
-    void step(float _current_t)
+    void step(double _current_t)
     {
         //std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
         for(int i = 0; i < ue_list.size(); i++)
@@ -107,19 +107,26 @@ public:
         float total_tp_dl = 0;
         float total_l_ul = 0;
         float total_l_dl = 0;
+        float total_verb_ue = 0;
         for(int i = 0; i < ue_list.size(); i++)
         {
             ue_list[i].print_traffic(); 
-            total_tp_dl += ue_list[i].get_avg_tp(TX_DL);
-            total_tp_ul += ue_list[i].get_avg_tp(TX_UL);
-            total_l_dl += ue_list[i].get_avg_l(TX_DL);
-            total_l_ul += ue_list[i].get_avg_l(TX_UL);
+            if(ue_list[i].get_traffic_verbosity())
+            {
+                total_tp_dl += ue_list[i].get_avg_tp(TX_DL);
+                total_tp_ul += ue_list[i].get_avg_tp(TX_UL);
+                total_l_dl += ue_list[i].get_avg_l(TX_DL);
+                total_l_ul += ue_list[i].get_avg_l(TX_UL);
+                total_verb_ue += 1;
+            }
         }
-        LOG_INFO_I("ue_handler::print_traffic") << " Total DL throughput transmitted: " << total_tp_dl << " Mbps - with a mean value per user of: " << total_tp_dl/ue_list.size() << " Mbps." << END(); 
-        LOG_INFO_I("ue_handler::print_traffic") << " Total UL throughput transmitted: " << total_tp_ul << " Mbps - with a mean value per user of: " << total_tp_ul/ue_list.size() << " Mbps." << END(); 
-        LOG_INFO_I("ue_handler::print_traffic") << " Mean DL latency per user of: " << total_l_dl/ue_list.size() << " s." << END(); 
-        LOG_INFO_I("ue_handler::print_traffic") << " Mean UL latency per user of: " << total_l_ul/ue_list.size() << " s." << END(); 
-
+        if(total_verb_ue>0)
+        {
+            LOG_INFO_I("ue_handler::print_traffic") << " Total DL throughput transmitted: " << total_tp_dl << " Mbps - with a mean value per user of: " << total_tp_dl/total_verb_ue << " Mbps." << END(); 
+            LOG_INFO_I("ue_handler::print_traffic") << " Total UL throughput transmitted: " << total_tp_ul << " Mbps - with a mean value per user of: " << total_tp_ul/total_verb_ue << " Mbps." << END(); 
+            LOG_INFO_I("ue_handler::print_traffic") << " Mean DL latency per user of: " << total_l_dl/total_verb_ue << " s." << END(); 
+            LOG_INFO_I("ue_handler::print_traffic") << " Mean UL latency per user of: " << total_l_ul/total_verb_ue << " s." << END(); 
+        }
     }
 
 public: 

@@ -38,6 +38,8 @@ public:
 													std::placeholders::_3, std::placeholders::_4, 
 													std::placeholders::_5, std::placeholders::_6));
                 }
+private: 
+    int pprev_id=0;
 public: 
     float get_ip_pkts() override
     {
@@ -59,13 +61,14 @@ public:
 
     void cb(void* handler, netfilter_interface_t *nfiface, uint64_t timestamp_sec, uint64_t timestamp_usec, 
                uint64_t bytes, uint32_t pkt_id)
-               {   
+               {    
                     int size = (int)bytes*8;
                     pkt_cptr->lock();
                     pkts.push_back(ip_pkt(get_current_ts(), size, size, prev_id, pkt_id, bh_d, bh_d_var));
                     prev_id = pkt_id; 
                     pkt_cptr->unlock();
                }
+
 
 private: 
 

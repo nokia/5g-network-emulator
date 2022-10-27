@@ -78,7 +78,11 @@ void grid::plot_info()
     LOG_INFO_I("grid::plot_info") << " Number of RBGs in frequency: " << n_freq_rbg << END();
     LOG_INFO_I("grid::plot_info") << " Number of RBs in time: " << n_time_rb << END();
     LOG_INFO_I("grid::plot_info") << " Number of RBGs in time: " << n_time_rbg << END();
-    if(log)logger->log_force("tx:{} n:{} bw:{} rb:{} re:{} tp:{} f:{} t:{} mt:{} ", tx, numerology, bandwidth, n_rb_total, n_re_total,n_rb_total*n_ofdm_symbols*n_sc_rb*EFF_2_CQI[1][15]*BIT2MBIT*S2MS, n_freq_rbg, n_time_rbg, metric_t);
+    if(log)
+    {
+        if(duplexing_t == TDD)logger->log_force("tx:{} n:{} bw:{} rb:{} re:{} tp:{} f:{} t:{} mt:{} tdd:{}/{}/{} ", tx, numerology, bandwidth, n_rb_total, n_re_total,n_rb_total*n_ofdm_symbols*n_sc_rb*EFF_2_CQI[1][15]*BIT2MBIT*S2MS, n_freq_rbg, n_time_rbg, metric_t, tdd_h.get_dl_slots(), tdd_h.get_ul_slots(), tdd_h.get_transition());
+        else logger->log_force("tx:{} n:{} bw:{} rb:{} re:{} tp:{} f:{} t:{} mt:{} tdd:false", tx, numerology, bandwidth, n_rb_total, n_re_total,n_rb_total*n_ofdm_symbols*n_sc_rb*EFF_2_CQI[1][15]*BIT2MBIT*S2MS, n_freq_rbg, n_time_rbg, metric_t);
+    }
 }
 
 // Returns the number of resource blocks in the frequency axis
@@ -116,7 +120,7 @@ void grid::step()
     // TODO: throughput storage
     for(int t = 0; t < n_time_rbg; t++)
     {
-        if(duplexing_t == TDD) syms = tdd_h.get_syms(tx);
+        if(duplexing_t == TDD) syms = tdd_h.get_syms();
         else syms = n_sym_rbg;
         for(int f = 0; f < n_freq_rbg; f++)
         {   
@@ -130,7 +134,7 @@ void grid::step()
 grid::grid(int _tx, int _mimo_layers, int _numerology, int _n_re_f, int _n_re_t,  int _metric_t, int _bandwidth, int _scheduling_mode,
             int _scheduling_type, int _scheduling_config,
             int _duplexing_type, tdd_config _tdd_c, int _verbosity)
-     :tdd_h(_tdd_c)
+     :tdd_h(_tdd_c, _tx)
 {
     verbosity = _verbosity; 
     tx = _tx;  

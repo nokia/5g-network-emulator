@@ -23,15 +23,6 @@
 
 #include "utils/logging/log_handler.h"
 
-#define URBAN_MICROCELL 0
-#define URBAN_MACROCELL 1
-#define RURAL_MACROCELL 2
-#define INDOOR_HOTSPOT 3
-#define INDOOR_FACTORY 4
-
-#define BC_CORRELATION_DEFAULT 5.0
-
-#define LIGHTSPEED 300000000
 
 double linearToDBm(double linear);
 double linearToDb(double linear);
@@ -85,7 +76,7 @@ class phy_layer
 {
     
 public: 
-    phy_layer(int _tx, int _id, scenario_config _scenario_config, phy_ue_config _phy_ue_config, phy_enb_config _phy_enb_config, int _verbosity = 0);
+    phy_layer(int _tx, int _id, scenario_config _scenario_config, phy_ue_config _phy_ue_config, phy_enb_config _phy_enb_config, bool _stochastics = true, int _verbosity = 0);
 
 public: 
     void init(int _n_rbs, int _bandwidth);
@@ -104,7 +95,7 @@ public:
     void estimate_channel_state(float distance, const pos2d &pos, float oldest_t, float avg_tp, float _current_t);
 
 private: 
-    void init_metric(int _index, float _delay_t, float _delta);
+    void init_metric(int _index);
     void init_scenario(int _type, float _eNB_h, float _w, float _antenna_h, float _ue_h, float _ue_speed);
     void init_phy(float _freq, float _ue_speed, float _eNB_h, float _ue_h, int _tx, float _scaling_factor, int _mimo_l, int _n_sc_rbg, bool _mcs_tables);
     void estimate_noise_interference(float _tx_power, int _n_ues, float _d_interference, float _figure, float _thermal, float _gain_tx, float _gain_rx);
@@ -181,6 +172,9 @@ private:
 
 private: 
     int verbosity = 0; 
+
+private: 
+    bool stochastics = true; 
 
 private: 
     float tx_power; 

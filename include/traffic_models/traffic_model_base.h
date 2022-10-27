@@ -17,6 +17,8 @@
 #define CONSTANT_TRAFFIC_MODEL 0
 
 #include <random>
+#include <assert.h>
+#include <memory>
 #include <utils/conversions.h>
 #include <traffic_models/traffic_config.h>
 //--------------------------------------------------------------------------------------------------
@@ -36,8 +38,9 @@ public:
                         float _ul_target, 
                         float _dl_target, 
                         float _var_perc,
-                        int _pkt_size)
-    :uniform_gen(time(NULL) + id)
+                        int _pkt_size, 
+                        bool _random_v)
+    :uniform_gen(time(NULL)*_random_v + id)
     {
         ul_target = _ul_target; 
         dl_target = _dl_target; 
@@ -47,31 +50,31 @@ public:
     traffic_model_base(){}
     
 public:
-    float generate(int tx, float t)
+    float generate(int tx, double t)
     {
 		assert(tx == T_DL || tx == T_UL); 
         if(tx == T_DL) return generate_dl(t);
         else return generate_ul(t); 
     }
 
-    float generate_ul(float t)
+    virtual float generate_ul(double t)
     {
         if(t > past_t_ul && past_t_ul != 0)
         {
-            float t_diff = t - past_t_ul; 
+            double t_diff = t - past_t_ul; 
             past_t_ul = t; 
             float dist = uniform_dist(uniform_gen);
             return ul_target*t_diff*(1 + dist*var_percent); 
         }
-        past_t_ul = t; 
+        past_t_ul = t;
         return 0.0; 
     }
 
-    float generate_dl(float t)
+    virtual float generate_dl(double t)
     {
         if(t > past_t_dl && past_t_dl != 0)
         {
-            float t_diff = t - past_t_dl; 
+            double t_diff = t - past_t_dl; 
             past_t_dl = t; 
             float dist = uniform_dist(uniform_gen);
             return dl_target*t_diff*(1 + dist*var_percent); 
@@ -91,8 +94,8 @@ protected:
     float dl_bits; 
     int pkt_size;  
     float var_percent; 
-    float past_t_ul = 0;
-    float past_t_dl = 0;
+    double past_t_ul = 0;
+    double past_t_dl = 0;
 
 protected: 
     std::mt19937 uniform_gen;

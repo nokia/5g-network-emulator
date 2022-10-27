@@ -26,12 +26,10 @@ double dBToLinear(double db)
     return pow(10, (db) / 10);
 }
 
-void phy_layer::init_metric(int _index, float _delay_t, float _delta)
+void phy_layer::init_metric(int _index)
 {
     // Metric variables
     metric_i.index = _index; 
-    metric_i.delay_t = _delay_t;  
-    metric_i.delta =  _delta; 
 }
 
 void phy_layer::init_scenario(int _type, float _eNB_h, float _w, float _antenna_h, float _ue_h, float _ue_speed)
@@ -111,10 +109,10 @@ void phy_layer::init_update_rates(float _doppler_f, int _cqi_p, int _ri_p)
     } 
 }
 
-phy_layer::phy_layer(int _tx, int _id, scenario_config _scenario_config, phy_ue_config _phy_ue_config, phy_enb_config _phy_enb_config, int _verbosity)
+phy_layer::phy_layer(int _tx, int _id, scenario_config _scenario_config, phy_ue_config _phy_ue_config, phy_enb_config _phy_enb_config, bool _stochastics, int _verbosity)
     : distance_cqi_dist(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()),
       gen(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()),
-      metric_h(_phy_enb_config.metric_type, _phy_ue_config.priority)
+      metric_h(_phy_enb_config.metric_type, _phy_ue_config.priority, _phy_ue_config.beta, _phy_ue_config.delay_t, _phy_ue_config.delta)
 {
     // UE unique id
     id = _id; 
@@ -122,6 +120,8 @@ phy_layer::phy_layer(int _tx, int _id, scenario_config _scenario_config, phy_ue_
     // Transmission direction
     tx = _tx;
 
+    // Enable stochastics
+    stochastics = _stochastics;
     // TX to string
     tx_s = tx == TX_DL ? "dl" : "ul";
 
@@ -129,7 +129,7 @@ phy_layer::phy_layer(int _tx, int _id, scenario_config _scenario_config, phy_ue_
     verbosity = _verbosity;    
 
     // Metric variables
-    init_metric(id, _phy_ue_config.delay_t, _phy_ue_config.delta); 
+    init_metric(id); 
 
     // Model variables 
     init_scenario(  _scenario_config.type, _scenario_config.eNB_h, _scenario_config.w, 
@@ -248,49 +248,53 @@ void phy_layer::init(int _n_rbs, int _bandwidth)
 
 bool phy_layer::compute_LOS(float d)
 {
-    float p = 0; 
-    switch (scenario)
+    if(stochastics)
     {
-        case RURAL_MACROCELL:
-            if (d <= 10)
-                p = 1;
-            else
-                p = exp(-1 * (d - 10) / 1000);
-            break;
-        case URBAN_MICROCELL:
-            if (d <= 18)
-                p = 1;
-            else
-                p = 18/d + exp(-d/36)*(1 - 18/d);
-            break;
-        case URBAN_MACROCELL:
-            if (d <= 18)
-                p = 1;
-            else
-            {
-                float C = (eNB_h <= 13)? 0:pow((eNB_h -13)/10, 1.5);
-                p = (18/d + exp(-d/63)*(1 - 18/d))*(1 + C*(5/4)*pow(d/100, 3)*exp(-d/150));
-            }
-            break;
-        case INDOOR_HOTSPOT: 
-            if(d <= 5)
-                p = 1; 
-            else if(d <= 49)
-                p = exp(-(d-5)/70.8);
-            else
-                p = exp(- (d - 49)/211.7)*0.54; 
-            break;
-        case INDOOR_FACTORY: 
-            p = exp(-d/(-6/log(1-0.4)));
-            break;
-        default: 
-            LOG_ERROR_I("phy_layer::compute_LOS") << " Wrong path-loss scenario value..." << END();  
-   }
-   float random = uniform_stochastics(gen);
-   if (random <= p)
-       return true;
-   else
-       return false;
+        float p = 0; 
+        switch (scenario)
+        {
+            case RURAL_MACROCELL:
+                if (d <= 10)
+                    p = 1;
+                else
+                    p = exp(-1 * (d - 10) / 1000);
+                break;
+            case URBAN_MICROCELL:
+                if (d <= 18)
+                    p = 1;
+                else
+                    p = 18/d + exp(-d/36)*(1 - 18/d);
+                break;
+            case URBAN_MACROCELL:
+                if (d <= 18)
+                    p = 1;
+                else
+                {
+                    float C = (eNB_h <= 13)? 0:pow((eNB_h -13)/10, 1.5);
+                    p = (18/d + exp(-d/63)*(1 - 18/d))*(1 + C*(5/4)*pow(d/100, 3)*exp(-d/150));
+                }
+                break;
+            case INDOOR_HOTSPOT: 
+                if(d <= 5)
+                    p = 1; 
+                else if(d <= 49)
+                    p = exp(-(d-5)/70.8);
+                else
+                    p = exp(- (d - 49)/211.7)*0.54; 
+                break;
+            case INDOOR_FACTORY: 
+                p = exp(-d/(-6/log(1-0.4)));
+                break;
+            default: 
+                LOG_ERROR_I("phy_layer::compute_LOS") << " Wrong path-loss scenario value..." << END();  
+        }
+        float random = uniform_stochastics(gen);
+        if (random <= p)
+            return true;
+        else
+            return false;
+    }
+    else return true; 
 }
 
 float phy_layer::compute_rayleigh()
@@ -562,8 +566,8 @@ float phy_layer::sinr_power_model(float distance)
 {
     bool los = compute_LOS(distance); 
     float pathloss = compute_pathloss(distance, los); 
-    float shadowing = compute_shadowing(distance);
-    float rayleigh = compute_rayleigh(); 
+    float shadowing = stochastics ? compute_shadowing(distance) : 0;
+    float rayleigh = stochastics ? compute_rayleigh() : 0; 
     float noise = -7 + 107; 
     float linear_noise = dBmToLinear(noise);
     float recvPwrDBm = tx_power - pathloss + shadowing + 18 + 0;
@@ -574,7 +578,7 @@ float phy_layer::sinr_power_model(float distance)
 
 float phy_layer::sinr_power_model(float pathloss, float shadowing, float distance)
 {
-    float rayleigh = compute_rayleigh(); 
+    float rayleigh = stochastics ? compute_rayleigh() : 0; 
     float sinr = tx_power + rayleigh - pathloss + shadowing + antenna_gain_tx + antenna_gain_rx - noise_interf;
     return sinr; 
 } 
@@ -593,7 +597,7 @@ void phy_layer::estimate_attenuation(float distance, const pos2d &pos)
         prev_los = los; 
     }
     pathloss = compute_pathloss(distance, los);
-    shadowing = compute_shadowing(pos);
+    shadowing = stochastics ? compute_shadowing(pos) : 0;
     update_cs = false; 
 }
 
@@ -669,6 +673,7 @@ float phy_layer::get_tp(int f)
 void phy_layer::estimate_channel_state(float distance, const pos2d &pos, float oldest_t, float avg_tp, float _current_t)
 {   
     current_t = _current_t; 
+    bool dumb = period_counter % 1000 == 0;
     bool update_cqi = period_counter % cqi_period == 0;
     bool update_ri = period_counter % ri_period == 0;
     bool update_sinr = period_counter % sinr_period == 0;
@@ -682,13 +687,28 @@ void phy_layer::estimate_channel_state(float distance, const pos2d &pos, float o
         {
             estimate_channel_q(i);
             estimate_tp(i);        
-            estimate_metric(i);        
+            estimate_metric(i);  
+            /*if(tx==TX_DL && dumb)
+            {
+                std::cout << "MCS: ";
+                for(const auto& value: mcs_v) std::cout << value << " : ";  
+                std::cout << std::endl; 
+                std::cout << "TP: ";
+                for(const auto& value: tp_v) std::cout << value << " : ";  
+                std::cout << std::endl;  
+                std::cout << "M: ";
+                for(const auto& value: metric_v) std::cout << value << " : ";  
+                std::cout << std::endl;  
+            }*/
         }
     }
     if(update_cqi) average_cqi();
     if(update_sinr) average_sinr();
     if(update_ri) estimate_ri(); 
-    if (phy_log) logger->log_partial("sinr:{} rsrp:{} cqi:{} mcs:{} eff:{} ri:{} tx:{} ts:{} \n", db_sinr_s, rsrp_s, cqi_s, mcs_s, eff_s, current_ri, tx, current_t);
-    
+    if (phy_log)
+    {
+        logger->log_partial("sinr:{} rsrp:{} cqi:{} mcs:{} eff:{} ri:{} tx:{} ts:{}", db_sinr_s, rsrp_s, cqi_s, mcs_s, eff_s, current_ri, tx, current_t);
+        logger->flush();
+    } 
     period_counter++;
 }

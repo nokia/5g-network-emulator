@@ -9,6 +9,7 @@
 
 #include <math.h>
 #include <random>
+#include <memory>
 #include <chrono>
 #include <iostream>
 #include <functional>
@@ -34,7 +35,7 @@ class mobility_model_base
 public: 
     mobility_model_base(int id, pos2d _init_pos, bool _random_init, float _speed, float _speed_var,
                     float _max_distance, float _time_target, 
-                    float _time_target_var);
+                    float _time_target_var, bool _random_v);
     mobility_model_base(int it, mobility_config mobility_c);
     mobility_model_base(){}
     

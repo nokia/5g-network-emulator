@@ -16,8 +16,8 @@
 class release_handler_ip: public release_handler
 {
 public: 
-    release_handler_ip(bool _do_check, int _verbosity = 0)
-    : release_handler(_verbosity)
+    release_handler_ip(bool _do_check)
+    : release_handler()
     {
         do_check = _do_check; 
     }
@@ -129,20 +129,14 @@ public:
             }
             else break; 
         }
-        if(verbosity > 0)
+        tp_mean.add(bits);
+        if(count > 0)
         {
-            tp_mean.add(bits);
-            if(count > 0)
-            {
-                l_mean.add(latency/count);
-                ipl_mean.add(ip_latency/count);
-            } 
-            else{
-                l_mean.add(0);
-                ipl_mean.add(0);
-            }
-        } 
-                             
+            l_mean.add(latency/count);
+            ipl_mean.add(ip_latency/count);
+            l_mean.step();
+            ipl_mean.step();
+        }          
         return bits; 
     }
 
@@ -161,8 +155,6 @@ private:
 
 private: 
     bool do_check = true; 
-    int dumb_c = 0; 
-    float dumb_a = 0; 
     std::deque<ip_pkt> out_pkts; 
     std::shared_ptr<pkt_capture> pkt_cptr; 
 };

@@ -122,7 +122,9 @@ float metric_handler::rr(metric_info metric_i, float current_t, int f)
 
 float metric_handler::pf(metric_info metric_i, float current_t, int f)
 {
-    return priority*(metric_i.current_tp/(beta*metric_i.avrg_tp + (1 - beta)*metric_i.current_tp));
+    if(metric_i.avrg_tp!=0)
+        return priority*metric_i.current_tp/pow(metric_i.avrg_tp, beta);// + (1 - beta)*metric_i.current_tp));
+    else return priority*metric_i.current_tp;
 }
 
 bool metric_handler::is_rr()

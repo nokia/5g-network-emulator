@@ -11,6 +11,7 @@
 #include <mobility_models/random_walk_model.h>
 #include <mobility_models/random_waypoint_model.h>
 #include <mobility_models/mobility_model_base.h>
+#include <phy_layer/phy_l_definitions.h>
 
 #define MIN_DISTANCE 10
 
@@ -33,24 +34,24 @@ class mobility_model
 public:
     mobility_model( int id, int type, pos2d _init_pos, bool _random_init, float _speed, 
                     float _speed_var, float _max_distance,
-                    float _time_target, float _time_target_var, int scenario)
+                    float _time_target, float _time_target_var, int scenario, bool _random_v)
                     {
                         limit_distance(_max_distance, scenario);
                         if(type == RANDOM_WALK_MODEL)
                         {
-                            mob_model = std::unique_ptr<mobility_model_base>(new random_walk_model(id, _init_pos, _random_init, _speed, _speed_var, _max_distance, _time_target, _time_target_var));
+                            mob_model = std::unique_ptr<mobility_model_base>(new random_walk_model(id, _init_pos, _random_init, _speed, _speed_var, _max_distance, _time_target, _time_target_var, _random_v));
                         }
                         else if(type == RANDOM_WAYPOINT_MODEL) 
                         {
-                            mob_model = std::unique_ptr<mobility_model_base>(new random_waypoint_model(id, _init_pos, _random_init, _speed, _speed_var, _max_distance, _time_target, _time_target_var));
+                            mob_model = std::unique_ptr<mobility_model_base>(new random_waypoint_model(id, _init_pos, _random_init, _speed, _speed_var, _max_distance, _time_target, _time_target_var, _random_v));
                         }
                         else if(type == RANDOM_MANHATTAN_MODEL)
                         {
-                            mob_model = std::unique_ptr<mobility_model_base>(new manhattan_model(id, _init_pos, _random_init, _speed, _speed_var, _max_distance, _time_target, _time_target_var));
+                            mob_model = std::unique_ptr<mobility_model_base>(new manhattan_model(id, _init_pos, _random_init, _speed, _speed_var, _max_distance, _time_target, _time_target_var, _random_v));
                         }
                         else 
                         {
-                            mob_model = std::unique_ptr<mobility_model_base>(new mobility_model_base(id, _init_pos, _random_init, _speed, _speed_var, _max_distance, _time_target, _time_target_var));
+                            mob_model = std::unique_ptr<mobility_model_base>(new mobility_model_base(id, _init_pos, _random_init, _speed, _speed_var, _max_distance, _time_target, _time_target_var, _random_v));
                         }
                     }
     mobility_model( int id, mobility_config mobility_c, int scenario)
@@ -58,19 +59,19 @@ public:
                         limit_distance(mobility_c.max_distance, scenario);
                         if(mobility_c.type == RANDOM_WALK_MODEL)
                         {
-                            mob_model = std::unique_ptr<mobility_model_base>(new random_walk_model(id, mobility_c.init_pos, mobility_c.random_init, mobility_c.speed, mobility_c.speed_var, mobility_c.max_distance, mobility_c.time_target, mobility_c.time_target_var));
+                            mob_model = std::unique_ptr<mobility_model_base>(new random_walk_model(id, mobility_c.init_pos, mobility_c.random_init, mobility_c.speed, mobility_c.speed_var, mobility_c.max_distance, mobility_c.time_target, mobility_c.time_target_var, mobility_c.random_v));
                         }
                         else if(mobility_c.type == RANDOM_WAYPOINT_MODEL) 
                         {
-                            mob_model = std::unique_ptr<mobility_model_base>(new random_waypoint_model(id, mobility_c.init_pos, mobility_c.random_init, mobility_c.speed, mobility_c.speed_var, mobility_c.max_distance, mobility_c.time_target, mobility_c.time_target_var));
+                            mob_model = std::unique_ptr<mobility_model_base>(new random_waypoint_model(id, mobility_c.init_pos, mobility_c.random_init, mobility_c.speed, mobility_c.speed_var, mobility_c.max_distance, mobility_c.time_target, mobility_c.time_target_var, mobility_c.random_v));
                         }
                         else if(mobility_c.type == RANDOM_MANHATTAN_MODEL)
                         {
-                            mob_model = std::unique_ptr<mobility_model_base>(new manhattan_model(id, mobility_c.init_pos, mobility_c.random_init, mobility_c.speed, mobility_c.speed_var, mobility_c.max_distance, mobility_c.time_target, mobility_c.time_target_var));
+                            mob_model = std::unique_ptr<mobility_model_base>(new manhattan_model(id, mobility_c.init_pos, mobility_c.random_init, mobility_c.speed, mobility_c.speed_var, mobility_c.max_distance, mobility_c.time_target, mobility_c.time_target_var, mobility_c.random_v));
                         }
                         else 
                         {
-                            mob_model = std::unique_ptr<mobility_model_base>(new mobility_model_base(id, mobility_c.init_pos, mobility_c.random_init, mobility_c.speed, mobility_c.speed_var,mobility_c.max_distance, mobility_c.time_target, mobility_c.time_target_var));
+                            mob_model = std::unique_ptr<mobility_model_base>(new mobility_model_base(id, mobility_c.init_pos, mobility_c.random_init, mobility_c.speed, mobility_c.speed_var,mobility_c.max_distance, mobility_c.time_target, mobility_c.time_target_var, mobility_c.random_v));
                         }
                     }
 

@@ -96,8 +96,8 @@
 class ue
 {
 public: 
-    ue(int _id, ue_config ue_c, scenario_config _scenario_c, phy_enb_config _phy_enb_config, pdcp_config _pdcp_config_ul, pdcp_config _pdcp_config_dl, harq_config _harq_config, log_config log_c);
-    ue(int _queue_num_ul, int _queue_num_dl, std::chrono::microseconds * _init_t, int _id, ue_config ue_c, scenario_config _scenario_c, phy_enb_config _phy_enb_config, pdcp_config _pdcp_config_ul, pdcp_config _pdcp_config_dl, harq_config _harq_config, log_config log_c);
+    ue(int _id, ue_config ue_c, scenario_config _scenario_c, phy_enb_config _phy_enb_config, pdcp_config _pdcp_config_ul, pdcp_config _pdcp_config_dl, harq_config _harq_config, bool _stochastics = true);
+    ue(int _queue_num_ul, int _queue_num_dl, std::chrono::microseconds * _init_t, int _id, ue_config ue_c, scenario_config _scenario_c, phy_enb_config _phy_enb_config, pdcp_config _pdcp_config_ul, pdcp_config _pdcp_config_dl, harq_config _harq_config, bool _stochastics = true);
 
 public: 
     void init(); 
@@ -111,6 +111,7 @@ public:
     float get_mean_sinr(int tx_dir);
     int get_ri(int tx_dir);
     float get_avg_tp(int tx_dir);
+    bool get_traffic_verbosity();
     float get_avg_l(int tx_dir);
     float get_consumed_bits(int tx_dir);
     float get_oldest_timestamp(int tx_dir);
@@ -121,7 +122,7 @@ public:
     float get_delta(); 
     float handle_pkt(float bits, int tx_dir, int f_index);
     void step();
-    void add_current_t(float _current_t){current_t = _current_t; }
+    void add_current_t(double _current_t){current_t = _current_t; }
 
 private: 
     void init_pkt_capture(); 
@@ -166,7 +167,7 @@ protected:
     int n_antennas; 
  
 protected: 
-    float current_t;
+    double current_t;
 
 };
 

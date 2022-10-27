@@ -172,6 +172,8 @@ struct ue_full_config
         ue_c.traffic_c.type = TRAFFIC_MODEL_DEFAULT;
         ue_c.traffic_c.ul_target = UL_TARGET_DEFAULT;
         ue_c.traffic_c.dl_target = DL_TARGET_DEFAULT;
+        ue_c.traffic_c.ul_traffic_file = "";
+        ue_c.traffic_c.dl_traffic_file = "";
         ue_c.traffic_c.var_perc = VAR_PERCENT_DEFAULT;
         ue_c.traffic_c.pkt_size = PKT_SIZE_DEFAULT;
         // MOBILITY MODEL CONFIG
@@ -196,7 +198,7 @@ struct ue_full_config
     }
     int n_ues = N_UES_DEFAULT; 
     int ue_type = SIM_UE; 
-    std::string id; 
+    std::string id;
     ue_config ue_c; 
     
 };
@@ -255,7 +257,10 @@ public:
                                     LOG_INFO_I("configuration_loader::load") << "Adding UEs with config [" << value << "]: " << END();
                                     ue_full_config ue_c; 
                                     ue_c.id = value; 
+                                    ue_c.ue_c.log_id = get_unique_id();
                                     ue_c_list.push_back(ue_c);
+                                    ue_c_list.back().ue_c.mobility_c.random_v=random_v;
+                                    ue_c_list.back().ue_c.traffic_c.random_v=random_v;
                                 }  
                                 if(key == "n_ues") ue_c_list.back().n_ues = std::stoi(value);
                                 if(key == "ue_type") ue_c_list.back().ue_type = std::stoi(value);
@@ -267,13 +272,16 @@ public:
                                 if(key == "tx_power") ue_c_list.back().ue_c.ue_m.tx_power = std::stof(value);
                                 if(key == "cqi_period") ue_c_list.back().ue_c.ue_m.cqi_period = std::stoi(value);
                                 if(key == "ri_period") ue_c_list.back().ue_c.ue_m.ri_period = std::stoi(value);  
-                                if(key == "scaling_factor") ue_c_list.back().ue_c.ue_m.scaling_factor = std::stoi(value);  
+                                if(key == "scaling_factor") ue_c_list.back().ue_c.ue_m.scaling_factor = std::stof(value);  
                                 // PRIORITY
                                 if(key == "priority") ue_c_list.back().ue_c.priority = std::stof(value);
                                 // TRAFFIC MODEL CONFIG
                                 if(key == "ul_target") ue_c_list.back().ue_c.traffic_c.ul_target = std::stof(value);
                                 if(key == "dl_target") ue_c_list.back().ue_c.traffic_c.dl_target = std::stof(value);
-                                if(key == "var_perc") ue_c_list.back().ue_c.traffic_c.var_perc = std::stof(value);
+                                if(key == "ul_traffic_file") ue_c_list.back().ue_c.traffic_c.ul_traffic_file = value;
+                                if(key == "dl_traffic_file") ue_c_list.back().ue_c.traffic_c.dl_traffic_file = value;
+                                if(key == "delay") ue_c_list.back().ue_c.traffic_c.delay = std::stof(value);
+                                if(key == "var_perc") ue_c_list.back().ue_c.traffic_c.var_perc =  random_v ? std::stof(value) : 0;
                                 if(key == "pkt_size") ue_c_list.back().ue_c.traffic_c.pkt_size = std::stoi(value);
                                 if(key == "traffic_type") ue_c_list.back().ue_c.traffic_c.type = std::stoi(value);
                                 // MOBILITY MODEL CONFIG
@@ -331,6 +339,11 @@ public:
                                         if(value == "true" || value == "1") multithreading = true;
                                         if(value == "false" || value == "0") multithreading = false;
                                     }
+                                    if(key == "random_v")
+                                    {
+                                        if(value == "true" || value == "1") random_v = true;
+                                        if(value == "false" || value == "0") random_v = false;
+                                    }
                                     if(key == "threads") threads = std::stoi(value);
                                     if(key == "verbose")
                                     {
@@ -362,7 +375,7 @@ public:
                                 {
                                     // PDCP CONFIG
                                     if(key == "backhaul_d") backhaul_d = std::stof(value);
-                                    if(key == "backhaul_d_var") backhaul_d_var = std::stof(value);
+                                    if(key == "backhaul_d_var") backhaul_d_var =  random_v ? std::stof(value) : 0;
                                     if(key == "order_pkts")
                                     {
                                         if(value == "true" || value == "1") order_pkts = true;
@@ -409,16 +422,16 @@ public:
                                     if(key == "distance_interference") distance_interference = std::stof(value);
                                     if(key == "thermal_noise") thermal_noise = std::stof(value);
                                     if(key == "noise_figure") noise_figure = std::stoi(value);
-                                    if(key == "air_delay_var_ul") air_delay_var_ul = std::stof(value);
+                                    if(key == "air_delay_var_ul") air_delay_var_ul = random_v ? std::stof(value) : 0;
                                     if(key == "rtx_period_ul") rtx_period_ul = std::stof(value);
-                                    if(key == "rtx_period_var_ul") rtx_period_var_ul = std::stof(value);
+                                    if(key == "rtx_period_var_ul") rtx_period_var_ul =  random_v ? std::stof(value) : 0;
                                     if(key == "rtx_proc_delay_ul") rtx_proc_delay_ul = std::stof(value);
-                                    if(key == "rtx_proc_delay_var_ul") rtx_proc_delay_var_ul = std::stof(value);
-                                    if(key == "air_delay_var_dl") air_delay_var_dl = std::stof(value);
+                                    if(key == "rtx_proc_delay_var_ul") rtx_proc_delay_var_ul =  random_v ? std::stof(value)  : 0;
+                                    if(key == "air_delay_var_dl") air_delay_var_dl =  random_v ? std::stof(value) : 0;
                                     if(key == "rtx_period_dl") rtx_period_dl = std::stof(value);
-                                    if(key == "rtx_period_var_dl") rtx_period_var_dl = std::stof(value);
+                                    if(key == "rtx_period_var_dl") rtx_period_var_dl =  random_v ? std::stof(value) : 0;
                                     if(key == "rtx_proc_delay_dl") rtx_proc_delay_dl = std::stof(value);
-                                    if(key == "rtx_proc_delay_var_dl") rtx_proc_delay_var_dl = std::stof(value);
+                                    if(key == "rtx_proc_delay_var_dl") rtx_proc_delay_var_dl =  random_v ? std::stof(value) : 0;
                                 }    
                                 LOG_INFO_I("configuration_loader::load") << " Configuration - " << key << " = " << value << " added." << END();
                             }
@@ -532,6 +545,11 @@ public:
         return log_config(log_mac, log_freq, get_unique_id(), verbosity);
     }
 
+    bool get_stochastics()
+    {
+        return random_v; 
+    }
+
     int get_log_freq(){ return log_freq;}
     bool get_log_mac(){ return log_mac;}
 
@@ -576,7 +594,8 @@ private:
     // LOG DATA
     int log_freq = -1;
     bool log_mac = false;
-    bool verbose = false; 
+    bool verbose = false;
+    bool random_v = false; 
     // SCENARIO
     int scenario_type = SCENARIO_TYPE_DEFAULT; 
     float street_width = STREET_WIDTH_DEFAULT; 

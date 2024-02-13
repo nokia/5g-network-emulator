@@ -226,16 +226,16 @@ public:
     {
         
     }
-    configuration_loader(std::string dir)
+    configuration_loader(std::string cfg_file)
     {
-        load(dir);
+        load(cfg_file);
     }
     
 public: 
-    void load(std::string dir)
+    void load(std::string cfg_file)
     {
-        if(!dir.back() == '/') dir += '/';
-        std::ifstream infile(dir + "config.ini");
+        //if(!dir.back() == '/') dir += '/';
+        std::ifstream infile(cfg_file);
         if(infile.good())
         {
             std::string line;

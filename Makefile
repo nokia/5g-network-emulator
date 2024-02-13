@@ -18,7 +18,7 @@ INCLUDE 			:=	include
 
 NETFILTER_LIB 	:= libnetfilter.a
 LIBRARIES   := $(LIB)/$(NETFILTER_LIB)
-EXECUTABLE  :=	main
+EXECUTABLE  :=	fikore
 
 
 all:	$(BIN)/$(EXECUTABLE)

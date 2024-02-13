@@ -26,7 +26,8 @@ public:
                        int _pkt_size, float _delay=0)
     {
         ul_traffic_file = _ul_traffic_file; 
-        dl_traffic_file = _dl_traffic_file; 
+        dl_traffic_file = _dl_traffic_file;
+        std::cout << "UL traffic : " << ul_traffic_file << "\n";
         pkt_size = _pkt_size; 
         ul_file.open(ul_traffic_file);
         dl_file.open(dl_traffic_file);

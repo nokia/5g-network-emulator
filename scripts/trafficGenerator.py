@@ -99,12 +99,17 @@ if __name__ == '__main__':
 
     # Not efficient but does the trick without the need of the original data
     mean_frame_size = np.mean(frame_size.getValues(1000000))
+    print("Mean frame size: " + str(mean_frame_size))
     mean_frame_times = np.mean(frame_times.getValues(1000000))
     # Number of frames given the target generation time
     n_frames = int(target_time/mean_frame_times)
 
     # Total number of frames
     total_bytes = mean_frame_size*n_frames
+    print("Total bytes: " + str(total_bytes))
+    total_mb = total_bytes/125000
+    print("Total MB: " + str(total_mb))
+    print("MBPS:" + str(total_mb/target_time))
 
     # Generate a generous quantity of packets. Is faster to do it this
     # way instead of per packet. The memory overhead is not big.

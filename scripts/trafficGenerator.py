@@ -81,7 +81,6 @@ if __name__ == '__main__':
     if os.path.exists(target_dir):
         save_dir = os.path.join(target_dir, filename)
         config_dir = os.path.join(target_dir, filename.split(".")[0] + "_config.txt")
-        print(config_dir)
     else:
         try:
             os.mkdir(target_dir)
@@ -136,7 +135,7 @@ if __name__ == '__main__':
             f_size = int(sizes[frame])
             tt = t
             while f_size>0:
-                if len(inter_packets)!=0:
+                if len(inter_packets)!=0 and p_counter < len(inter_packets):
                     p_time = inter_packets[p_counter]
                     p_size = max(0,min(packet_size, f_size))
                     file.write(f"{tt} {p_size}\n")

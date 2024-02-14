@@ -80,6 +80,8 @@ if __name__ == '__main__':
     overwrite = args.overwrite
     if os.path.exists(target_dir):
         save_dir = os.path.join(target_dir, filename)
+        config_dir = os.path.join(target_dir, filename.split(".")[0] + "_config.txt")
+        print(config_dir)
     else:
         try:
             os.mkdir(target_dir)
@@ -93,6 +95,7 @@ if __name__ == '__main__':
         else:
             print(f"Overwriting file [{save_dir}] that already exists. To avoid overwriting, remove -ow or --overwrite")
             os.remove(save_dir)
+            os.remove(config_dir)
 
     target_time = args.time
     packet_size = args.packetsize
@@ -109,7 +112,8 @@ if __name__ == '__main__':
     print("Total bytes: " + str(total_bytes))
     total_mb = total_bytes/125000
     print("Total MB: " + str(total_mb))
-    print("MBPS:" + str(total_mb/target_time))
+    mbps = total_mb/target_time
+    print("MBPS:" + str(mbps))
 
     # Generate a generous quantity of packets. Is faster to do it this
     # way instead of per packet. The memory overhead is not big.
@@ -145,3 +149,14 @@ if __name__ == '__main__':
                     p_counter += 1
             f_time = inter_frames[frame]
             t += f_time
+
+    with open(config_dir, "w") as file:
+        file.write(f"Frame size data: {args.fs_model} {args.fs_values}\n")
+        file.write(f"Inter frame times data : {args.if_model} {args.if_values}\n")
+        file.write(f"Inter packet times data : {args.ip_model} {args.ip_values}\n")
+        file.write(f"Target time: {target_time} s\n")
+        file.write(f"Packet size: {packet_size} bytes\n")
+        file.write(f"Mean frame size: {round(mean_frame_size, 2)} bytes\n")
+        file.write(f"Total bytes: {round(total_bytes, 2)}\n")
+        file.write(f"Total MB: {round(total_mb, 2)}\n")
+        file.write(f"MBPS: {round(mbps, 2)}\n")

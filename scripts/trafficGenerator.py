@@ -2,7 +2,10 @@ import scipy.stats as sps
 import numpy as np
 from numpy.random import SeedSequence, default_rng, uniform, seed
 import os
+import shutil
 import argparse
+import pandas as pd
+import matplotlib.pyplot as plt
 
 class DistHandler:
     def __init__(self, name, params):
@@ -75,26 +78,24 @@ if __name__ == '__main__':
     packet_times = DistHandler(args.ip_model, args.ip_values)
 
     # File name
-    target_dir = args.savedir
-    filename = args.outfilename
+    target_dir = os.path.join(args.savedir, args.outfilename)
+    traffic_file = os.path.join(target_dir, args.outfilename + ".txt")
+    config_file = os.path.join(target_dir, args.outfilename + "_config.txt")
     overwrite = args.overwrite
+
     if os.path.exists(target_dir):
-        save_dir = os.path.join(target_dir, filename)
-        config_dir = os.path.join(target_dir, filename.split(".")[0] + "_config.txt")
-    else:
-        try:
-            os.mkdir(target_dir)
-        except Exception:
-            print(f"Wrong save directory [{target_dir}], exiting . . .")
-            exit(1)
-    if os.path.exists(save_dir):
         if not overwrite:
-            print(f"Protected against overwrite, and file [{save_dir}] already exists. To avoid this protection add -ow or --overwrite. Eexiting . . .")
+            print(f"Protected against overwrite, and file [{target_dir}] already exists. To avoid this protection add -ow or --overwrite. Eexiting . . .")
             exit(1)
         else:
-            print(f"Overwriting file [{save_dir}] that already exists. To avoid overwriting, remove -ow or --overwrite")
-            os.remove(save_dir)
-            os.remove(config_dir)
+            print(f"Overwriting file [{target_dir}] that already exists. To avoid overwriting, remove -ow or --overwrite")
+            shutil.rmtree(target_dir)
+    
+    try:
+        os.mkdir(target_dir)
+    except Exception:
+        print(f"Wrong save directory [{target_dir}], exiting . . .")
+        exit(1)
 
     target_time = args.time
     packet_size = args.packetsize
@@ -127,8 +128,8 @@ if __name__ == '__main__':
     # Estimate enough interpacket times
     inter_packets = packet_times.getValues(n_packets)
 
-    # Open and create file
-    with open(save_dir, "w") as file:
+    # Open and create traffic file
+    with open(traffic_file, "w") as file:
         t = 0.0
         p_counter = 0
         for frame in range(n_frames):
@@ -149,7 +150,8 @@ if __name__ == '__main__':
             f_time = inter_frames[frame]
             t += f_time
 
-    with open(config_dir, "w") as file:
+    # Open and create config file
+    with open(config_file, "w") as file:
         file.write(f"Frame size data: {args.fs_model} {args.fs_values}\n")
         file.write(f"Inter frame times data : {args.if_model} {args.if_values}\n")
         file.write(f"Inter packet times data : {args.ip_model} {args.ip_values}\n")
@@ -159,3 +161,10 @@ if __name__ == '__main__':
         file.write(f"Total bytes: {round(total_bytes, 2)}\n")
         file.write(f"Total MB: {round(total_mb, 2)}\n")
         file.write(f"MBPS: {round(mbps, 2)}\n")
+
+    # Draw traffic data
+    traffic_data = pd.read_csv(traffic_file, sep=" ", header=None)
+    plt.scatter(traffic_data[0], traffic_data[1])
+    plt.xlabel("Time(s)")
+    plt.ylabel("Traffic(bytes)")
+    plt.savefig(f"{target_dir}/{args.outfilename}.png")

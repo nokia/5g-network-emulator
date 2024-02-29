@@ -28,6 +28,7 @@ public:
         ul_traffic_file = _ul_traffic_file; 
         dl_traffic_file = _dl_traffic_file;
         std::cout << "UL traffic : " << ul_traffic_file << "\n";
+        std::cout << "DL traffic : " << dl_traffic_file << "\n";
         pkt_size = _pkt_size; 
         ul_file.open(ul_traffic_file);
         dl_file.open(dl_traffic_file);

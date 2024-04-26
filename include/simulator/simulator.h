@@ -20,8 +20,8 @@
 class simulator
 {
 public:
-    simulator(std::string config_dir)
-    :config_loader(config_dir), 
+    simulator(std::string config_file)
+    :config_loader(config_file), 
      mac_l(config_loader.get_threading(), ue_h.get_ue_list(), config_loader.get_mac_config(), config_loader.get_tdd_config(), config_loader.get_log_config()), 
      ue_h(config_loader.get_threads()), 
      ticker(config_loader.get_period(), config_loader.get_duration())

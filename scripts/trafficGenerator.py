@@ -2,7 +2,10 @@ import scipy.stats as sps
 import numpy as np
 from numpy.random import SeedSequence, default_rng, uniform, seed
 import os
+import shutil
 import argparse
+import pandas as pd
+import matplotlib.pyplot as plt
 
 class DistHandler:
     def __init__(self, name, params):
@@ -75,36 +78,42 @@ if __name__ == '__main__':
     packet_times = DistHandler(args.ip_model, args.ip_values)
 
     # File name
-    target_dir = args.savedir
-    filename = args.outfilename
+    target_dir = os.path.join(args.savedir, args.outfilename)
+    traffic_file = os.path.join(target_dir, args.outfilename + ".txt")
+    config_file = os.path.join(target_dir, args.outfilename + "_config.txt")
     overwrite = args.overwrite
+
     if os.path.exists(target_dir):
-        save_dir = os.path.join(target_dir, filename)
-    else:
-        try:
-            os.mkdir(target_dir)
-        except Exception:
-            print(f"Wrong save directory [{target_dir}], exiting . . .")
-            exit(1)
-    if os.path.exists(save_dir):
         if not overwrite:
-            print(f"Protected against overwrite, and file [{save_dir}] already exists. To avoid this protection add -ow or --overwrite. Eexiting . . .")
+            print(f"Protected against overwrite, and file [{target_dir}] already exists. To avoid this protection add -ow or --overwrite. Eexiting . . .")
             exit(1)
         else:
-            print(f"Overwriting file [{save_dir}] that already exists. To avoid overwriting, remove -ow or --overwrite")
-            os.remove(save_dir)
+            print(f"Overwriting file [{target_dir}] that already exists. To avoid overwriting, remove -ow or --overwrite")
+            shutil.rmtree(target_dir)
+    
+    try:
+        os.mkdir(target_dir)
+    except Exception:
+        print(f"Wrong save directory [{target_dir}], exiting . . .")
+        exit(1)
 
     target_time = args.time
     packet_size = args.packetsize
 
     # Not efficient but does the trick without the need of the original data
     mean_frame_size = np.mean(frame_size.getValues(1000000))
+    print("Mean frame size: " + str(mean_frame_size))
     mean_frame_times = np.mean(frame_times.getValues(1000000))
     # Number of frames given the target generation time
     n_frames = int(target_time/mean_frame_times)
 
     # Total number of frames
     total_bytes = mean_frame_size*n_frames
+    print("Total bytes: " + str(total_bytes))
+    total_mb = total_bytes/125000
+    print("Total MB: " + str(total_mb))
+    mbps = total_mb/target_time
+    print("MBPS:" + str(mbps))
 
     # Generate a generous quantity of packets. Is faster to do it this
     # way instead of per packet. The memory overhead is not big.
@@ -119,15 +128,15 @@ if __name__ == '__main__':
     # Estimate enough interpacket times
     inter_packets = packet_times.getValues(n_packets)
 
-    # Open and create file
-    with open(save_dir, "w") as file:
+    # Open and create traffic file
+    with open(traffic_file, "w") as file:
         t = 0.0
         p_counter = 0
         for frame in range(n_frames):
             f_size = int(sizes[frame])
             tt = t
             while f_size>0:
-                if len(inter_packets)!=0:
+                if len(inter_packets)!=0 and p_counter < len(inter_packets):
                     p_time = inter_packets[p_counter]
                     p_size = max(0,min(packet_size, f_size))
                     file.write(f"{tt} {p_size}\n")
@@ -140,3 +149,22 @@ if __name__ == '__main__':
                     p_counter += 1
             f_time = inter_frames[frame]
             t += f_time
+
+    # Open and create config file
+    with open(config_file, "w") as file:
+        file.write(f"Frame size data: {args.fs_model} {args.fs_values}\n")
+        file.write(f"Inter frame times data : {args.if_model} {args.if_values}\n")
+        file.write(f"Inter packet times data : {args.ip_model} {args.ip_values}\n")
+        file.write(f"Target time: {target_time} s\n")
+        file.write(f"Packet size: {packet_size} bytes\n")
+        file.write(f"Mean frame size: {round(mean_frame_size, 2)} bytes\n")
+        file.write(f"Total bytes: {round(total_bytes, 2)}\n")
+        file.write(f"Total MB: {round(total_mb, 2)}\n")
+        file.write(f"MBPS: {round(mbps, 2)}\n")
+
+    # Draw traffic data
+    traffic_data = pd.read_csv(traffic_file, sep=" ", header=None)
+    plt.scatter(traffic_data[0], traffic_data[1])
+    plt.xlabel("Time(s)")
+    plt.ylabel("Traffic(bytes)")
+    plt.savefig(f"{target_dir}/{args.outfilename}.png")

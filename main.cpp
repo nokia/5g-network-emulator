@@ -8,6 +8,7 @@
 
 int main(int argc, char** argv)
 {
+    std::cout << "NURIAAAAAAAAAAAA-------------------\n";
     std::string config_file;
     if (argc > 1) {
         config_file = argv[1];

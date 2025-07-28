@@ -37,7 +37,8 @@ public:
         scenario_config scenario_c = config_loader.get_scenario_config(); 
         for(std::list<ue_full_config>::iterator it = ue_c_list.begin(); it != ue_c_list.end(); it++)
         {
-            harq_config harq_c(phy_c.modulation_m, it->ue_c.get_phy_config().max_ri, mac_l.get_logical_units());
+            
+            harq_config harq_c(phy_c.modulation_m, it->ue_c.get_phy_config().n_antennas, mac_l.get_logical_units());
             ue_h.add_ues(ticker.get_init_t(), *it, phy_c, scenario_c , pdcp_c_ul, pdcp_c_ul, harq_c, config_loader.get_stochastics());
         }
         ue_h.init();

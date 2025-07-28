@@ -37,6 +37,7 @@ public:
             do_wait = false; 
         }
         goal = (int)(S2US * _goal); 
+        LOG_INFO_I("timer::ticker") << "Period: " << period << " Goal: " << goal << END(); 
     }
 
     ~timer()
@@ -99,9 +100,11 @@ private:
         finished = false; 
         std::chrono::steady_clock::time_point t = std::chrono::steady_clock::now();
         int count = 0; 
-        int diff_prev = 0; 
+        int diff_prev = 0;
+        //LOG_INFO_I("timer::ticker") << "FIST Run: " << run << " previous_ts: " << previous_ts << " goal: " << goal << " do_wait: " << do_wait << END(); 
         while(run && (previous_ts < goal))
         {
+            //LOG_INFO_I("timer::ticker") << "Run: " << run << " previous_ts: " << previous_ts << " goal: " << goal << " do_wait: " << do_wait << END(); 
             if(do_wait)
             {
                 current_ts = get_current_ts(); 
@@ -164,8 +167,8 @@ private:
     std::function<void(unsigned int)> func; 
     std::chrono::microseconds init_t;
 
-    unsigned int current_ts; 
-    unsigned int previous_ts; 
+    unsigned int current_ts = 0; 
+    unsigned int previous_ts = 0; 
     bool run = false; 
     int goal = 0; 
     bool finished = false; 

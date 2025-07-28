@@ -35,8 +35,15 @@ static const std::vector<float> RI_THRES_DEFAULT{-20, 15};
 #define URBAN_MICROCELL 0
 #define URBAN_MACROCELL 1
 #define RURAL_MACROCELL 2
-#define INDOOR_HOTSPOT 3
-#define INDOOR_FACTORY 4
+#define INDOOR_OPEN_OFFICE 3
+#define INDOOR_MIXED_OFFICE 4
+#define INDOOR_SHOPPING_MALL 5
+
+//O21 situation
+
+#define OUTDOOR 10
+#define IN_BUILDING 11
+#define IN_CAR 12
 
 #define BC_CORRELATION_DEFAULT 5.0
 

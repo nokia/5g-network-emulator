@@ -8,16 +8,21 @@
 #define UE_H
 
 #include <algorithm>
+#include <random>
 #include <string>
 #include <phy_layer/phy_handler.h>
+#include <phy_shared/phy_shared.h>
 #include <mobility_models/mobility_model.h>
 #include <pdcp_layer/pdcp_handler.h>
 #include <traffic_models/traffic_model.h>
 #include <mac_layer/harq_config.h>
+#include <map/map_handler.h>
 
 // Logging
 #include "utils/logging/mean_handler.h"
 #include <ue/ue_config.h>
+
+
 //--------------------------------------------------------------------------------------------------
 // ue(): this class is in charge of modeling and updating the simulated UE's position, 
 // generating/handling packets, estimating the Channel State Indicator and Releasing or Dropping the 
@@ -34,6 +39,7 @@
 //                      *ri_period: period in ms for the PHY layer to estimate the Rank Indicator.
 //                      *scaling_factor: used for carrier aggregation throughput calculation. Is signaled by the eNB in a real deployment. It can take the values: 1, 0.8, 0.75, 0.4
 //                      *ue_h: height of the UE.
+//                      *map_file: route to the map
 //              *traffic_c: traffic generator configuration struct which includes: 
 //                      *type: selected traffic generator models for this type of UEs.
 //                      *ul_target/_dl_target: target throughput for UL and DL respectively.
@@ -43,7 +49,7 @@
 //                     _type: id of the desired mobility model for the current UE. 
 //                     _x,_y: initial position only used if _random_init is set to false.
 //                     _random_init: wether to randomly initialized or not
-//                     _speed: target speed of the UEs.
+//                     _speed: target speed of the UEs in km/h.
 //                     _speed_var: size of the white noise to be applied in each timestep to the target speed.
 //                     _max_distance: max. distance of the UE to the gNB. 
 //                     _time_target: target time used in some of the implemented models, such as random walk model.
@@ -71,8 +77,8 @@
 //              *d_interference: interference distance of nearby UEs
 //              *thermal_noise: modeled thermanl noise of the emulated eNB/gNB.
 //              *figure_noise: modeled noise figure of the emulated eNB/gNB.
-//              *tx_gain: modeled transmission gain of the emulated eNB/gNB.
-//              *rx_gain: modeled reception gain of the emulated eNB/gNB. 
+//              *eNB_gain: modeled  gain of the emulated eNB/gNB.
+//              *UT_gain: modeled  gain of the emulated UT.
 //      _pdcp_config_ul/_pdcp_config_dl: UL/DL PDCP configuration struct which includes:
 //              *max_rtx_ul/dl: max number of retransmissions for UL/DL HARQ packets.
 //              *air_delay_var: added variance to the delay comming from the air propagation.
@@ -128,6 +134,12 @@ private:
     void init_pkt_capture(); 
     void init_logger(); 
 
+private:
+    std::mt19937 gen;
+    std::uniform_real_distribution<float> distance_cqi_dist{-1,1};
+    std::uniform_real_distribution<float> uniform_stochastics{0.0, 1.0};
+    std::normal_distribution<float> sinr_stochastics{0.0, 1.0};
+
 protected: 
 
     void update_pos();
@@ -144,15 +156,16 @@ protected:
     bool is_ip; 
 
 protected: 
+    MapHandler map;
     pdcp_handler pdcp_h;
-    phy_handler phy_h; 
+    phy_handler phy_h;
     mobility_model mobility_m; 
+    phy_shared phy_s;
     std::shared_ptr<traffic_model> traffic_m; 
     float delta_metric; 
     float delay_t_metric; 
     float beta_metric; 
-
-protected: 
+protected:
     bool log_ue; 
     bool log_traffic; 
     bool log_mobility; 
@@ -162,9 +175,12 @@ protected:
 
 protected: 
     log_handler ue_log; 
-    
-protected: 
-    int n_antennas; 
+     int n_antennas;
+     pos2d prev_pos;
+     pos2d pos;
+     bool update_cs;
+     int o2i;
+     float c_dist;
  
 protected: 
     double current_t;

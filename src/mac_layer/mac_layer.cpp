@@ -8,13 +8,13 @@
 
 mac_layer::mac_layer(bool _threading, std::vector<ue> *ue_list, int _mimo_layers, int _numerology, int _n_re_freq, int _n_ofdm_syms, int _bandwidth, int _scheduling_mode,
         int _scheduling_type, int _scheduling_config, int _metric_type, 
-        int _duplexing_type, tdd_config _tdd_c, log_config log_c, int _verbosity)
+        int _duplexing_type,float _ratio_DL_UL, tdd_config _tdd_c, log_config log_c, int _verbosity)
         : grid_dl(T_DL, _mimo_layers, _numerology, _n_re_freq, _n_ofdm_syms, _metric_type,
                     _bandwidth, _scheduling_mode, _scheduling_type,
-                    _scheduling_config, _duplexing_type, _tdd_c, _verbosity),
+                    _scheduling_config, _duplexing_type,_ratio_DL_UL, _tdd_c, _verbosity),
         grid_ul(T_UL, _mimo_layers, _numerology, _n_re_freq, _n_ofdm_syms, _metric_type,
                 _bandwidth, _scheduling_mode, _scheduling_type,
-                _scheduling_config, _duplexing_type, _tdd_c, _verbosity)
+                _scheduling_config, _duplexing_type,_ratio_DL_UL, _tdd_c, _verbosity)
         {
             threading = _threading;
             if(threading) 
@@ -41,10 +41,10 @@ mac_layer::mac_layer(bool _threading, std::vector<ue> *ue_list, int _mimo_layers
 mac_layer::mac_layer(bool _threading, std::vector<ue> *ue_list, mac_config mac_c, tdd_config _tdd_c, log_config log_c, int _verbosity)
         : grid_dl(T_DL, mac_c.mimo_layers, mac_c.numerology, mac_c.n_re_freq, mac_c.n_ofdm_syms, mac_c.metric_type,
                     mac_c.bandwidth, mac_c.scheduling_mode, mac_c.scheduling_type,
-                    mac_c.scheduling_config, mac_c.duplexing_type, _tdd_c),
+                    mac_c.scheduling_config, mac_c.duplexing_type,mac_c.ratio_DL_UL, _tdd_c),
             grid_ul(T_UL, mac_c.mimo_layers, mac_c.numerology, mac_c.n_re_freq, mac_c.n_ofdm_syms, mac_c.metric_type, 
                     mac_c.bandwidth, mac_c.scheduling_mode, mac_c.scheduling_type,
-                    mac_c.scheduling_config, mac_c.duplexing_type, _tdd_c)
+                    mac_c.scheduling_config, mac_c.duplexing_type, mac_c.ratio_DL_UL,_tdd_c)
             {
                 threading = _threading;
                 if(threading) 

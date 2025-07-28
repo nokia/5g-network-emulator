@@ -43,7 +43,7 @@ class grid
 public:
     grid(int _tx, int _mimo_layers, int _numerology,  int _n_re_f, int _n_re_t,  int _metric_t, int _bandwidth, int _scheduling_mode,
             int _scheduling_type, int _scheduling_config,
-            int _duplexing_type, tdd_config _tdd_c, int _verbosity = 0);
+            int _duplexing_type, float _ratio_DL_UL, tdd_config _tdd_c, int _verbosity = 0);
  
 private:
     int check_duplexing_type(int d_type);
@@ -62,6 +62,7 @@ public:
     int get_logical_units();
     void add_current_ts(float t);
     void init(std::vector<ue> * ue_list);
+    float assignRFBandwidth(float bandwidth); 
     void step();
     void set_logger(log_handler * _logger)
     {

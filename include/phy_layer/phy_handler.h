@@ -22,7 +22,8 @@
 //              *eNB_h: height of the eNB/gNB.
 //              *mcs_tables: enable/disable custom MCS-BLER-SINR curves for estimating the MCS indexes. 
 //      _phy_ue_config: UE PHY layer configuration struct.
-//              *_tx_power: transmission power of the eNB/gNB 
+//              *alpha_ul: factor controlling the UE uplink power adjustment based on path loss.
+//              *nominal_pusch_p0: target received power for the UE in the PUSCH. 
 //              *_cqi_period: period in ms between CQI estimations.
 //              *_ri_period: period in ms between Rank Indicator estimations.
 //              *_max_ri: maximum Rank Indicator value for current UE. 
@@ -45,14 +46,15 @@
 //              *d_interference: interference distance of nearby UEs
 //              *thermal_noise: modeled thermanl noise of the emulated eNB/gNB.
 //              *figure_noise: modeled noise figure of the emulated eNB/gNB.
-//              *tx_gain: modeled transmission gain of the emulated eNB/gNB.
-//              *rx_gain: modeled reception gain of the emulated eNB/gNB. 
+//              *eNB_gain: modeled  gain of the emulated eNB/gNB.
+//              *UT_gain: modeled  gain of the emulated UT.
+//              *power_boost: margin for RSRP. 
 //      verbosity: Enable/disable verbosity
 //--------------------------------------------------------------------------------------------------
 class phy_handler
 {
 public: 
-    phy_handler(int id, scenario_config _scenario_c, phy_ue_config _phy_ue_config, phy_enb_config _phy_enb_config, bool _stochastics = true,  int _verbosity = 0);
+    phy_handler(int id, scenario_config _scenario_c, phy_ue_config _phy_ue_config, phy_enb_config _phy_enb_config,  bool _stochastics = true,  int _verbosity = 0);
     void init(int n_rbs, int bandwidth);
     int get_cqi(int tx_dir, int f_index);
     float get_eff(int tx_dir, int f_index);
@@ -61,10 +63,34 @@ public:
     int get_ri(int tx_dir);
     float get_linear_sinr(int tx_dir, int f_index);
     float get_mean_sinr(int tx_dir);
-    void estimate_channel_estate(int tx_dir, float distance, const pos2d &pos, float oldest_t, float avg_tp, float _current_t);
+    void estimate_channel_estate(int tx_dir, phy_shared &phy_s, float distance, const pos2d &pos, float oldest_t, float avg_tp, float _current_t);
     void set_logger(log_handler *_logger); 
     float get_metric(int tx, int f, int n_ues);
     float get_tp(int tx, int f);
+    void init_amc(int _modulation_m, int _cqi_m, int _cqi_p,int _ri_period);
+    void init_update_rates(float _doppler_f, int _cqi_p, int _ri_p);
+
+private:
+    bool init_o2i = false;
+    float macro_fading;
+    int o2i;
+    int sinr_period; 
+    pos2d prev_pos;
+    int period_counter = 0; 
+    float tc;
+    int modulation_m;
+    int cqi_mode; 
+    int cqi_period; 
+    int ri_period; 
+    float c_dist;
+    float freq;
+    float speed;
+    float doppler_f;
+    bool update_cs = true; 
+
+    float corr_distance; 
+
+
 
 private: 
     phy_layer phy_dl; 

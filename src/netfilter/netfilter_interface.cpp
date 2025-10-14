@@ -229,7 +229,7 @@ In practice, we shoud either NF_ACCEPT or NF_DROP
 
 */
 
-#if 1 // Required to compile with libnetfilter_queue versions < 1.0.4
+#if 0 // Required to compile with libnetfilter_queue versions < 1.0.4
 static struct nlmsghdr *
 nfq_nlmsg_put(char *buf, int type, uint32_t queue_num)
 {
@@ -418,7 +418,7 @@ netfilter_interface_t *netfilter_interface_open(int queue_num, add_pkt_callback_
 
 	
 
-	nfiface->nl = mnl_socket_open(NETLINK_NETFILTER);
+	nfiface->nl = mnl_socket_open2(NETLINK_NETFILTER, SOCK_NONBLOCK);
 	if (nfiface->nl == NULL) {
 		PERROR("mnl_socket_open");
 		netfilter_interface_free(nfiface);

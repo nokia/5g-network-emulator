@@ -13,7 +13,7 @@ struct mac_config
 {
     mac_config(int _mimo_layers, int _numerology, int _n_re_freq, int _n_ofdm_syms,int _bandwidth, int _scheduling_mode,
             int _scheduling_type, int _scheduling_config, int _metric_type, 
-            int _duplexing_type)
+            int _duplexing_type, float _ratio_DL_UL)
     {
         mimo_layers = _mimo_layers; 
         numerology = _numerology; 
@@ -25,6 +25,7 @@ struct mac_config
         scheduling_type = _scheduling_type; 
         metric_type = _metric_type; 
         duplexing_type = _duplexing_type;
+        ratio_DL_UL=_ratio_DL_UL;
     }
     int mimo_layers; 
     int numerology; 
@@ -36,4 +37,5 @@ struct mac_config
     int scheduling_config; 
     int metric_type; 
     int duplexing_type; 
+    float ratio_DL_UL;
 };

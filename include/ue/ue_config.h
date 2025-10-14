@@ -7,6 +7,9 @@
 #pragma once
 
 #include <phy_layer/phy_config.h>
+#include <random>
+#include <traffic_models/traffic_config.h>//este no estaba antes
+
 
 #define MAX_N_ANTENNAS 4
 #define MIN_N_ANTENNAS 1
@@ -28,7 +31,7 @@
 //      _type: id of the desired mobility model for the current UE. 
 //      _x,_y: initial position only used if _random_init is set to false.
 //      _random_init: wether to randomly initialized or not
-//      _speed: target speed of the UEs.
+//      _speed: target speed of the UEs in km/h.
 //      _speed_var: size of the white noise to be applied in each timestep to the target speed.
 //      _max_distance: max. distance of the UE to the gNB. 
 //      _time_target: target time used in some of the implemented models, such as random walk model.
@@ -37,19 +40,27 @@
 struct ue_model
 {
     ue_model(){}
-    ue_model(int _n_antennas, float _tx_power, int _scaling_factor, int _cqi_period, 
-             int _ri_period, float _ue_h)
+    ue_model(int _n_antennas, float _nominal_pusch_p0,bool _set_ul_pow,float _tx_power_ul, float _alpha_ul, int _scaling_factor, int _cqi_period, 
+             int _ri_period, float _ue_h,int _o2i)
              {
                  n_antennas = _n_antennas;
                  cqi_period = _cqi_period; 
                  ri_period = _ri_period; 
                  ue_h = _ue_h; 
-                 tx_power = _tx_power; 
+                 nominal_pusch_p0=_nominal_pusch_p0;
+                 set_ul_pow=_set_ul_pow;
+                 tx_power_ul=_tx_power_ul;
+                 alpha_ul=_alpha_ul;
                  scaling_factor = _scaling_factor; 
+                 o2i=_o2i;
             } 
     int n_antennas; 
-    float tx_power; 
+    float nominal_pusch_p0; 
+    bool set_ul_pow;
+    float tx_power_ul;
+    float alpha_ul; 
     float scaling_factor = 1;
+    int o2i;
     int cqi_period; 
     int ri_period; 
     float ue_h; 
@@ -59,7 +70,8 @@ struct ue_model
 // Input: 
 //              *ue_m: UE configuration struct which includes: 
 //                      *n_antennas: number of physical antennas in the UE.
-//                      *tx_power: transmission power for the UE.
+//                      *alpha_ul: factor controlling the UE uplink power adjustment based on path loss.
+//                      *nominal_pusch_p0: target received power for the UE in the PUSCH. 
 //                      *cqi_period: period in ms for the PHY layer to re-estimate the CSI.
 //                      *ri_period: period in ms for the PHY layer to estimate the Rank Indicator.
 //                      *scaling_factor: used for carrier aggregation throughput calculation. Is signaled by the eNB in a real deployment. It can take the values: 1, 0.8, 0.75, 0.4
@@ -73,7 +85,7 @@ struct ue_model
 //                     _type: id of the desired mobility model for the current UE. 
 //                     _x,_y: initial position only used if _random_init is set to false.
 //                     _random_init: wether to randomly initialized or not
-//                     _speed: target speed of the UEs.
+//                     _speed: target speed of the UEs in km/h.
 //                     _speed_var: size of the white noise to be applied in each timestep to the target speed.
 //                     _max_distance: max. distance of the UE to the gNB. 
 //                     _time_target: target time used in some of the implemented models, such as random walk model.
@@ -101,8 +113,8 @@ struct ue_model
 //              *d_interference: interference distance of nearby UEs
 //              *thermal_noise: modeled thermanl noise of the emulated eNB/gNB.
 //              *figure_noise: modeled noise figure of the emulated eNB/gNB.
-//              *tx_gain: modeled transmission gain of the emulated eNB/gNB.
-//              *rx_gain: modeled reception gain of the emulated eNB/gNB. 
+//              *eNB_gain: modeled  gain of the emulated eNB/gNB.
+//              *UT_gain: modeled  gain of the emulated UT.
 //      _pdcp_config_ul/_pdcp_config_dl: UL/DL PDCP configuration struct which includes:
 //              *max_rtx_ul/dl: max number of retransmissions for UL/DL HARQ packets.
 //              *air_delay_var: added variance to the delay comming from the air propagation.
@@ -146,7 +158,7 @@ struct ue_config
     float priority = 1; 
     phy_ue_config get_phy_config()
     {
-        return phy_ue_config(ue_m.tx_power, ue_m.cqi_period, ue_m.ri_period,
+      return phy_ue_config(ue_m.alpha_ul,ue_m.nominal_pusch_p0,ue_m.set_ul_pow,ue_m.tx_power_ul, ue_m.cqi_period, ue_m.ri_period,
                                   ue_m.n_antennas,  ue_m.ue_h, priority,
                                   delay_t_metric, delta_metric, beta_metric, mobility_c.get_max_speed(), ue_m.scaling_factor);
     }

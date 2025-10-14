@@ -34,6 +34,7 @@ public:
     void add_ues(std::chrono::microseconds * _init_t, ue_full_config ue_c, phy_enb_config _phy_enb_config, scenario_config _scenario_c,  pdcp_config _pdcp_config_ul, pdcp_config _pdcp_config_dl, harq_config _harq_config, bool _stochastics = true)
     {
         n_ues += ue_c.n_ues; 
+        
         int init_ids = id; 
         if(ue_c.ue_type == SIM_UE)
         {
@@ -58,7 +59,8 @@ public:
         for(std::vector<ue>::iterator it = ue_list.begin(); it != ue_list.end(); it++)
         {
             if(multithreading) tp.do_job(std::bind (&ue::step, it));
-            it->init(); 
+            it->init();  
+
         }
     }
 

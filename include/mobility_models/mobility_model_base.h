@@ -15,6 +15,7 @@
 #include <functional>
 #include <mobility_models/pos2d.h>
 #include <mobility_models/mobility_config.h>
+
 //--------------------------------------------------------------------------------------------------
 // mobility_model_base(): is a base class that the custom implemented mobility models classes
 // override. This base class simply does not update the position: is a static user model. The 
@@ -23,7 +24,7 @@
 //      id: unique id of the UE used to initialize the random generator's seed. 
 //      _init_pos: initial position, only used if _random_init is set to false.
 //      _random_init: wether to randomly initialized or not
-//      _speed: target speed of the UEs.
+//      _speed: target speed of the UEs in km/h.
 //      _speed_var: size of the white noise to be applied in each timestep to the target speed.
 //      _max_distance: max. distance of the UE to the gNB. 
 //      _time_target: target time used in some of the implemented models, such as random walk model.
@@ -34,9 +35,10 @@ class mobility_model_base
 {
 public: 
     mobility_model_base(int id, pos2d _init_pos, bool _random_init, float _speed, float _speed_var,
-                    float _max_distance, float _time_target, 
+                    float _max_distance, float _time_target, float maxApothem,
                     float _time_target_var, bool _random_v);
-    mobility_model_base(int it, mobility_config mobility_c);
+                    
+    mobility_model_base(int it, mobility_config mobility_c,float maxApothem);
     mobility_model_base(){}
     
 protected: 
@@ -45,12 +47,14 @@ protected:
 
 public: 
     virtual void update_pos(float current_t);
+    void set_random_initial_position(float max_apothem);
     float get_current_d();
     void get_pos(float &x, float &y);
     pos2d * get_pos();
     float get_max_speed(){ return speed + speed_var; }
     float x();
     float y();
+   
 
 protected: 
     float new_speed()
@@ -65,10 +69,12 @@ protected:
     pos2d current_dir; 
     float current_distance; 
     float max_distance; 
+    float max_apothem;
     float time_target; 
     float time_target_var; 
     float t_target; 
     float past_t; 
+  
 };
 
 #endif

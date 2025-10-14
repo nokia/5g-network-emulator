@@ -23,6 +23,39 @@ Besides, we need the emulator to be simple to use and, more importantly, easy to
 
 Furthermore, as the goal is to test actual applications on different possible scenarios and understand the most optimal network configurations, we understand is crucial to allow to easily modify the resource allocation algorithms and procedures. We believe it’s a crucial step in which an optimal algorithm design can produce an optimal behavior of the network for very specific applications. For this reason, we have designed the algorithm to allow the users to easily implement and test their own resource allocation algorithms.  
 
+## How to Compile and Run
+
+To build the emulator, use:
+
+```bash
+make
+```
+To run FikoRE with a specific configuration, execute any of the .sh scripts in the run_scripts/ directory:
+```bash
+
+bash run_scripts/run_sim.sh
+sudo bash run_scripts/run_tcp.sh
+sudo bash run_scripts/run_udp.sh
+```
+For executing fikore as emulator scripts must be run with sudo privileges because iptables rules and raw socket access are required.
+
+## Execution Warnings and Troubleshooting
+When running FikoRE in emulator mode, you must press Ctrl+C twice:
+
+  -First Ctrl+C stops the emulator.
+
+  -Second Ctrl+C stops the iperf3 process and triggers the results plotting.
+
+  If you encounter Python errors such as:
+```bash
+ModuleNotFoundError: No module named 'numpy'
+```
+It means that your Python environment is missing required libraries. Install them with sudo for global accessibility:
+```bash
+sudo pip install numpy matplotlib
+```
+Alternatively, ensure that your Python virtual environment is activated and correctly used within the scripts.
+
 ## Citing
 
 If you want to use FikoRE in your research, don't forget to cite us!
@@ -31,10 +64,17 @@ If you want to use FikoRE in your research, don't forget to cite us!
 @misc{GonzalezD2022,
   doi = {10.48550/ARXIV.2204.04290},
   url = {https://arxiv.org/abs/2204.04290},
-  author = {Gonzalez Morin, Diego and Lopez Morales, Manuel-Jose and Pérez, Pablo and Villegas, Alvaro and García-Armada, Ana},
+  author = {
+    Gonzalez Morin, Diego and
+    Lopez Morales, Manuel-Jose and
+    Pérez, Pablo and
+    Villegas, Alvaro and
+    García-Armada, Ana and
+    Reyero, José María
+  },
   title = {FikoRE: 5G and Beyond RAN Emulator for Application Level Experimentation and Prototyping},
   publisher = {arXiv},
-  year = {2022},
+  year = {2025}
 }
 ```
 

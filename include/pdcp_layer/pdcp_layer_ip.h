@@ -132,6 +132,8 @@ public:
         }
         pkt_cptr->unlock();
 
+        status.pkt_delay_budget_s = pkt_delay_budget_s;
+
         _release_h->fill_queue_status(status, current_t);
 
         return status;
@@ -156,7 +158,7 @@ public:
                     request_pkts(bits, pkt);
                     if(is_pkt_too_old(pkt))
                     {
-                        LOG_INFO_I("PKT_DROP") << "(" << queue_num << ")" << "UID [" << pkt.id << "] with bits [" << pkt.bits << "] " << END(); 
+                        //LOG_INFO_I("PKT_DROP") << "(" << queue_num << ")" << "UID [" << pkt.id << "] with bits [" << pkt.bits << "] " << END(); 
                         drop_pkt(std::move(pkt));
                         continue;
                     }
@@ -205,22 +207,20 @@ private:
         while(_ip_buffer.has_pkts())
         {
             float oldest_ip_t = _ip_buffer.get_oldest_timestamp();
-            if((current_t - oldest_ip_t) <= MAX_PKT_AGE_S) break;
+            if((current_t - oldest_ip_t) <= pkt_delay_budget_s) break;
 
             harq_pkt pkt(current_id, oldest_ip_t, current_t, 0, 0, 0, bh_d, bh_d_var);
             current_id++;
 
             if(!_ip_buffer.pop_oldest_pkt(pkt)) break;
 
-            LOG_INFO_I("PKT_DROP") << "(" << queue_num << ")" << "UID [" << pkt.id << "] with bits [" << pkt.bits << "] (cleanup)" << END(); 
+            // LOG_INFO_I("PKT_DROP") << "(" << queue_num << ")" << "UID [" << pkt.id << "] with bits [" << pkt.bits << "] (cleanup)" << END(); 
             drop_pkt(std::move(pkt));
         }
     }
 
     bool is_pkt_too_old(const harq_pkt& pkt) const
     {
-        return (current_t - pkt.ip_t) > MAX_PKT_AGE_S;
+        return (current_t - pkt.ip_t) > pkt_delay_budget_s;
     }
-
-    static constexpr float MAX_PKT_AGE_S = 0.350f;
 };

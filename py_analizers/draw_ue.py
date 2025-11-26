@@ -79,10 +79,16 @@ def plot_histograms_ul_dl(all_data, key_ul, key_dl, title, xlabel, outname, bins
     fig, axs = plt.subplots(2, 1, figsize=(10, 10), sharex=True)
     cmap = plt.get_cmap("tab10")
     for i, data in enumerate(all_data):
-        if data[key_ul]:
-            axs[0].hist(data[key_ul], bins=bins, alpha=0.5, label=f"UE {i}", color=cmap(i % cmap.N), density=True, edgecolor='black')
-        if data[key_dl]:
-            axs[1].hist(data[key_dl], bins=bins, alpha=0.5, label=f"UE {i}", color=cmap(i % cmap.N), density=True, edgecolor='black')
+        ul_vals = np.asarray(data[key_ul], dtype=float)
+        dl_vals = np.asarray(data[key_dl], dtype=float)
+
+        ul_vals = ul_vals[np.isfinite(ul_vals)]
+        dl_vals = dl_vals[np.isfinite(dl_vals)]
+
+        if ul_vals.size:
+            axs[0].hist(ul_vals, bins=bins, alpha=0.5, label=f"UE {i}", color=cmap(i % cmap.N), density=True, edgecolor='black')
+        if dl_vals.size:
+            axs[1].hist(dl_vals, bins=bins, alpha=0.5, label=f"UE {i}", color=cmap(i % cmap.N), density=True, edgecolor='black')
     axs[0].set_title(f"{title} (UL)")
     axs[1].set_title(f"{title} (DL)")
     axs[1].set_xlabel(xlabel)
@@ -100,9 +106,11 @@ def plot_histograms_per_ue(all_data, key, title, xlabel, outname, outdir, bins):
     plt.figure(figsize=(10, 6))
     cmap = plt.get_cmap("tab10")
     for i, data in enumerate(all_data):
-        if not data[key]:
+        vals = np.asarray(data[key], dtype=float)
+        vals = vals[np.isfinite(vals)]
+        if not vals.size:
             continue
-        plt.hist(data[key], bins=bins, alpha=0.5, label=f"UE {i}", density=True, edgecolor='black', color=cmap(i % cmap.N))
+        plt.hist(vals, bins=bins, alpha=0.5, label=f"UE {i}", density=True, edgecolor='black', color=cmap(i % cmap.N))
     plt.title(title)
     plt.xlabel(xlabel)
     plt.grid(True)

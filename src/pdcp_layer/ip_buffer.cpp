@@ -84,7 +84,7 @@ float ip_buffer::get_pkts(float _bits, harq_pkt& out_pkt)
     while(bits > 0 && pkt_list.size() > 0)
     {
         ip_pkt *pkt = &pkt_list.front();
-        if(bits > pkt->size)
+        if(bits >= pkt->size)
         {
             // LOG_INFO_I("PKT_FRAG") << "(" << debug_queue_num << ")" << "UID [" << pkt->uid << "." << out_pkt.id << "] with bits [" << pkt->size << ":" << pkt->size << "/" << pkt->original_size << "] (" << n_out_pkts << ") FULL" << END(); 
 

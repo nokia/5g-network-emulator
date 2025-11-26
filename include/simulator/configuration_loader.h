@@ -65,6 +65,7 @@ inline std::string getBaseMapPath()
 #define DELTA_METRIC_DEFAULT 1.0
 #define DELAY_METRIC_DEFAULT 0.1
 #define BETA_METRIC_DEFAULT 0.5
+#define PKT_DELAY_BUDGET_DEFAULT 0.35f
 
 // UE PRIORITY
 #define DEFAULT_UE_PRIORITY 1
@@ -218,6 +219,7 @@ struct ue_full_config
         ue_c.delay_t_metric = DELAY_METRIC_DEFAULT;
         ue_c.beta_metric = BETA_METRIC_DEFAULT;
         ue_c.delta_metric = DELTA_METRIC_DEFAULT;
+        ue_c.pkt_delay_budget = PKT_DELAY_BUDGET_DEFAULT;
 
         // PRIORITY
         ue_c.priority = DEFAULT_UE_PRIORITY;
@@ -377,6 +379,8 @@ public:
                                     ue_c_list.back().ue_c.delay_t_metric = std::stof(value);
                                 if (key == "beta_metric")
                                     ue_c_list.back().ue_c.beta_metric = std::stof(value);
+                                if (key == "pkt_delay_budget")
+                                    ue_c_list.back().ue_c.pkt_delay_budget = std::stof(value);
                                 // SCENARIO
                                 if (key == "ue_height")
                                     ue_c_list.back().ue_c.ue_m.ue_h = std::stof(value);

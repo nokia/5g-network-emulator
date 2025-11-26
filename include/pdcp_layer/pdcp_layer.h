@@ -70,7 +70,9 @@ public:
     float get_ip_latency(bool partial = true);
     float get_latency(bool partial = true);
     float get_tp(bool partial = true);
-    virtual pdcp_queue_status get_queue_status() const { return pdcp_queue_status(); }
+    virtual pdcp_queue_status get_queue_status() const { pdcp_queue_status s; s.pkt_delay_budget_s = pkt_delay_budget_s; return s; }
+    void set_pkt_delay_budget(float budget_s) { pkt_delay_budget_s = budget_s; }
+    float get_pkt_delay_budget() const { return pkt_delay_budget_s; }
 
 protected:
     virtual void cleanup_old_pkts();
@@ -90,4 +92,7 @@ protected:
 
 public: 
     float current_t = 0;
+
+protected:
+    float pkt_delay_budget_s = 0.350f;
 };

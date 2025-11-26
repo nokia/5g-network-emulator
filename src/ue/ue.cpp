@@ -32,6 +32,7 @@ ue::ue(int _id, ue_config ue_c, scenario_config _scenario_c, phy_enb_config _phy
     log_traffic = ue_c.log_traffic && log_ue;
     log_quality = ue_c.log_quality && log_ue;
     n_antennas = std::max(std::min(MAX_N_ANTENNAS, ue_c.ue_m.n_antennas), MIN_N_ANTENNAS);
+    pdcp_h.set_pkt_delay_budget(ue_c.pkt_delay_budget);
     phy_h.init(_phy_enb_config.n_rbgs, _phy_enb_config.bandwidth);
     pdcp_h.init(_harq_config.mod, _harq_config.layers, _harq_config.log_units);
 }
@@ -62,6 +63,7 @@ ue::ue(int _queue_num_ul, int _queue_num_dl, std::chrono::microseconds *_init_t,
     log_quality = ue_c.log_quality && log_ue;
     n_antennas = std::max(std::min(MAX_N_ANTENNAS, ue_c.ue_m.n_antennas), MIN_N_ANTENNAS);
 
+    pdcp_h.set_pkt_delay_budget(ue_c.pkt_delay_budget);
     phy_h.init(_phy_enb_config.n_rbgs, _phy_enb_config.bandwidth);
     pdcp_h.init(_harq_config.mod, _harq_config.layers, _harq_config.log_units);
 }

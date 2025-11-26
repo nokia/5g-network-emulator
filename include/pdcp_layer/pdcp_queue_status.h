@@ -24,4 +24,6 @@ struct pdcp_queue_status
     int release_size = 0;
     int release_oldest_uid = -1;
     float release_oldest_age = -1.0f;
+
+    float pkt_delay_budget_s = -1.0f;
 };

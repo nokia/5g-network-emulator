@@ -141,11 +141,11 @@ public:
                         {
                             // LOG_INFO_I("PKT_RELEASE") << "(" << debug_queue_num << ")" << "UID [" << it->uid << "] RELEASE" << END(); 
                             bits += it->original_size;                            
+                            latency += current_t - it->current_t;
+                            ip_latency += current_t - it->ip_t;
                             update_order(it->uid);
                             pkt_cptr->release(it->uid);
                             it = out_pkts.erase(it);
-                            latency += current_t - it->current_t;
-                            ip_latency += current_t - it->ip_t;
                             count++;
                         }
                         else

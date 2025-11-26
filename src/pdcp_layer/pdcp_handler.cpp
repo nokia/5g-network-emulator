@@ -167,3 +167,8 @@ pdcp_queue_status pdcp_handler::get_queue_status(int tx) const
     else return pdcp_ul->get_queue_status();
 }
 
+void pdcp_handler::set_pkt_delay_budget(float budget_s)
+{
+    pdcp_ul->set_pkt_delay_budget(budget_s);
+    pdcp_dl->set_pkt_delay_budget(budget_s);
+}

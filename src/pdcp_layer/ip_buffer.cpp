@@ -7,6 +7,7 @@
 #include <iostream>
 #include <chrono>
 #include <pdcp_layer/ip_buffer.h>
+#include <utils/terminal_logging.h>
 
 ip_buffer::ip_buffer(int _verbosity)
 {
@@ -77,7 +78,7 @@ void ip_buffer::step(float _current_t){
 
 float ip_buffer::get_pkts(float _bits, harq_pkt& out_pkt)
 {
-    float bits = _bits; 
+    float bits = floorf(_bits); 
     int n_out_pkts = 0; 
     out_pkt.bits = 0; 
     while(bits > 0 && pkt_list.size() > 0)
@@ -85,25 +86,40 @@ float ip_buffer::get_pkts(float _bits, harq_pkt& out_pkt)
         ip_pkt *pkt = &pkt_list.front();
         if(bits > pkt->size)
         {
+            // LOG_INFO_I("PKT_FRAG") << "(" << debug_queue_num << ")" << "UID [" << pkt->uid << "." << out_pkt.id << "] with bits [" << pkt->size << ":" << pkt->size << "/" << pkt->original_size << "] (" << n_out_pkts << ") FULL" << END(); 
+
             oldest_t = pkt->current_t;
             bits -= pkt->size; 
             out_pkt.bits += pkt->size; 
             //pkt->size = pkt->original_size; 
-            pkt->is_fragment = false; 
+            pkt->is_fragment = false;
+            pkt->frags_created++;
             out_pkt.pkts.push_back(std::move(*pkt));
             pkt_list.pop_front();
-            n_out_pkts++; 
+            n_out_pkts++;
+
+            
+            // Prevent starting a new IP packet with 0.1 bits or less (it creates blocks donwstream)
+            if(bits <= BIT_ROUND_MARGIN) {
+                // LOG_INFO_I("PKT_FRAG") << "(" << debug_queue_num << ")" <<"UID [" << pkt->uid << "." << out_pkt.id << "] FEW BITS REMAINING " << bits << ": skip"<< END();
+                break; 
+            }
+                
         }
         else
         {    
+            // LOG_INFO_I("PKT_FRAG") << "(" << debug_queue_num << ")" <<"UID [" << pkt->uid << "." << out_pkt.id << "] with bits [" << bits << ":" << pkt->size << "/" << pkt->original_size << "] (" << n_out_pkts << ") FRAG" << END();
+
             ip_pkt pkt_f(*pkt);
             pkt->size -= bits;
             out_pkt.bits += bits; 
             pkt_f.size = bits;
             pkt_f.is_fragment = true; 
+            pkt_f.frags_created++;
             out_pkt.pkts.push_back(std::move(pkt_f));
             bits = 0; 
             pkt->is_fragment = true; 
+            pkt->frags_created++;
             n_out_pkts++;
         } 
     }
@@ -126,11 +142,11 @@ float ip_buffer::get_pkts(float _bits)
             pkt_list.pop_front();
             n_out_pkts++; 
         
-        }
-        else
-        {    
-            bits_c += bits; 
-            pkt->size -= bits;
+    }
+    else
+    {    
+        bits_c += bits; 
+        pkt->size -= bits;
             bits = 0; 
             pkt->is_fragment = true; 
             n_out_pkts++;
@@ -159,4 +175,32 @@ float ip_buffer::get_error(bool partial)
         else return BIT2MBIT*e_mean.get()*S2MS;
     }
     else return -1; 
+}
+
+bool ip_buffer::pop_oldest_pkt(harq_pkt& out_pkt)
+{
+    if(pkt_list.empty()) return false;
+
+    out_pkt.pkts.clear();
+    out_pkt.bits = 0.0f;
+
+    ip_pkt pkt = std::move(pkt_list.front());
+    pkt_list.pop_front();
+
+    out_pkt.bits = pkt.size;
+    out_pkt.pkts.push_back(std::move(pkt));
+
+    current_size -= out_pkt.bits;
+    if(current_size < 0) current_size = 0;
+
+    if(!pkt_list.empty()) oldest_t = pkt_list.front().current_t;
+    else oldest_t = current_t;
+
+    return true;
+}
+
+const ip_pkt* ip_buffer::peek_oldest_pkt() const
+{
+    if(pkt_list.empty()) return nullptr;
+    return &pkt_list.front();
 }

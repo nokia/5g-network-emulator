@@ -5,6 +5,7 @@
 **********************************************/
 
 #include <mac_layer/resource_block.h>
+#include <utils/terminal_logging.h>
 
 rb::rb(int _t, int _f, int _tx, int _mimo_layers,  int _n_sc, std::vector<ue> *_ue_list, int _verbosity, log_handler * _logger)
 {
@@ -76,6 +77,8 @@ float rb::handle_packet(int syms)
         float tp = max_metric.get_tp(); 
         float eff_tp = (*ue_list)[max_metric.get_index()].handle_pkt(tp*syms, tx, f);
         if(log) logger->log_partial("tx:{} f:{} t:{} id:{} m:{} tp:{} e_tp:{} ts:{} \n", tx, f, t, max_metric.get_id(), max_metric.get_value(),tp*syms, eff_tp, current_t);
+        //LOG_INFO_I("GRID") << current_t << (tx ? " UL[" : " DL[") << f << "," << t << "]: " <<
+        //    "ID [" << max_metric.get_id() << "][]" max_metric.get_value(),tp*syms, eff_tp, current_t << END();
         max_metric.reset(); 
         return eff_tp; 
     }

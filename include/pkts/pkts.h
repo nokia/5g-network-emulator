@@ -8,6 +8,8 @@
 
 #include <deque>
 
+#define BIT_ROUND_MARGIN 0.99f
+
 struct ip_pkt
 {
     ip_pkt(float _current_t, float _size, float _original_size, int _prev_uid, int _uid, float _backhaul_d, float _backhaul_d_var)
@@ -46,6 +48,8 @@ struct ip_pkt
         uid = cpy_pkt.uid;
         prev_uid = cpy_pkt.prev_uid;  
         is_fragment = cpy_pkt.is_fragment; 
+        frags_created = cpy_pkt.frags_created;
+        frags_recovered = cpy_pkt.frags_recovered;
         backhaul_d = cpy_pkt.backhaul_d; 
         backhaul_d_var = cpy_pkt.backhaul_d_var; 
         t_out = cpy_pkt.t_out; 
@@ -56,7 +60,7 @@ struct ip_pkt
 
     bool is_ready()
     {
-        return fabs(size - original_size) <= 10;  
+        return fabs(size - original_size) <= BIT_ROUND_MARGIN;  
     }
 
     float current_t; 
@@ -66,7 +70,9 @@ struct ip_pkt
     float original_size; 
     uint32_t uid; 
     uint32_t prev_uid; 
-    bool is_fragment; 
+    bool is_fragment;
+    int frags_created = 0;
+    int frags_recovered = 0;
     float backhaul_d; 
     float backhaul_d_var; 
     bool is_head = true; 

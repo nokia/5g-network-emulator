@@ -265,6 +265,21 @@ void ue::print_traffic()
             LOG_INFO_I("ue::print_traffic") << " " << id << " Mbps - UL cons. rate " << pdcp_h.get_tp(TX_UL, false) << " Mbps - DL cons. rate " << pdcp_h.get_tp(TX_DL, false) << END();
             LOG_INFO_I("ue::print_traffic") << " " << id << " Mbps - UL latency " << pdcp_h.get_latency(TX_UL, false) << " s - DL latency " << pdcp_h.get_latency(TX_DL, false) << END();
             LOG_INFO_I("ue::print_traffic") << " " << id << " Mbps - UL IP latency " << pdcp_h.get_ip_latency(TX_UL, false) << " s - DL IP latency " << pdcp_h.get_ip_latency(TX_DL, false) << END();
+
+            auto ul_status = pdcp_h.get_queue_status(TX_UL);
+            auto dl_status = pdcp_h.get_queue_status(TX_DL);
+
+            LOG_INFO_I("ue::print_traffic") << " UL IP buf: " << ul_status.ip_buffer_size << " pkts (oldest UID " << ul_status.ip_oldest_uid << ", delay " << ul_status.ip_oldest_age << " s)" << END();
+            LOG_INFO_I("ue::print_traffic") << " DL IP buf: " << dl_status.ip_buffer_size << " pkts (oldest UID " << dl_status.ip_oldest_uid << ", delay " << dl_status.ip_oldest_age << " s)" << END();
+
+            LOG_INFO_I("ue::print_traffic") << " UL HARQ buf: " << ul_status.harq_size << " pkts (oldest ID " << ul_status.harq_oldest_id << ", delay " << ul_status.harq_oldest_age << " s, n_tx " << ul_status.harq_oldest_n_tx << ")" << END();
+            LOG_INFO_I("ue::print_traffic") << " DL HARQ buf: " << dl_status.harq_size << " pkts (oldest ID " << dl_status.harq_oldest_id << ", delay " << dl_status.harq_oldest_age << " s, n_tx " << dl_status.harq_oldest_n_tx << ")" << END();
+
+            LOG_INFO_I("ue::print_traffic") << " UL capture buf: " << ul_status.capture_size << " pkts (oldest UID " << ul_status.capture_oldest_uid << ", delay " << ul_status.capture_oldest_age << " s)" << END();
+            LOG_INFO_I("ue::print_traffic") << " DL capture buf: " << dl_status.capture_size << " pkts (oldest UID " << dl_status.capture_oldest_uid << ", delay " << dl_status.capture_oldest_age << " s)" << END();
+
+            LOG_INFO_I("ue::print_traffic") << " UL release buf: " << ul_status.release_size << " pkts (oldest UID " << ul_status.release_oldest_uid << ", delay " << ul_status.release_oldest_age << " s)" << END();
+            LOG_INFO_I("ue::print_traffic") << " DL release buf: " << dl_status.release_size << " pkts (oldest UID " << dl_status.release_oldest_uid << ", delay " << dl_status.release_oldest_age << " s)" << END();
         }
     }
 }

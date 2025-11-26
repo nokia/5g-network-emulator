@@ -7,6 +7,18 @@
 #pragma once
 
 #include <iostream>
+#include <chrono>
+
+inline std::chrono::steady_clock::time_point& _t0() {
+    static auto t0 = std::chrono::steady_clock::now(); // init on first use
+    return t0;
+}
+
+inline uint64_t ms_since_start() {
+    using namespace std::chrono;
+    return duration_cast<milliseconds>(steady_clock::now() - _t0()).count();
+}
+
 
 #define RESET   "\033[0m"
 #define BLACK   "\033[30m"      /* Black */
@@ -27,10 +39,10 @@
 #define BOLDWHITE   "\033[1m\033[37m"      /* Bold White */
 
 
-#define LOG_ERROR_I(where) std::cout << RED << "[ERROR][" << (where) << "]: " 
-#define LOG_ERROR() std::cout << RED << "[ERROR]: " 
-#define LOG_INFO_I(where) std::cout << BLUE << "[INFO][" << (where) << "]: "
-#define LOG_INFO() std::cout << BLUE << "[INFO]: "
-#define LOG_WARNING_I(where) std::cout << YELLOW << "[WARNING][" << (where) << "]: "
-#define LOG_WARNING() std::cout << YELLOW << "[WARNING]: "
+#define LOG_ERROR_I(where) std::cout << RED << ms_since_start() << " [ERROR][" << (where) << "]: " 
+#define LOG_ERROR() std::cout << RED <<  ms_since_start() <<  " [ERROR]: " 
+#define LOG_INFO_I(where) std::cout << BLUE << ms_since_start() <<  " [INFO][" << (where) << "]: "
+#define LOG_INFO() std::cout << BLUE << ms_since_start() << " [INFO]: "
+#define LOG_WARNING_I(where) std::cout << YELLOW << ms_since_start() << " [WARNING][" << (where) << "]: "
+#define LOG_WARNING() std::cout << YELLOW << ms_since_start() << " [WARNING]: "
 #define END() RESET << std::endl

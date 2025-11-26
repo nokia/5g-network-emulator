@@ -52,6 +52,7 @@ public:
     float get_tp(int tx, bool elapsed = true);
     float get_latency(int tx, bool elapsed = true);
     float get_ip_latency(int tx, bool elapsed = true);
+    pdcp_queue_status get_queue_status(int tx) const;
 
 protected: 
     std::shared_ptr<pdcp_layer> pdcp_ul;  

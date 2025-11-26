@@ -298,6 +298,9 @@ static int queue_cb(const struct nlmsghdr *nlh, void *data)
 		sec = ts.tv_sec;
 		usec = ts.tv_nsec / 1000;
 	}
+	nfiface->last_recv_id = id;
+	nfiface->total_recv++;
+	nfiface->bytes_recv += orig_len;
 	nfiface->callback(nfiface->callback_data, nfiface, sec, usec, orig_len, id);
 
 #ifdef true
@@ -373,6 +376,7 @@ static void *run(void *arg) {
 		ret = mnl_socket_recvfrom(nfiface->nl, nfiface->buf, nfiface->sizeof_buf);
 		if (ret == -1) {
 			PERROR("mnl_socket_recvfrom");
+			nfiface->recv_fails++;
 			if(errno == ENOBUFS)
 				continue; // Do not exit in this scenario	
 			//exit(EXIT_FAILURE);
@@ -416,7 +420,8 @@ netfilter_interface_t *netfilter_interface_open(int queue_num, add_pkt_callback_
 	/* largest possible packet payload, plus netlink data overhead: */
 	nfiface->sizeof_buf = 0xffff + (MNL_SOCKET_BUFFER_SIZE/2);;
 
-	
+	nfiface->last_recv_id = nfiface->total_recv = nfiface->last_rlsd_id = nfiface->total_rlsd = 0;
+	nfiface->bytes_recv = nfiface->recv_fails = nfiface->rlsd_fails = 0;
 
 	nfiface->nl = mnl_socket_open2(NETLINK_NETFILTER, SOCK_NONBLOCK);
 	if (nfiface->nl == NULL) {
@@ -480,8 +485,12 @@ int netfilter_interface_release_pkt(netfilter_interface_t *nfiface, uint32_t pkt
 
 	if (mnl_socket_sendto(nfiface->nl, nlh, nlh->nlmsg_len) < 0) {
 		PERROR("mnl_socket_send");
+		nfiface->rlsd_fails++;
 		return -1;
 	}
+
+	nfiface->last_rlsd_id = pkt_id;
+	nfiface->total_rlsd++;
 
 	return 0;
 }

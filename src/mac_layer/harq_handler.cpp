@@ -86,6 +86,12 @@ float harq_handler::get_oldest_t()
     else return current_t; 
 }
 
+const harq_pkt* harq_handler::peek_oldest() const
+{
+    if(harq_buffer.empty()) return nullptr;
+    return &harq_buffer.front();
+}
+
 float harq_handler::emulate_ack_delay(float distance)
 {
     float tx_delay = 2 * distance / SPEED_OF_LIGHT; 
@@ -104,6 +110,7 @@ void harq_handler::init(int _mod_i, int _layers, int _logic_units)
     logic_units = _logic_units;
 }
 
+#if 0
 bool harq_handler::get_rtx(int mcs, float sinr, int n_tx)
 {
     int sinr_i = SINR_TO_INDEX(sinr);
@@ -120,3 +127,8 @@ bool harq_handler::get_rtx()
 {
     return rtx_prob(generator) <= TARGET_BLER; 
 }
+#else
+bool harq_handler::get_rtx(int mcs, float sinr, int n_tx) { return 0; }
+
+bool harq_handler::get_rtx() { return 0; }
+#endif

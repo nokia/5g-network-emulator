@@ -74,6 +74,8 @@ public:
     bool get_rtx(int mcs, float sinr, int n_tx);
     bool get_rtx();
     void init(int _mod_i, int _layers, int _logic_units);
+    int size() const { return (int)harq_buffer.size(); }
+    const harq_pkt* peek_oldest() const;
 
 private: 
     float emulate_ack_delay(float distance);

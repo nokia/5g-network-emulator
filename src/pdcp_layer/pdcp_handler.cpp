@@ -160,4 +160,10 @@ float pdcp_handler::get_ip_latency(int tx, bool elapsed)
     else return pdcp_ul->get_ip_latency(elapsed);
 }
 
+pdcp_queue_status pdcp_handler::get_queue_status(int tx) const
+{
+    assert(tx==T_DL||tx==T_UL); 
+    if(tx == T_DL) return pdcp_dl->get_queue_status();
+    else return pdcp_ul->get_queue_status();
+}
 

@@ -74,6 +74,7 @@ void pdcp_layer::step(float t)
     _ip_buffer.step(current_t);
     _harq_buffer.step(current_t);
     _release_h->step(current_t);
+    cleanup_old_pkts();
 }
 
 float pdcp_layer::request_pkts(float bits)
@@ -218,4 +219,9 @@ float pdcp_layer::get_ip_latency(bool partial)
 float pdcp_layer::get_tp(bool partial)
 {
     return _release_h->get_tp(partial); 
+}
+
+void pdcp_layer::cleanup_old_pkts()
+{
+    // Default implementation: nothing to clean.
 }

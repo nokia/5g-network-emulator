@@ -82,8 +82,9 @@ private:
 
 private: 
     int prev_id = -1; 
-private:
+public: // FIXME debug only!
     int queue_num;
+private:
     netfilter_interface_t *nfiface;
 
 private:

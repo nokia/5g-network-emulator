@@ -10,6 +10,7 @@
 
 #include <pdcp_layer/pdcp_layer.h>
 #include <netfilter/pkt_capture.h>
+#include <utils/terminal_logging.h>
 
 class pdcp_layer_ip: public pdcp_layer
 {
@@ -26,6 +27,7 @@ public:
                     pkt_cptr->start(std::bind(&pdcp_layer_ip::cb, this, std::placeholders::_1, std::placeholders::_2, 
 													std::placeholders::_3, std::placeholders::_4, 
 													std::placeholders::_5, std::placeholders::_6));
+                    _ip_buffer.debug_queue_num = _queue_num;
                 }
     pdcp_layer_ip( int _queue_num, std::chrono::microseconds * _init_t, pdcp_config pdcp_c, int _verbosity = 0)
                 : pdcp_layer(true, pdcp_c, _verbosity)
@@ -37,6 +39,7 @@ public:
                     pkt_cptr->start(std::bind(&pdcp_layer_ip::cb, this, std::placeholders::_1, std::placeholders::_2, 
 													std::placeholders::_3, std::placeholders::_4, 
 													std::placeholders::_5, std::placeholders::_6));
+                    _ip_buffer.debug_queue_num = _queue_num;
                 }
 private: 
     int pprev_id=0;
@@ -67,6 +70,8 @@ public:
                     pkts.push_back(ip_pkt(get_current_ts(), size, size, prev_id, pkt_id, bh_d, bh_d_var));
                     prev_id = pkt_id; 
                     pkt_cptr->unlock();
+                    // LOG_INFO_I("PKT_CAPTURE") << "(" << queue_num << ")" << "UID [" << pkt_id << "] with bits [" << size << "] " << END(); 
+                    
                }
 
 
@@ -95,6 +100,44 @@ public:
     {
         return _ip_buffer.get_pkts(bits, pkt);
     }
+
+    pdcp_queue_status get_queue_status() const override
+    {
+        pdcp_queue_status status;
+
+        status.ip_buffer_size = _ip_buffer.size();
+        const ip_pkt* oldest_ip = _ip_buffer.peek_oldest_pkt();
+        if(oldest_ip != nullptr)
+        {
+            status.ip_oldest_uid = oldest_ip->uid;
+            status.ip_oldest_age = current_t - oldest_ip->ip_t;
+        }
+
+        status.harq_size = _harq_buffer.size();
+        const harq_pkt* oldest_harq = _harq_buffer.peek_oldest();
+        if(oldest_harq != nullptr)
+        {
+            status.harq_oldest_id = oldest_harq->id;
+            status.harq_oldest_age = current_t - oldest_harq->ip_t;
+            status.harq_oldest_n_tx = oldest_harq->n_tx;
+        }
+
+        pkt_cptr->lock();
+        status.capture_size = (int)pkts.size();
+        if(!pkts.empty())
+        {
+            const ip_pkt &cap_pkt = pkts.front();
+            status.capture_oldest_uid = cap_pkt.uid;
+            status.capture_oldest_age = current_t - cap_pkt.ip_t;
+        }
+        pkt_cptr->unlock();
+
+        status.pkt_delay_budget_s = pkt_delay_budget_s;
+
+        _release_h->fill_queue_status(status, current_t);
+
+        return status;
+    }
     
     void drop_pkt(harq_pkt pkt)
     {
@@ -108,14 +151,20 @@ public:
         {
             if(has_pkts())
             {
-                if(bits > 0)
+                while(bits > 0 && has_pkts())
                 {
                     harq_pkt pkt(current_id, _ip_buffer.get_oldest_timestamp(), current_t, mcs, distance, 0, bh_d, bh_d_var);// = std::unique_ptr<std::deque<ip_pkt>>(new std::deque<ip_pkt>()); 
                     current_id++; 
                     request_pkts(bits, pkt);
+                    if(is_pkt_too_old(pkt))
+                    {
+                        //LOG_INFO_I("PKT_DROP") << "(" << queue_num << ")" << "UID [" << pkt.id << "] with bits [" << pkt.bits << "] " << END(); 
+                        drop_pkt(std::move(pkt));
+                        continue;
+                    }
                     if(_harq_buffer.get_rtx(mcs, sinr, 0)) 
                     {
-                        _harq_buffer.add_pkts(pkt);
+                        _harq_buffer.add_pkts(pkt); //FIXME std::move!!
                         return 0; 
                     }
                     else
@@ -126,9 +175,9 @@ public:
                     }
                         
                 }
-				return 0.0; 
+                return 0.0; 
             }
-			return 0.0; 
+            return 0.0; 
         }
         else
         {
@@ -150,5 +199,28 @@ public:
                 return bits; 
             } 
         }
+    }
+
+private:
+    void cleanup_old_pkts() override
+    {
+        while(_ip_buffer.has_pkts())
+        {
+            float oldest_ip_t = _ip_buffer.get_oldest_timestamp();
+            if((current_t - oldest_ip_t) <= pkt_delay_budget_s) break;
+
+            harq_pkt pkt(current_id, oldest_ip_t, current_t, 0, 0, 0, bh_d, bh_d_var);
+            current_id++;
+
+            if(!_ip_buffer.pop_oldest_pkt(pkt)) break;
+
+            // LOG_INFO_I("PKT_DROP") << "(" << queue_num << ")" << "UID [" << pkt.id << "] with bits [" << pkt.bits << "] (cleanup)" << END(); 
+            drop_pkt(std::move(pkt));
+        }
+    }
+
+    bool is_pkt_too_old(const harq_pkt& pkt) const
+    {
+        return (current_t - pkt.ip_t) > pkt_delay_budget_s;
     }
 };

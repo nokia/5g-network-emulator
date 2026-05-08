@@ -9,6 +9,7 @@
 #include <iostream>
 #include <memory>
 #include <utility>
+#include <pdcp_layer/pdcp_queue_status.h>
 #include <mac_layer/harq_handler.h>
 #include <pdcp_layer/release_handler_ip.h>
 #include <pdcp_layer/pdcp_config.h>
@@ -69,6 +70,12 @@ public:
     float get_ip_latency(bool partial = true);
     float get_latency(bool partial = true);
     float get_tp(bool partial = true);
+    virtual pdcp_queue_status get_queue_status() const { pdcp_queue_status s; s.pkt_delay_budget_s = pkt_delay_budget_s; return s; }
+    void set_pkt_delay_budget(float budget_s) { pkt_delay_budget_s = budget_s; }
+    float get_pkt_delay_budget() const { return pkt_delay_budget_s; }
+
+protected:
+    virtual void cleanup_old_pkts();
 
 protected: 
     ip_buffer _ip_buffer;
@@ -85,4 +92,7 @@ protected:
 
 public: 
     float current_t = 0;
+
+protected:
+    float pkt_delay_budget_s = 0.350f;
 };

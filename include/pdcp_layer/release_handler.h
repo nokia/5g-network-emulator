@@ -14,6 +14,7 @@
 #include <utils/conversions.h>
 #include <utils/logging/mean_handler.h>
 #include <pdcp_layer/ip_buffer.h>
+#include <pdcp_layer/pdcp_queue_status.h>
 #include <netfilter/pkt_capture.h>
 
 //--------------------------------------------------------------------------------------------------
@@ -33,6 +34,7 @@ public:
     virtual void set_pkt_cptr(const std::shared_ptr<pkt_capture> &_pkt_cptr){}
     virtual void push(harq_pkt pkt);
     virtual void drop(harq_pkt pkt){}
+    virtual void fill_queue_status(pdcp_queue_status& status, float current_t) const {}
     int get_size();
     virtual float release();
     void step(float t);

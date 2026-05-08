@@ -4,12 +4,8 @@
 #include <utils/terminal_logging.h>
 
 phy_shared::phy_shared(int _ue_id, ue_config ue_c, scenario_config _scenario_c, phy_enb_config _phy_enb_config)
-    : map(_scenario_c.map_file),
-      gen(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()),
-      mobility_m(_ue_id, ue_c.mobility_c, _scenario_c.type, map.getMaxApothem())
+    : gen(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count())
 {
-    std::cout << "map: " << _scenario_c.map_file  << std::endl; 
-
     scenario = _scenario_c.type;
     eNB_h = _scenario_c.eNB_h;
     freq_ghz = _phy_enb_config.frequency / GHZ2HZ;
@@ -96,7 +92,4 @@ float phy_shared::get_correlation_distance()
     }
 }
 
-float phy_shared::getMacroFading(const pos2d &pos)
-{
-    return map.getMacroFadingValue(pos.x, pos.y);
-}
+// getMacroFading removed from phy_shared: callers should use MapHandler directly from ue

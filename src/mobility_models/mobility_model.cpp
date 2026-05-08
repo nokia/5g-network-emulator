@@ -8,37 +8,7 @@
 #include <mobility_models/random_waypoint_model.h>
 #include <phy_layer/phy_l_definitions.h>
 
-mobility_model::mobility_model(int id, int type, pos2d _init_pos, bool _random_init, float _speed,
-                               float _speed_var, float _max_distance,
-                               float _time_target, float maxApothem, float _time_target_var, int scenario, bool _random_v)
-{
-    limit_distance(_max_distance, scenario);
-    limit_speed(_speed, scenario);
-    if (type == RANDOM_WALK_MODEL)
-    {
-        mob_model = std::unique_ptr<mobility_model_base>(new random_walk_model(id, _init_pos, _random_init, _speed, _speed_var, _max_distance, _time_target, maxApothem, _time_target_var, _random_v));
-    }
-    else if (type == RANDOM_WAYPOINT_MODEL)
-    {
-        mob_model = std::unique_ptr<mobility_model_base>(new random_waypoint_model(id, _init_pos, _random_init, _speed, _speed_var, _max_distance, _time_target, maxApothem, _time_target_var, _random_v));
-    }
-    else if (type == RANDOM_MANHATTAN_MODEL)
-    {
-        mob_model = std::unique_ptr<mobility_model_base>(new manhattan_model(id, _init_pos, _random_init, _speed, _speed_var, _max_distance, _time_target, maxApothem, _time_target_var, _random_v));
-    }
-    else if (type == LINEAR_DRIFT_MODEL)
-    {
-        mob_model = std::unique_ptr<mobility_model_base>(new linear_drift_model(id, _init_pos, _random_init, _speed, _speed_var, _max_distance, _time_target, maxApothem, _time_target_var, _random_v));
-    }
-    else if (type == CLOCKWISE_MODEL)
-    {
-        mob_model = std::unique_ptr<mobility_model_base>(new clockwise_model(id, _init_pos, _random_init, _speed, _speed_var, _max_distance, _time_target, maxApothem, _time_target_var, _random_v));
-    }
-    else
-    {
-        mob_model = std::unique_ptr<mobility_model_base>(new mobility_model_base(id, _init_pos, _random_init, _speed, _speed_var, _max_distance, _time_target, maxApothem, _time_target_var, _random_v));
-    }
-}
+
 
 mobility_model::mobility_model(int id, mobility_config mobility_c, int scenario, float maxApothem)
 {

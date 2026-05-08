@@ -4,8 +4,7 @@
 #include <algorithm>
 #include <random>
 #include <string>
-#include <mobility_models/mobility_model.h>
-#include <map/map_handler.h>
+#include <mobility_models/pos2d.h>
 #include <ue/ue_config.h>
 
 class phy_shared
@@ -15,14 +14,11 @@ public:
 
 private:
     std::mt19937 gen;
-    std::uniform_real_distribution<float> distance_cqi_dist{-1, 1};
     std::uniform_real_distribution<float> uniform_stochastics{0.0, 1.0};
-    std::normal_distribution<float> sinr_stochastics{0.0, 1.0};
 
 public:
     int compute_outdoor_to_indoor();
-int verify_outdoor_to_indoor();
-    float getMacroFading(const pos2d &pos);
+    int verify_outdoor_to_indoor();
     float get_correlation_distance();
     int get_o2i();
 
@@ -30,8 +26,6 @@ int verify_outdoor_to_indoor();
 public:
 
 protected:
-    MapHandler map;
-   mobility_model mobility_m;
     int scenario;
     float freq_ghz;
     int n_antennas;

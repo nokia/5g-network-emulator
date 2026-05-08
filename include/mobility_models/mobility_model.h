@@ -32,9 +32,6 @@ class mobility_model_base;
 class mobility_model
 {
 public:
-    mobility_model(int id, int type, pos2d _init_pos, bool _random_init, float _speed,
-                   float _speed_var, float _max_distance,
-                   float _time_target, float maxApothem, float _time_target_var, int scenario, bool _random_v);
     mobility_model(int id, mobility_config mobility_c, int scenario, float maxApothem);
     ~mobility_model();
     mobility_model(mobility_model&&) noexcept;

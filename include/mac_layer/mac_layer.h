@@ -33,9 +33,6 @@
 class mac_layer
 {
 public: 
-    mac_layer(bool _threading, std::vector<ue> *ue_list, int _mimo_layers, int _numerology,  int _n_re_freq, int _n_ofdm_syms, int _bandwidth, int _scheduling_mode,
-            int _scheduling_type, int _scheduling_config, int _metric_type, 
-            int _duplexing_type,float _ratio_DL_UL, tdd_config _tdd_c, log_config log_c, int _verbosity = 0);
     mac_layer(bool _threading, std::vector<ue> *ue_list, mac_config mac_c, tdd_config _tdd_c, log_config log_c, int _verbosity = 0);
 
 public:

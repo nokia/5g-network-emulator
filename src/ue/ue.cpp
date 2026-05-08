@@ -334,7 +334,7 @@ void ue::estimate_channel_state(int tx_dir, phy_shared &phy_s, float distance, c
 
         if (tx_dir == TX_DL)
         {
-            phy_macro_fading = phy_s.getMacroFading(pos);
+            phy_macro_fading = map.getMacroFadingValue(pos.x, pos.y);
         }
     }
 

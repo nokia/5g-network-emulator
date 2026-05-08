@@ -9,6 +9,7 @@
 #include <phy_layer/phy_config.h>
 #include <random>
 #include <traffic_models/traffic_config.h>//este no estaba antes
+#include <mobility_models/mobility_config.h>
 #include <common/direction.h>
 
 #define MAX_N_ANTENNAS 4

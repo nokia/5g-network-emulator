@@ -46,15 +46,6 @@ class pkt_capture;
 class pdcp_layer
 {
 public: 
-    pdcp_layer( int is_ip, int _max_rtx, float _air_delay_var, 
-                float _rtx_period, float _rtx_period_var, float _rtx_proc_delay, 
-                float _rtx_proc_delay_var, float _bh_d, float _bh_d_var, bool _order_pkts, int _verbosity = 0);
-
-    pdcp_layer(int is_ip, pdcp_config pdcp_c, int _verbosity = 0);
-    pdcp_layer( int _max_rtx, float _air_delay_var, 
-                float _rtx_period, float _rtx_period_var, float _rtx_proc_delay, 
-                float _rtx_proc_delay_var, float _bh_d, float _bh_d_var, int _verbosity = 0);
-
     pdcp_layer(pdcp_config pdcp_c, int _verbosity = 0);
     pdcp_layer(int _queue_num, std::chrono::microseconds *_init_t, pdcp_config pdcp_c, int _verbosity = 0);
 public: 
@@ -62,18 +53,13 @@ public:
     void init(int _mod_i, int _layers, int _logic_units);
     float release(); 
     void step(float t);
-    float request_pkts(float bits);
-    void drop_pkt(int bits);
     void generate_pkts(float bits, float pkt_size, float t);
-    void enqueue_ip_pkt(ip_pkt pkt);
-    void release_pkts(harq_pkt pkt);
     bool has_pkts();
     float get_oldest_timestamp();
     virtual float handle_pkt(float bits, int mcs, float sinr, float distance);
     float get_generated(bool partial = true);
     float get_error(bool partial = true);
     float get_ip_pkts();
-    void init_pkt_capture();
     float get_ip_latency(bool partial = true);
     float get_latency(bool partial = true);
     float get_tp(bool partial = true);
@@ -81,11 +67,11 @@ public:
     void set_pkt_delay_budget(float budget_s) { pkt_delay_budget_s = budget_s; }
     float get_pkt_delay_budget() const { return pkt_delay_budget_s; }
 
-protected:
-    void cleanup_old_pkts();
-
 private:
+    void release_pkts(harq_pkt pkt);
+    void cleanup_old_pkts();
     void init_ip_capture(int _queue_num, std::chrono::microseconds *_init_t);
+    void enqueue_captured_pkt(ip_pkt pkt);
     void cb(void* handler, netfilter_interface_t *nfiface, uint64_t timestamp_sec, uint64_t timestamp_usec,
             uint64_t bytes, uint32_t pkt_id);
     float get_current_ts() const;
@@ -116,6 +102,5 @@ private:
     std::chrono::microseconds *init_t = nullptr;
     uint32_t prev_uid = static_cast<uint32_t>(-1);
     std::shared_ptr<pkt_capture> pkt_cptr;
-    int queue_num = -1;
     std::deque<ip_pkt> captured_pkts;
 };

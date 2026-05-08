@@ -32,17 +32,6 @@ void release_handler::push(harq_pkt pkt)
     pkt_list.push_back(std::move(pkt));
 }
 
-float release_handler::release_one()
-{
-    return release(); 
-}
-
-int release_handler::get_size()
-{
-    int size = pkt_list.size();
-    return size; 
-}
-
 void release_handler::fill_queue_status(pdcp_queue_status& status, float current_t) const
 {
     status.release_size = (int)pkt_list.size();
@@ -90,15 +79,6 @@ void release_handler::step(float t)
     current_t = t; 
 }
 
-
-void release_handler::release_thread()
-{
-    while(is_awake)
-    {
-        release(); 
-    }
-    
-}
 
 float release_handler::get_latency(bool elapsed)
 {

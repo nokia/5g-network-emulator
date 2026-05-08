@@ -10,7 +10,8 @@
 
 ue::ue(int _id, ue_config ue_c, scenario_config _scenario_c, phy_enb_config _phy_enb_config, pdcp_config _pdcp_config_ul, pdcp_config _pdcp_config_dl, harq_config _harq_config, bool _stochastics)
 :     map(_scenario_c.map_file),
-      pdcp_h(_pdcp_config_ul, _pdcp_config_dl, ue_c.log_traffic),
+      pdcp_dl(_pdcp_config_dl, ue_c.log_traffic),
+      pdcp_ul(_pdcp_config_ul, ue_c.log_traffic),
       phy_dl(TX_DL, _id, _scenario_c, ue_c.get_phy_config(), _phy_enb_config, _stochastics, ue_c.log_quality),
       phy_ul(TX_UL, _id, _scenario_c, ue_c.get_phy_config(), _phy_enb_config, _stochastics, ue_c.log_quality),
       mobility_m(_id, ue_c.mobility_c, _scenario_c.type, map.getMaxApothem()),
@@ -34,7 +35,8 @@ ue::ue(int _id, ue_config ue_c, scenario_config _scenario_c, phy_enb_config _phy
     log_traffic = ue_c.log_traffic && log_ue;
     log_quality = ue_c.log_quality && log_ue;
     n_antennas = std::max(std::min(MAX_N_ANTENNAS, ue_c.ue_m.n_antennas), MIN_N_ANTENNAS);
-    pdcp_h.set_pkt_delay_budget(ue_c.pkt_delay_budget);
+    pdcp_ul.set_pkt_delay_budget(ue_c.pkt_delay_budget);
+    pdcp_dl.set_pkt_delay_budget(ue_c.pkt_delay_budget);
     phy_cqi_period = ue_c.ue_m.cqi_period;
     phy_ri_period = ue_c.ue_m.ri_period;
     phy_freq = _phy_enb_config.frequency;
@@ -42,12 +44,14 @@ ue::ue(int _id, ue_config ue_c, scenario_config _scenario_c, phy_enb_config _phy
     phy_doppler_f = phy_freq * phy_speed / LIGHTSPEED;
     phy_dl.init(_phy_enb_config.n_rbgs, _phy_enb_config.bandwidth);
     phy_ul.init(_phy_enb_config.n_rbgs, _phy_enb_config.bandwidth);
-    pdcp_h.init(_harq_config.mod, _harq_config.layers, _harq_config.log_units);
+    pdcp_ul.init(_harq_config.mod, _harq_config.layers, _harq_config.log_units);
+    pdcp_dl.init(_harq_config.mod, _harq_config.layers, _harq_config.log_units);
 }
 
 ue::ue(int _queue_num_ul, int _queue_num_dl, std::chrono::microseconds *_init_t, int _id, ue_config ue_c, scenario_config _scenario_c, phy_enb_config _phy_enb_config, pdcp_config _pdcp_config_ul, pdcp_config _pdcp_config_dl, harq_config _harq_config, bool _stochastics)
      :  map(_scenario_c.map_file),
-        pdcp_h(_queue_num_ul, _queue_num_dl, _init_t, _pdcp_config_ul, _pdcp_config_dl, ue_c.log_quality),
+        pdcp_dl(_queue_num_dl, _init_t, _pdcp_config_dl, ue_c.log_quality),
+        pdcp_ul(_queue_num_ul, _init_t, _pdcp_config_ul, ue_c.log_quality),
         phy_dl(TX_DL, _id, _scenario_c, ue_c.get_phy_config(), _phy_enb_config, _stochastics, ue_c.log_quality),
         phy_ul(TX_UL, _id, _scenario_c, ue_c.get_phy_config(), _phy_enb_config, _stochastics, ue_c.log_quality),
         mobility_m(_id, ue_c.mobility_c, _scenario_c.type, map.getMaxApothem()),
@@ -72,7 +76,8 @@ ue::ue(int _queue_num_ul, int _queue_num_dl, std::chrono::microseconds *_init_t,
     log_quality = ue_c.log_quality && log_ue;
     n_antennas = std::max(std::min(MAX_N_ANTENNAS, ue_c.ue_m.n_antennas), MIN_N_ANTENNAS);
 
-    pdcp_h.set_pkt_delay_budget(ue_c.pkt_delay_budget);
+    pdcp_ul.set_pkt_delay_budget(ue_c.pkt_delay_budget);
+    pdcp_dl.set_pkt_delay_budget(ue_c.pkt_delay_budget);
     phy_cqi_period = ue_c.ue_m.cqi_period;
     phy_ri_period = ue_c.ue_m.ri_period;
     phy_freq = _phy_enb_config.frequency;
@@ -80,13 +85,13 @@ ue::ue(int _queue_num_ul, int _queue_num_dl, std::chrono::microseconds *_init_t,
     phy_doppler_f = phy_freq * phy_speed / LIGHTSPEED;
     phy_dl.init(_phy_enb_config.n_rbgs, _phy_enb_config.bandwidth);
     phy_ul.init(_phy_enb_config.n_rbgs, _phy_enb_config.bandwidth);
-    pdcp_h.init(_harq_config.mod, _harq_config.layers, _harq_config.log_units);
+    pdcp_ul.init(_harq_config.mod, _harq_config.layers, _harq_config.log_units);
+    pdcp_dl.init(_harq_config.mod, _harq_config.layers, _harq_config.log_units);
 }
 
 void ue::init()
 {
     init_logger();
-    init_pkt_capture();
 }
 
 void ue::init_logger()
@@ -108,6 +113,18 @@ const phy_layer& ue::phy(int tx_dir) const
 {
     assert(tx_dir == TX_DL || tx_dir == TX_UL);
     return tx_dir == TX_DL ? phy_dl : phy_ul;
+}
+
+pdcp_layer& ue::pdcp(int tx_dir)
+{
+    assert(tx_dir == TX_DL || tx_dir == TX_UL);
+    return tx_dir == TX_DL ? pdcp_dl : pdcp_ul;
+}
+
+const pdcp_layer& ue::pdcp(int tx_dir) const
+{
+    assert(tx_dir == TX_DL || tx_dir == TX_UL);
+    return tx_dir == TX_DL ? pdcp_dl : pdcp_ul;
 }
 
 float ue::get_metric(int tx_dir, int f_index, int n_ues)
@@ -157,7 +174,7 @@ float ue::get_mean_sinr(int tx_dir)
 
 float ue::get_avg_tp(int tx_dir)
 {
-    return pdcp_h.get_tp(tx_dir, false);
+    return pdcp(tx_dir).get_tp(false);
 }
 
 bool ue::get_traffic_verbosity()
@@ -167,17 +184,17 @@ bool ue::get_traffic_verbosity()
 
 float ue::get_avg_l(int tx_dir)
 {
-    return pdcp_h.get_latency(tx_dir, false);
+    return pdcp(tx_dir).get_latency(false);
 }
 
 float ue::get_oldest_timestamp(int tx_dir)
 {
-    return pdcp_h.get_oldest_timestamp(tx_dir);
+    return pdcp(tx_dir).get_oldest_timestamp();
 }
 
 bool ue::has_packets(int tx_dir)
 {
-    return pdcp_h.has_pkts(tx_dir);
+    return pdcp(tx_dir).has_pkts();
 }
 
 schedule_candidate ue::get_schedule_candidate(int tx_dir, int f_index, int n_ues, int ue_index)
@@ -187,7 +204,7 @@ schedule_candidate ue::get_schedule_candidate(int tx_dir, int f_index, int n_ues
     candidate.ue_id = id;
     candidate.bits_per_symbol = phy(tx_dir).get_tp(f_index);
     candidate.metric = phy(tx_dir).get_metric(f_index, n_ues);
-    candidate.has_data = pdcp_h.has_pkts(tx_dir) && candidate.bits_per_symbol > 0;
+    candidate.has_data = pdcp(tx_dir).has_pkts() && candidate.bits_per_symbol > 0;
     return candidate;
 }
 
@@ -203,13 +220,13 @@ void ue::update_pos()
 float ue::generate_data(int tx)
 {
     float bits = traffic_m->generate(tx, current_t);
-    pdcp_h.generate_pkts(tx, bits, traffic_m->get_pkt_size(tx), current_t);
+    pdcp(tx).generate_pkts(bits, traffic_m->get_pkt_size(tx), current_t);
     return bits;
 }
 
 float ue::handle_pkt(float bits, int tx_dir, int f_index)
 {
-    float eff_tp = pdcp_h.handle_pkt(tx_dir, bits, phy(tx_dir).get_mcs(f_index), phy(tx_dir).get_sinr(f_index), mobility_m.get_distance());
+    float eff_tp = pdcp(tx_dir).handle_pkt(bits, phy(tx_dir).get_mcs(f_index), phy(tx_dir).get_sinr(f_index), mobility_m.get_distance());
     return eff_tp;
 }
 
@@ -230,20 +247,17 @@ int ue::get_id()
 
 void ue::update_pdcp()
 {
-    pdcp_h.step(current_t);
-    pdcp_h.release();
+    pdcp_dl.step(current_t);
+    pdcp_ul.step(current_t);
+    pdcp_dl.release();
+    pdcp_ul.release();
     if (log_traffic && ue_log.ready())
     {
-        ue_log.log_partial("rul:{} rdl:{} ", pdcp_h.get_tp(T_UL, true), pdcp_h.get_tp(T_DL, true));
-        ue_log.log_partial("lul:{} ldl:{} ", pdcp_h.get_latency(T_UL, true), pdcp_h.get_latency(T_DL, true));
-        ue_log.log_partial("ilul:{} ildl:{} ", pdcp_h.get_ip_latency(T_UL, true), pdcp_h.get_ip_latency(T_DL, true));
-        ue_log.log_partial("eul:{} edl:{} ", pdcp_h.get_error(T_UL, true), pdcp_h.get_error(T_DL, true));
+        ue_log.log_partial("rul:{} rdl:{} ", pdcp_ul.get_tp(true), pdcp_dl.get_tp(true));
+        ue_log.log_partial("lul:{} ldl:{} ", pdcp_ul.get_latency(true), pdcp_dl.get_latency(true));
+        ue_log.log_partial("ilul:{} ildl:{} ", pdcp_ul.get_ip_latency(true), pdcp_dl.get_ip_latency(true));
+        ue_log.log_partial("eul:{} edl:{} ", pdcp_ul.get_error(true), pdcp_dl.get_error(true));
     }
-}
-
-void ue::init_pkt_capture()
-{
-    pdcp_h.init_pkt_capture();
 }
 
 void ue::generate_traffic()
@@ -254,16 +268,16 @@ void ue::generate_traffic()
         float ul_bits = generate_data(T_UL);
         if (log_traffic && ue_log.ready())
         {
-            ue_log.log_partial("gul:{} gdl:{} ", pdcp_h.get_generated(T_UL, true), pdcp_h.get_generated(T_DL, true));
+            ue_log.log_partial("gul:{} gdl:{} ", pdcp_ul.get_generated(true), pdcp_dl.get_generated(true));
         }
     }
     else
     {
-        float dl_bits = pdcp_h.get_ip_pkts(T_DL);
-        float ul_bits = pdcp_h.get_ip_pkts(T_UL);
+        float dl_bits = pdcp_dl.get_ip_pkts();
+        float ul_bits = pdcp_ul.get_ip_pkts();
         if (log_traffic && ue_log.ready())
         {
-            ue_log.log_partial("gul:{} gdl:{} ", pdcp_h.get_generated(T_UL, true), pdcp_h.get_generated(T_DL, true));
+            ue_log.log_partial("gul:{} gdl:{} ", pdcp_ul.get_generated(true), pdcp_dl.get_generated(true));
         }
     }
 }
@@ -296,7 +310,7 @@ void ue::init_phy_update_rates(float _doppler_f, int _cqi_p, int _ri_p)
     }
 }
 
-void ue::estimate_channel_estate(int tx_dir, phy_shared &phy_s, float distance, const pos2d &pos, float oldest_t, float avg_tp, float _current_t)
+void ue::estimate_channel_state(int tx_dir, phy_shared &phy_s, float distance, const pos2d &pos, float oldest_t, float avg_tp, float _current_t)
 {
     init_phy_update_rates(phy_doppler_f, phy_cqi_period, phy_ri_period);
 
@@ -339,8 +353,8 @@ void ue::step()
  
 
 
-    estimate_channel_estate(TX_DL, phy_s, distance, *mobility_m.get_pos(), get_oldest_timestamp(TX_DL), get_avg_tp(TX_DL), current_t);
-    estimate_channel_estate(TX_UL, phy_s, distance, *mobility_m.get_pos(), get_oldest_timestamp(TX_UL), get_avg_tp(TX_UL), current_t);
+    estimate_channel_state(TX_DL, phy_s, distance, *mobility_m.get_pos(), get_oldest_timestamp(TX_DL), get_avg_tp(TX_DL), current_t);
+    estimate_channel_state(TX_UL, phy_s, distance, *mobility_m.get_pos(), get_oldest_timestamp(TX_UL), get_avg_tp(TX_UL), current_t);
 
     return;
 }
@@ -352,14 +366,14 @@ void ue::print_traffic()
         if (verbosity >= 1)
         {
             LOG_INFO_I("ue::print_traffic") << " UE: " << id << " distance: " << mobility_m.get_distance() << END();
-            LOG_INFO_I("ue::print_traffic") << " UE: " << id << " Mbps - UL gen. rate " << pdcp_h.get_generated(TX_UL, false) << " Mbps - DL gen. rate " << pdcp_h.get_generated(TX_DL, false) << END();
-            LOG_INFO_I("ue::print_traffic") << " UE: " << id << " Mbps - UL error rate " << pdcp_h.get_error(TX_UL, false) << " Mbps - DL error rate " << pdcp_h.get_error(TX_DL, false) << END();
-            LOG_INFO_I("ue::print_traffic") << " " << id << " Mbps - UL cons. rate " << pdcp_h.get_tp(TX_UL, false) << " Mbps - DL cons. rate " << pdcp_h.get_tp(TX_DL, false) << END();
-            LOG_INFO_I("ue::print_traffic") << " " << id << " Mbps - UL latency " << pdcp_h.get_latency(TX_UL, false) << " s - DL latency " << pdcp_h.get_latency(TX_DL, false) << END();
-            LOG_INFO_I("ue::print_traffic") << " " << id << " Mbps - UL IP latency " << pdcp_h.get_ip_latency(TX_UL, false) << " s - DL IP latency " << pdcp_h.get_ip_latency(TX_DL, false) << END();
+            LOG_INFO_I("ue::print_traffic") << " UE: " << id << " Mbps - UL gen. rate " << pdcp_ul.get_generated(false) << " Mbps - DL gen. rate " << pdcp_dl.get_generated(false) << END();
+            LOG_INFO_I("ue::print_traffic") << " UE: " << id << " Mbps - UL error rate " << pdcp_ul.get_error(false) << " Mbps - DL error rate " << pdcp_dl.get_error(false) << END();
+            LOG_INFO_I("ue::print_traffic") << " " << id << " Mbps - UL cons. rate " << pdcp_ul.get_tp(false) << " Mbps - DL cons. rate " << pdcp_dl.get_tp(false) << END();
+            LOG_INFO_I("ue::print_traffic") << " " << id << " Mbps - UL latency " << pdcp_ul.get_latency(false) << " s - DL latency " << pdcp_dl.get_latency(false) << END();
+            LOG_INFO_I("ue::print_traffic") << " " << id << " Mbps - UL IP latency " << pdcp_ul.get_ip_latency(false) << " s - DL IP latency " << pdcp_dl.get_ip_latency(false) << END();
 
-            auto ul_status = pdcp_h.get_queue_status(TX_UL);
-            auto dl_status = pdcp_h.get_queue_status(TX_DL);
+            auto ul_status = pdcp_ul.get_queue_status();
+            auto dl_status = pdcp_dl.get_queue_status();
 
             LOG_INFO_I("ue::print_traffic") << " UL IP buf: " << ul_status.ip_buffer_size << " pkts (oldest UID " << ul_status.ip_oldest_uid << ", delay " << ul_status.ip_oldest_age << " s)" << END();
             LOG_INFO_I("ue::print_traffic") << " DL IP buf: " << dl_status.ip_buffer_size << " pkts (oldest UID " << dl_status.ip_oldest_uid << ", delay " << dl_status.ip_oldest_age << " s)" << END();

@@ -9,12 +9,13 @@
 
 #include <algorithm>
 #include <chrono>
+#include <memory>
 #include <random>
 #include <string>
 #include <phy_layer/phy_layer.h>
 #include <phy_shared/phy_shared.h>
 #include <mobility_models/mobility_model.h>
-#include <pdcp_layer/pdcp_handler.h>
+#include <pdcp_layer/pdcp_layer.h>
 #include <traffic_models/traffic_model.h>
 #include <mac_layer/harq_config.h>
 #include <map/map_handler.h>
@@ -36,7 +37,7 @@ struct schedule_candidate
 // ue(): this class is in charge of modeling and updating the simulated UE's position, 
 // generating/handling packets, estimating the Channel State Indicator and Releasing or Dropping the 
 // already processed packets. The emulator's instances of mobility_model(), traffic_model(),
-// netfilter_queues()/pkt_capture(), phy_layer() and pdcp_handler() are all part of the UE module
+// netfilter_queues()/pkt_capture(), phy_layer() and pdcp_layer() are all part of the UE module
 // Input: 
 //      _queue_num_ul/_queue_num_dl: Netfilter Queues IDs (only if real traffic is being used)
 //      _init_t: Initial timestamp (only for real IP traffic)
@@ -141,12 +142,13 @@ public:
     void add_current_t(double _current_t){current_t = _current_t; }
 
 private: 
-    void init_pkt_capture(); 
     void init_logger(); 
     phy_layer& phy(int tx_dir);
     const phy_layer& phy(int tx_dir) const;
+    pdcp_layer& pdcp(int tx_dir);
+    const pdcp_layer& pdcp(int tx_dir) const;
     void init_phy_update_rates(float _doppler_f, int _cqi_p, int _ri_p);
-    void estimate_channel_estate(int tx_dir, phy_shared &phy_s, float distance, const pos2d &pos, float oldest_t, float avg_tp, float _current_t);
+    void estimate_channel_state(int tx_dir, phy_shared &phy_s, float distance, const pos2d &pos, float oldest_t, float avg_tp, float _current_t);
 
 private:
     std::mt19937 gen;
@@ -171,7 +173,8 @@ protected:
 
 protected: 
     MapHandler map;
-    pdcp_handler pdcp_h;
+    pdcp_layer pdcp_dl;
+    pdcp_layer pdcp_ul;
     phy_layer phy_dl;
     phy_layer phy_ul;
     mobility_model mobility_m; 

@@ -11,18 +11,6 @@
 #include <pdcp_layer/release_handler_ip.h>
 #include <utils/terminal_logging.h>
 
-pdcp_layer::pdcp_layer( int _max_rtx, float _air_delay_var, 
-                        float _rtx_period, float _rtx_period_var, float _rtx_proc_delay, 
-                        float _rtx_proc_delay_var, float _bh_d, float _bh_d_var, int _verbosity)
-           :_harq_buffer(_max_rtx, _air_delay_var, _rtx_period, _rtx_period_var, _rtx_proc_delay, _rtx_proc_delay_var, _verbosity), 
-            _ip_buffer(_verbosity)
-           {
-                _release_h = std::shared_ptr<release_handler>(new release_handler());
-                bh_d = _bh_d; 
-                bh_d_var = _bh_d_var;
-                verbosity = _verbosity; 
-           }
-
 pdcp_layer::pdcp_layer( pdcp_config pdcp_c, int _verbosity)
            :_harq_buffer(pdcp_c.max_rtx, pdcp_c.air_delay_var, 
                             pdcp_c.rtx_period, pdcp_c.rtx_period_var, pdcp_c.rtx_proc_delay, pdcp_c.rtx_proc_delay_var, _verbosity), 
@@ -34,38 +22,18 @@ pdcp_layer::pdcp_layer( pdcp_config pdcp_c, int _verbosity)
                 verbosity = _verbosity;
             }
 
-pdcp_layer::pdcp_layer( int _is_ip, int _max_rtx, float _air_delay_var, 
-                        float _rtx_period, float _rtx_period_var, float _rtx_proc_delay, 
-                        float _rtx_proc_delay_var, float _bh_d, float _bh_d_var, bool _order_pkts, int _verbosity)
-           :_harq_buffer(_max_rtx, _air_delay_var, _rtx_period, _rtx_period_var, _rtx_proc_delay, _rtx_proc_delay_var, _verbosity), 
-            _ip_buffer(_verbosity)
-           {
-                is_ip = _is_ip != 0;
-                _release_h = is_ip ? std::shared_ptr<release_handler>(new release_handler_ip(_order_pkts))
-                                   : std::shared_ptr<release_handler>(new release_handler());
-                bh_d = _bh_d; 
-                bh_d_var = _bh_d_var;
-                verbosity = _verbosity; 
-           }
-
-pdcp_layer::pdcp_layer( int _is_ip, pdcp_config pdcp_c, int _verbosity)
+pdcp_layer::pdcp_layer(int _queue_num, std::chrono::microseconds *_init_t, pdcp_config pdcp_c, int _verbosity)
            :_harq_buffer(pdcp_c.max_rtx, pdcp_c.air_delay_var, 
                             pdcp_c.rtx_period, pdcp_c.rtx_period_var, pdcp_c.rtx_proc_delay, pdcp_c.rtx_proc_delay_var, _verbosity), 
             _ip_buffer(_verbosity)
             {
-                is_ip = _is_ip != 0;
-                _release_h = is_ip ? std::shared_ptr<release_handler>(new release_handler_ip(pdcp_c.order_packets))
-                                   : std::shared_ptr<release_handler>(new release_handler());
+                is_ip = true;
+                _release_h = std::shared_ptr<release_handler>(new release_handler_ip(pdcp_c.order_packets));
                 bh_d = pdcp_c.bh_d; 
                 bh_d_var = pdcp_c.bh_d_var; 
                 verbosity = _verbosity;
+                init_ip_capture(_queue_num, _init_t);
             }
-
-pdcp_layer::pdcp_layer(int _queue_num, std::chrono::microseconds *_init_t, pdcp_config pdcp_c, int _verbosity)
-           :pdcp_layer(1, pdcp_c, _verbosity)
-{
-    init_ip_capture(_queue_num, _init_t);
-}
 
 void pdcp_layer::exit()
 {
@@ -80,7 +48,7 @@ void pdcp_layer::init(int _mod_i, int _layers, int _logic_units)
 
 float pdcp_layer::release()
 {
-	return _release_h->release_one(); 
+	return _release_h->release(); 
 }
 
 void pdcp_layer::step(float t)
@@ -92,55 +60,15 @@ void pdcp_layer::step(float t)
     cleanup_old_pkts();
 }
 
-float pdcp_layer::request_pkts(float bits)
-{
-    return _ip_buffer.get_pkts(bits);
-}
-
-void pdcp_layer::drop_pkt(int bits)
-{
-    _ip_buffer.drop_pkt(bits);
-}
-
 void pdcp_layer::generate_pkts(float bits, float pkt_size, float t)
 {
     _ip_buffer.generate(bits, pkt_size, t, bh_d, bh_d_var);
 }
 
-void pdcp_layer::enqueue_ip_pkt(ip_pkt pkt)
+void pdcp_layer::enqueue_captured_pkt(ip_pkt pkt)
 {
     _ip_buffer.add_pkt(std::move(pkt));
 }
-
-/*
-float pdcp_layer::release_pkts(ip_pkt pkt)
-{
-    float bits = 0; 
-    if(pkt.is_fragment)
-    {
-        bits = pkt.original_size;
-        _release_h.push(pkt);
-    }
-    _ip_buffer.consume_bits(bits);
-    return bits; 
-}
-
-float pdcp_layer::release_pkts(std::deque<ip_pkt> *pkts)
-{
-    float bits = 0; 
-    for(int i = 0; i < pkts->size(); i++)
-    {
-        ip_pkt *pkt = &(*pkts)[i];
-        if(!pkt->is_fragment)
-        {
-            bits += pkt->original_size;
-            _release_h.push(*pkt);
-        }
-    }
-    _ip_buffer.consume_bits(bits);
-    return bits; 
-}
-*/
 
 void pdcp_layer::release_pkts(harq_pkt pkt)
 {
@@ -231,21 +159,16 @@ float pdcp_layer::get_ip_pkts()
     for(std::deque<ip_pkt>::iterator it = captured_pkts.begin(); it != captured_pkts.end();)
     {
         bits += it->size;
-        enqueue_ip_pkt(std::move(*it));
+        enqueue_captured_pkt(std::move(*it));
         it = captured_pkts.erase(it);
     }
     pkt_cptr->unlock();
     return bits;
 }
 
-void pdcp_layer::init_pkt_capture()
-{
-}
-
 void pdcp_layer::init_ip_capture(int _queue_num, std::chrono::microseconds *_init_t)
 {
     init_t = _init_t;
-    queue_num = _queue_num;
     pkt_cptr = std::shared_ptr<pkt_capture>(new pkt_capture(_queue_num));
     _release_h->set_pkt_cptr(pkt_cptr);
     pkt_cptr->start(std::bind(&pdcp_layer::cb, this, std::placeholders::_1, std::placeholders::_2,

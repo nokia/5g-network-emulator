@@ -28,26 +28,18 @@ class release_handler
 public: 
     release_handler();
     ~release_handler();
-    float release_one();
     void init();
     void quit();
     virtual void set_pkt_cptr(const std::shared_ptr<pkt_capture> &_pkt_cptr){}
     virtual void push(harq_pkt pkt);
     virtual void drop(harq_pkt pkt){}
     virtual void fill_queue_status(pdcp_queue_status& status, float current_t) const;
-    int get_size();
     virtual float release();
     void step(float t);
-    void release_thread();
 
     float get_ip_latency(bool elapsed = true);
     float get_latency(bool elapsed = true);
     float get_tp(bool elapsed = true);
-
-protected: 
-    bool check_order(int id);
-    void update_order(int id);
-
 
 protected: 
     int prev_id = -1; 
@@ -55,7 +47,6 @@ protected:
 protected: 
     std::deque<harq_pkt> pkt_list; 
     float current_t = 0; 
-    bool is_awake = false; 
 
 protected: 
     mean_handler<float> tp_mean; 

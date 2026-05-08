@@ -127,37 +127,6 @@ float ip_buffer::get_pkts(float _bits, harq_pkt& out_pkt)
     return out_pkt.bits; 
 }
 
-float ip_buffer::get_pkts(float _bits)
-{
-    float bits = _bits; 
-    float bits_c = 0; 
-    int n_out_pkts = 0; 
-    while(bits > 0 && pkt_list.size() > 0)
-    {
-        ip_pkt *pkt = &pkt_list.front();                
-        if(bits >= pkt->size)
-        {
-            bits_c += pkt->size; 
-            bits -= pkt->size; 
-            pkt_list.pop_front();
-            n_out_pkts++; 
-        
-    }
-    else
-    {    
-        bits_c += bits; 
-        pkt->size -= bits;
-            bits = 0; 
-            pkt->is_fragment = true; 
-            n_out_pkts++;
-        } 
-    }
-    if(pkt_list.empty()) oldest_t = current_t;
-    else oldest_t = pkt_list.front().current_t;
-    current_size -= bits_c; 
-    return bits_c; 
-}
-
 float ip_buffer::get_generated(bool partial)
 { 
     if(verbosity > 0) 

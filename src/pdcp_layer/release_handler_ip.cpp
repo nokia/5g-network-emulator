@@ -13,7 +13,6 @@ release_handler_ip::release_handler_ip(bool _do_check)
 void release_handler_ip::set_pkt_cptr(const std::shared_ptr<pkt_capture> &_pkt_cptr)
 {
     pkt_cptr = _pkt_cptr;
-    debug_queue_num = pkt_cptr->queue_num;
 }
 
 void release_handler_ip::sort_by_id()
@@ -28,7 +27,7 @@ void release_handler_ip::push(harq_pkt pkt)
     {
         jt->t_out = pkt.t_out;
         jt->ip_t = pkt.ip_t;
-        if(!add_data(&(*jt), pkt.id))
+        if(!add_data(&(*jt)))
         {
             jt->frags_recovered++;
             out_pkts.push_back(std::move(*jt));
@@ -37,9 +36,8 @@ void release_handler_ip::push(harq_pkt pkt)
     sort_by_id();
 }
 
-bool release_handler_ip::add_data(ip_pkt *recv_pkt, int harq_id)
+bool release_handler_ip::add_data(ip_pkt *recv_pkt)
 {
-    (void)harq_id;
     for(std::deque<ip_pkt>::iterator jt = out_pkts.begin(); jt != out_pkts.end(); jt++)
     {
         if(jt->uid == recv_pkt->uid)

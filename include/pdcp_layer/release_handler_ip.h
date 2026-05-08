@@ -20,20 +20,15 @@ public:
 
 public: 
     void set_pkt_cptr(const std::shared_ptr<pkt_capture> &_pkt_cptr) override;
-
-public: 
-    
-    void sort_by_id();
     void push(harq_pkt pkt) override;
-    bool add_data(ip_pkt *recv_pkt, int harq_id);
-    bool remove_data(int id, float bits);
     void drop(harq_pkt pkt) override;
     void fill_queue_status(pdcp_queue_status& status, float current_t) const override;
-    
     float release() override;
 
 private: 
-
+    void sort_by_id();
+    bool add_data(ip_pkt *recv_pkt);
+    bool remove_data(int id, float bits);
     bool check_order(int id);
     void update_order(int id);
 
@@ -41,5 +36,4 @@ private:
     bool do_check = true; 
     std::deque<ip_pkt> out_pkts; 
     std::shared_ptr<pkt_capture> pkt_cptr; 
-    int debug_queue_num =  -1;
 };

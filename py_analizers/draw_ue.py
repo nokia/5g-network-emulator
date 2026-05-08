@@ -59,6 +59,8 @@ def plot_combined_trajectory(all_data, outdir):
     cmap = plt.get_cmap("tab10")
     for i, data in enumerate(all_data):
         x, y = data['x'], data['y']
+        n = min(len(x), len(y)) # Trim to the shortest length
+        x, y = x[:n], y[:n]
         if not x or not y:
             continue
         plt.plot(x, y, label=f"UE {i}", alpha=0.6, color=cmap(i % cmap.N))

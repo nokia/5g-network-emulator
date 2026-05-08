@@ -43,6 +43,17 @@ int release_handler::get_size()
     return size; 
 }
 
+void release_handler::fill_queue_status(pdcp_queue_status& status, float current_t) const
+{
+    status.release_size = (int)pkt_list.size();
+    if(!pkt_list.empty())
+    {
+        const harq_pkt &pkt = pkt_list.front();
+        status.release_oldest_uid = pkt.id;
+        status.release_oldest_age = current_t - pkt.ip_t;
+    }
+}
+
 float release_handler::release()
 {
     int count = 0; 
@@ -108,4 +119,3 @@ float release_handler::get_tp(bool elapsed)
     if(!elapsed)return BIT2MBIT*tp_mean.get_total()*S2MS; 
     else return BIT2MBIT*tp_mean.get()*S2MS;
 }
-

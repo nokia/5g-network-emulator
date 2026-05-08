@@ -1,14 +1,20 @@
 FROM ubuntu:24.04
 
-# Update and install packages
-RUN apt-get update && apt-get install -y \
-  build-essential libnetfilter-queue-dev libmnl-dev \
-  vim
+RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y --no-install-recommends \
+  build-essential \
+  ca-certificates \
+  iperf3 \
+  iptables \
+  libmnl-dev \
+  libnetfilter-queue-dev \
+  psmisc \
+  python3 \
+  python3-matplotlib \
+  python3-numpy \
+  sudo \
+  && rm -rf /var/lib/apt/lists/*
 
-# Copy source
 WORKDIR /usr/src/5g-network-emulator
 COPY . .
 
-# Build emulator
-RUN ls -lrt
-RUN make
+RUN make -j"$(nproc)" && make test

@@ -36,6 +36,7 @@ bin/
 logs/
 results/
 testconfig/
+tmp/
 
 # Python
 __pycache__/

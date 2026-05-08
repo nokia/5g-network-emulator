@@ -53,8 +53,8 @@ CLIENT_PID=$client_pid
 
 # Run emulator
 pushd "$ROOT_DIR" > /dev/null
-echo "[RUN] Running bin/main with ${CONFIG_FILE}"
-sudo ./bin/main "$CONFIG_FILE"
+echo "[RUN] Running bin/fikore with ${CONFIG_FILE}"
+sudo ./bin/fikore "$CONFIG_FILE"
 RESULT_CODE=$?
 popd > /dev/null
 

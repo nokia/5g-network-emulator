@@ -51,19 +51,10 @@ void rb::estimate_params(int syms, float _current_t)
     {
         for(std::vector<ue>::iterator it = ue_list->begin(); it != ue_list->end(); ++it)
         {
-            float current_tp = it->get_tp(tx, f);
-
-            if (it->has_packets(tx) && current_tp > 0)
-            {     
-                // Get the metric
-                float metric = it->get_metric(tx, f, n_ues);
-
-                // WE NEED TO RESERVE MEMORY
-                if( max_metric.evaluate(metric) && current_tp > 0){
-                    max_metric.assign(current_tp, metric, index, it->get_id()); 
-                }
+            schedule_candidate candidate = it->get_schedule_candidate(tx, f, n_ues, index);
+            if(candidate.has_data && max_metric.evaluate(candidate.metric)){
+                max_metric.assign(candidate.bits_per_symbol, candidate.metric, candidate.ue_index, candidate.ue_id);
             }
-            else it->get_metric(tx, f, n_ues);
             index++; 
         }
     }

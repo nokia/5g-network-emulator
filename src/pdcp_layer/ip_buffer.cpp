@@ -135,7 +135,7 @@ float ip_buffer::get_pkts(float _bits)
     while(bits > 0 && pkt_list.size() > 0)
     {
         ip_pkt *pkt = &pkt_list.front();                
-        if(bits > pkt->size)
+        if(bits >= pkt->size)
         {
             bits_c += pkt->size; 
             bits -= pkt->size; 
@@ -152,7 +152,8 @@ float ip_buffer::get_pkts(float _bits)
             n_out_pkts++;
         } 
     }
-    oldest_t = pkt_list.front().current_t;
+    if(pkt_list.empty()) oldest_t = current_t;
+    else oldest_t = pkt_list.front().current_t;
     current_size -= bits_c; 
     return bits_c; 
 }

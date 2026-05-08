@@ -1,4 +1,5 @@
 #include <phy_shared/phy_shared.h>
+#include <phy_layer/phy_l_definitions.h>
 #include <utils/conversions.h>
 #include <utils/terminal_logging.h>
 

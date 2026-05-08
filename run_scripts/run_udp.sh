@@ -58,7 +58,7 @@ sudo iptables -I OUTPUT -p udp --dport 5202 -j NFQUEUE --queue-num 0
 # Run emulator
 echo "[EMULATOR] Running emulator with ${CONFIG_FILE}..."
 pushd "$ROOT_DIR" > /dev/null
-sudo ./bin/main "$CONFIG_FILE"
+sudo ./bin/fikore "$CONFIG_FILE"
 RESULT_CODE=$?
 popd > /dev/null
 

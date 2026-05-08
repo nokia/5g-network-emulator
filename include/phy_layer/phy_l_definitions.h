@@ -9,6 +9,7 @@
 
 #include <math.h>
 #include <vector>
+#include <common/direction.h>
 
 // MODULATION MODE
 #define MODULATION_64 0
@@ -22,15 +23,6 @@
 #define ENB_MAX_RANGE 5000
 
 static const std::vector<float> RI_THRES_DEFAULT{-20, 15};
-
-// TX MODE
-#ifndef TX_DL
-#define TX_DL 0
-#endif
-#ifndef TX_UL
-#define TX_UL 1
-#endif
-
 
 #define URBAN_MICROCELL 0
 #define URBAN_MACROCELL 1

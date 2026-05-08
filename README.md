@@ -30,6 +30,15 @@ To build the emulator, use:
 ```bash
 make
 ```
+This produces the executable at `bin/fikore`.
+
+For a quick local check without privileged IP traffic, use:
+
+```bash
+make test
+make smoke
+```
+
 To run FikoRE with a specific configuration, execute any of the .sh scripts in the run_scripts/ directory:
 ```bash
 

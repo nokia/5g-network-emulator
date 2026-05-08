@@ -18,7 +18,7 @@ DRAW_UE="${ANALYZER_DIR}/draw_ue.py"
 # Run emulator
 cd "$ROOT_DIR"
 echo "[RUN] Running emulator with $CONFIG_NAME"
-./bin/main "$CONFIG_FILE"
+./bin/fikore "$CONFIG_FILE"
 if [ $? -ne 0 ]; then
     echo "[ERROR] Emulator failed."
     exit 1

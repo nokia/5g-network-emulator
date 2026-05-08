@@ -9,18 +9,10 @@
 #include <phy_layer/phy_config.h>
 #include <random>
 #include <traffic_models/traffic_config.h>//este no estaba antes
-
+#include <common/direction.h>
 
 #define MAX_N_ANTENNAS 4
 #define MIN_N_ANTENNAS 1
-
-#ifndef TX_DL
-#define TX_DL 0
-#endif
-
-#ifndef TX_UL
-#define TX_UL 1
-#endif
 
 #define MAX_SINR 35
 #define MIN_SINR -10

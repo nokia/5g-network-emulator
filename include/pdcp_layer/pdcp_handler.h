@@ -5,15 +5,12 @@
 **********************************************/
 
 #pragma once
-#include <pdcp_layer/pdcp_layer_ip.h>
-#include <pdcp_layer/pdcp_config.h>
+#include <array>
+#include <memory>
 
-#ifndef T_DL
-#define T_DL 0
-#endif
-#ifndef T_UL
-#define T_UL 1
-#endif
+#include <common/direction.h>
+#include <pdcp_layer/pdcp_layer.h>
+#include <pdcp_layer/pdcp_config.h>
 
 //--------------------------------------------------------------------------------------------------
 // pdcp_handler(): this class interfaces the different PDCP/RLC processes with other emulator's 
@@ -56,8 +53,11 @@ public:
     void set_pkt_delay_budget(float budget_s);
 
 protected: 
-    std::shared_ptr<pdcp_layer> pdcp_ul;  
-    std::shared_ptr<pdcp_layer> pdcp_dl;  
+    pdcp_layer& layer(int tx);
+    const pdcp_layer& layer(int tx) const;
+
+protected:
+    std::array<std::shared_ptr<pdcp_layer>, 2> layers;
 protected: 
     float current_t = 0;
 protected: 

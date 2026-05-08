@@ -10,165 +10,128 @@
 
 pdcp_handler::pdcp_handler( pdcp_config pdcp_c_ul, pdcp_config pdcp_c_dl, bool _verbosity)
              {
-                 pdcp_ul = std::shared_ptr<pdcp_layer>(new pdcp_layer(pdcp_c_ul, _verbosity));
-                 pdcp_dl = std::shared_ptr<pdcp_layer>(new pdcp_layer(pdcp_c_dl, _verbosity));
+                 layers[T_UL] = std::shared_ptr<pdcp_layer>(new pdcp_layer(pdcp_c_ul, _verbosity));
+                 layers[T_DL] = std::shared_ptr<pdcp_layer>(new pdcp_layer(pdcp_c_dl, _verbosity));
                  verbosity = _verbosity; 
              }
 
 pdcp_handler::pdcp_handler( int _queue_num_ul, int _queue_num_dl, std::chrono::microseconds * _init_t, pdcp_config pdcp_c_ul, pdcp_config pdcp_c_dl, bool _verbosity)
              {
-                 pdcp_ul = std::shared_ptr<pdcp_layer>(new pdcp_layer_ip(_queue_num_ul, _init_t, pdcp_c_ul, _verbosity));
-                 pdcp_dl = std::shared_ptr<pdcp_layer>(new pdcp_layer_ip(_queue_num_dl, _init_t, pdcp_c_dl, _verbosity));
+                 layers[T_UL] = std::shared_ptr<pdcp_layer>(new pdcp_layer(_queue_num_ul, _init_t, pdcp_c_ul, _verbosity));
+                 layers[T_DL] = std::shared_ptr<pdcp_layer>(new pdcp_layer(_queue_num_dl, _init_t, pdcp_c_dl, _verbosity));
                  verbosity = _verbosity; 
              }
 
+pdcp_layer& pdcp_handler::layer(int tx)
+{
+    assert(tx==T_DL||tx==T_UL);
+    return *layers[tx];
+}
+
+const pdcp_layer& pdcp_handler::layer(int tx) const
+{
+    assert(tx==T_DL||tx==T_UL);
+    return *layers[tx];
+}
+
 void pdcp_handler::exit()
 {
-    pdcp_ul->exit(); 
-    pdcp_dl->exit(); 
+    layer(T_UL).exit();
+    layer(T_DL).exit();
 }
 
 void pdcp_handler::init(int _mod_i, int _layers, int _logic_units)
 {
-    pdcp_ul->init(_mod_i, _layers, _logic_units); 
-    pdcp_dl->init(_mod_i, _layers, _logic_units); 
+    layer(T_UL).init(_mod_i, _layers, _logic_units);
+    layer(T_DL).init(_mod_i, _layers, _logic_units);
 }
 
 void pdcp_handler::release()
 {
-    pdcp_ul->release(); 
-    pdcp_dl->release(); 
+    layer(T_UL).release();
+    layer(T_DL).release();
 }
 
 void pdcp_handler::release(float &ul_bits, float &dl_bits)
 {
-    ul_bits = pdcp_ul->release(); 
-    dl_bits = pdcp_dl->release(); 
+    ul_bits = layer(T_UL).release();
+    dl_bits = layer(T_DL).release();
 }
 
 void pdcp_handler::step(int tx, float t)
 {
-	assert(tx==T_DL||tx==T_UL); 
-    if(tx == T_DL) pdcp_dl->step(t);
-    else pdcp_ul->step(t);
+    layer(tx).step(t);
 }
 
 void pdcp_handler::step(float t)
 {
-    pdcp_dl->step(t);
-    pdcp_ul->step(t);
+    layer(T_DL).step(t);
+    layer(T_UL).step(t);
 }
 
 void pdcp_handler::init_pkt_capture()
 {
-    pdcp_ul->init_pkt_capture(); 
-    pdcp_dl->init_pkt_capture(); 
+    layer(T_UL).init_pkt_capture();
+    layer(T_DL).init_pkt_capture();
 } 
 
 float pdcp_handler::get_ip_pkts(int tx)
 {
-    assert(tx==T_DL||tx==T_UL); 
-    if(tx == T_DL) return pdcp_dl->get_ip_pkts();
-    else return pdcp_ul->get_ip_pkts();
+    return layer(tx).get_ip_pkts();
 }
-/*
-void pdcp_handler::drop_pkt(int tx, harq_pkt pkt)
-{
-    if(tx == T_DL) pdcp_dl->drop_pkt(pkt);
-    if(tx == T_UL) pdcp_ul->drop_pkt(pkt);
-}
-*/
 
 void pdcp_handler::generate_pkts(int tx, float bits, float pkt_size, float t)
 {
-    assert(tx==T_DL||tx==T_UL); 
-    if(tx == T_DL) pdcp_dl->generate_pkts(bits, pkt_size, t);
-    else pdcp_ul->generate_pkts(bits, pkt_size, t);
+    layer(tx).generate_pkts(bits, pkt_size, t);
 }
-
-/*float pdcp_handler::release_pkts(int tx, ip_pkt pkt)
-{
-    if(tx == T_DL) return pdcp_dl->release_pkts(pkt);
-    if(tx == T_UL) return pdcp_ul->release_pkts(pkt);
-}
-
-float pdcp_handler::release_pkts(int tx, ip_pkt pkt)
-{
-    if(tx == T_DL) return pdcp_dl->release_pkts(pkt);
-    if(tx == T_UL) return pdcp_ul->release_pkts(pkt);
-}
-
-float pdcp_handler::release_pkts(int tx, std::deque<ip_pkt> *pkts)
-{
-    if(tx == T_DL) return pdcp_dl->release_pkts(pkts);
-    if(tx == T_UL) return pdcp_ul->release_pkts(pkts);
-}*/
 
 bool pdcp_handler::has_pkts(int tx)
 {
-    assert(tx==T_DL||tx==T_UL); 
-    if(tx == T_DL) return pdcp_dl->has_pkts();
-    else return pdcp_ul->has_pkts();
+    return layer(tx).has_pkts();
 }
 
 float pdcp_handler::get_oldest_timestamp(int tx)
 {
-    assert(tx==T_DL||tx==T_UL); 
-    if(tx == T_DL) return pdcp_dl->get_oldest_timestamp();
-    else return pdcp_ul->get_oldest_timestamp(); 
+    return layer(tx).get_oldest_timestamp();
 }
 
 float pdcp_handler::handle_pkt(int tx, float bits, int mcs, float sinr, float distance)
 {
-    assert(tx==T_DL||tx==T_UL); 
-    if(tx == T_DL) return pdcp_dl->handle_pkt(bits,  mcs, sinr, distance);
-    else return pdcp_ul->handle_pkt(bits, mcs, sinr, distance);
+    return layer(tx).handle_pkt(bits,  mcs, sinr, distance);
 }
 
 float pdcp_handler::get_generated(int tx, bool elapsed)
 {
-    assert(tx==T_DL||tx==T_UL); 
-    if(tx == T_DL) return pdcp_dl->get_generated(elapsed);
-    else return pdcp_ul->get_generated(elapsed);
+    return layer(tx).get_generated(elapsed);
 }
 
 float pdcp_handler::get_error(int tx, bool elapsed)
 {
-    assert(tx==T_DL||tx==T_UL); 
-    if(tx == T_DL) return pdcp_dl->get_error(elapsed);
-    else return pdcp_ul->get_error(elapsed);
+    return layer(tx).get_error(elapsed);
 }
 
 float pdcp_handler::get_tp(int tx, bool elapsed)
 {
-    assert(tx==T_DL||tx==T_UL); 
-    if(tx == T_DL) return pdcp_dl->get_tp(elapsed);
-    else return pdcp_ul->get_tp(elapsed);
+    return layer(tx).get_tp(elapsed);
 }
 
 float pdcp_handler::get_latency(int tx, bool elapsed)
 {
-    assert(tx==T_DL||tx==T_UL); 
-    if(tx == T_DL) return pdcp_dl->get_latency(elapsed);
-    else return pdcp_ul->get_latency(elapsed);
+    return layer(tx).get_latency(elapsed);
 }
 
 float pdcp_handler::get_ip_latency(int tx, bool elapsed)
 {
-    assert(tx==T_DL||tx==T_UL); 
-    if(tx == T_DL) return pdcp_dl->get_ip_latency(elapsed);
-    else return pdcp_ul->get_ip_latency(elapsed);
+    return layer(tx).get_ip_latency(elapsed);
 }
 
 pdcp_queue_status pdcp_handler::get_queue_status(int tx) const
 {
-    assert(tx==T_DL||tx==T_UL); 
-    if(tx == T_DL) return pdcp_dl->get_queue_status();
-    else return pdcp_ul->get_queue_status();
+    return layer(tx).get_queue_status();
 }
 
 void pdcp_handler::set_pkt_delay_budget(float budget_s)
 {
-    pdcp_ul->set_pkt_delay_budget(budget_s);
-    pdcp_dl->set_pkt_delay_budget(budget_s);
+    layer(T_UL).set_pkt_delay_budget(budget_s);
+    layer(T_DL).set_pkt_delay_budget(budget_s);
 }

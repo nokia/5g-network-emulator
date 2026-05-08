@@ -17,14 +17,6 @@
 
 #include "utils/logging/log_handler.h"
 
-// TX MODE
-#ifndef T_DL
-#define T_DL 0
-#endif
-#ifndef T_UL
-#define T_UL 1
-#endif
-
 //--------------------------------------------------------------------------------------------------
 // rb(): class which is in charge of assigning the best UE to the current RB/RBG. This class gets the
 // estimated metric for each UE assigning the one with highest metric. It also estimates the number 

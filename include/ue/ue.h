@@ -8,9 +8,10 @@
 #define UE_H
 
 #include <algorithm>
+#include <chrono>
 #include <random>
 #include <string>
-#include <phy_layer/phy_handler.h>
+#include <phy_layer/phy_layer.h>
 #include <phy_shared/phy_shared.h>
 #include <mobility_models/mobility_model.h>
 #include <pdcp_layer/pdcp_handler.h>
@@ -22,12 +23,20 @@
 #include "utils/logging/mean_handler.h"
 #include <ue/ue_config.h>
 
+struct schedule_candidate
+{
+    bool has_data = false;
+    float bits_per_symbol = 0.0f;
+    float metric = 0.0f;
+    int ue_index = -1;
+    int ue_id = -1;
+};
 
 //--------------------------------------------------------------------------------------------------
 // ue(): this class is in charge of modeling and updating the simulated UE's position, 
 // generating/handling packets, estimating the Channel State Indicator and Releasing or Dropping the 
 // already processed packets. The emulator's instances of mobility_model(), traffic_model(),
-// netfilter_queues()/pkt_capture(), phy_handler() and pdcp_handler() are all part of the UE module
+// netfilter_queues()/pkt_capture(), phy_layer() and pdcp_handler() are all part of the UE module
 // Input: 
 //      _queue_num_ul/_queue_num_dl: Netfilter Queues IDs (only if real traffic is being used)
 //      _init_t: Initial timestamp (only for real IP traffic)
@@ -124,6 +133,7 @@ public:
     float add_pkts(int tx, std::deque<ip_pkt> &pkts);
     int get_id(); 
     bool has_packets(int tx_dir);
+    schedule_candidate get_schedule_candidate(int tx_dir, int f_index, int n_ues, int ue_index);
     float get_delay_t(); 
     float get_delta(); 
     float handle_pkt(float bits, int tx_dir, int f_index);
@@ -133,6 +143,10 @@ public:
 private: 
     void init_pkt_capture(); 
     void init_logger(); 
+    phy_layer& phy(int tx_dir);
+    const phy_layer& phy(int tx_dir) const;
+    void init_phy_update_rates(float _doppler_f, int _cqi_p, int _ri_p);
+    void estimate_channel_estate(int tx_dir, phy_shared &phy_s, float distance, const pos2d &pos, float oldest_t, float avg_tp, float _current_t);
 
 private:
     std::mt19937 gen;
@@ -158,7 +172,8 @@ protected:
 protected: 
     MapHandler map;
     pdcp_handler pdcp_h;
-    phy_handler phy_h;
+    phy_layer phy_dl;
+    phy_layer phy_ul;
     mobility_model mobility_m; 
     phy_shared phy_s;
     std::shared_ptr<traffic_model> traffic_m; 
@@ -184,6 +199,23 @@ protected:
  
 protected: 
     double current_t;
+
+private:
+    bool phy_init_o2i = false;
+    float phy_macro_fading = 0.0f;
+    int phy_o2i = OUTDOOR;
+    int phy_sinr_period = 1;
+    pos2d phy_prev_pos;
+    int phy_period_counter = 0;
+    float phy_tc = 0.0f;
+    int phy_cqi_period = 1;
+    int phy_ri_period = 1;
+    float phy_corr_distance = 0.0f;
+    float phy_c_dist = 0.0f;
+    float phy_freq = 0.0f;
+    float phy_speed = 0.0f;
+    float phy_doppler_f = 0.0f;
+    bool phy_update_cs = true;
 
 };
 

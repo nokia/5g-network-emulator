@@ -1,78 +1,71 @@
 CXX := g++
-C := gcc
-CXX_FLAGS := -O3 -std=c++11 -pthread -lmnl -lnetfilter_queue
-#CXX_FLAGS := -std=c++11 -pthread -lmnl -lnetfilter_queue
-C_FLAGS :=	-pthread -lmnl -lnetfilter_queue
-SRCFLAGS = $(wildcard $(SRC)/*.cpp)  $(wildcard $(SRC_MAC_LAYER)/*.cpp)  $(wildcard $(SRC_MOBILITY_MODEL)/*.cpp)  $(wildcard $(SRC_PDCP_LAYER)/*.cpp)  $(wildcard $(SRC_PHY_LAYER)/*.cpp)  $(wildcard $(SRC_PHY_SHARED)/*.cpp)  $(wildcard $(SRC_MAP_HANDLER)/*.cpp) $(wildcard $(SRC_UE)/*.cpp)
-SRCNETFILTER = $(wildcard $(SRC_NETFILTER)/*.c)
-HEADERS = $(wildcard $(INCLUDE)/*/*.h) 
-LDFLAGS = -Llib -static
-BIN     			:=	bin
-SRC     			:=	src
-LIB     			:=	lib
-SRC_MAC_LAYER     	:=	src/mac_layer
-SRC_NETFILTER    	:=	src/netfilter
-SRC_MOBILITY_MODEL 	:=	src/mobility_models
-SRC_PDCP_LAYER     	:=	src/pdcp_layer
-SRC_PHY_LAYER     	:=	src/phy_layer
-SRC_PHY_SHARED      :=  src/phy_shared
-SRC_MAP_HANDLER     :=  src/map
-SRC_UE     			:=	src/ue
-INCLUDE 			:=	include
 
-NETFILTER_LIB 	:= libnetfilter.a
-LIBRARIES   := $(LIB)/$(NETFILTER_LIB)
-EXECUTABLE  :=	main
+BIN_DIR := bin
+BUILD_DIR := build
+OBJ_DIR := $(BUILD_DIR)/obj
+TEST_OBJ_DIR := $(BUILD_DIR)/tests
 
-OBJFILES = $(patsubst %.cpp, $(BIN)/%.o, $(notdir $(SRCFLAGS)))
+TARGET := $(BIN_DIR)/fikore
 
-all:	$(BIN)/$(EXECUTABLE)
+CPPFLAGS := -Iinclude
+CXXFLAGS := -O3 -g -std=c++11 -pthread
+DEPFLAGS := -MMD -MP
+LDFLAGS :=
+LDLIBS := -pthread -lmnl -lnetfilter_queue
 
-run:	clean all
-	clear
-	./$(BIN)/$(EXECUTABLE)
+SRC_DIR := src
+TEST_DIR := tests
 
-$(BIN)/$(EXECUTABLE): $(BIN)/netfilter.o $(BIN)/main.o $(OBJFILES)
-	$(CXX) $(CXX_FLAGS) -g $(OBJFILES) -I$(INCLUDE) $(BIN)/main.o $(BIN)/netfilter.o $(C_FLAGS) -o $@ 
+APP_SOURCES := main.cpp $(shell find $(SRC_DIR) -name '*.cpp' | sort)
+APP_OBJECTS := $(patsubst %.cpp,$(OBJ_DIR)/%.o,$(APP_SOURCES))
+APP_DEPS := $(APP_OBJECTS:.o=.d)
 
-$(BIN)/main.o: main.cpp $(HEADERS)
-	$(CXX) $(CXX_FLAGS) -I$(INCLUDE) -o $(BIN)/main.o -c main.cpp
+LIB_SOURCES := $(shell find $(SRC_DIR) -name '*.cpp' | sort)
+LIB_OBJECTS := $(patsubst %.cpp,$(OBJ_DIR)/%.o,$(LIB_SOURCES))
 
-$(BIN)/netfilter.o: $(SRCNETFILTER) $(HEADERS)
-	mkdir -p $(BIN)  
-	$(CXX) $(CXX_FLAGS) -I$(INCLUDE) -o $(BIN)/netfilter.o -c $(SRC_NETFILTER)/netfilter_interface.cpp
+TEST_SOURCES := $(shell find $(TEST_DIR) -name '*_test.cpp' 2>/dev/null | sort)
+TEST_OBJECTS := $(patsubst $(TEST_DIR)/%.cpp,$(TEST_OBJ_DIR)/%.o,$(TEST_SOURCES))
+TEST_BINS := $(patsubst $(TEST_DIR)/%_test.cpp,$(TEST_OBJ_DIR)/%_test,$(TEST_SOURCES))
+TEST_DEPS := $(TEST_OBJECTS:.o=.d)
 
-$(BIN)/%.o: $(SRC_MAC_LAYER)/%.cpp $(HEADERS)
-	$(CXX) $(CXX_FLAGS) -g -c $< -I$(INCLUDE) -o $@
+.PHONY: all run test smoke clean print-objects
+.SECONDARY: $(TEST_OBJECTS)
 
-$(BIN)/%.o: $(SRC_MOBILITY_MODEL)/%.cpp $(HEADERS)
-	$(CXX) $(CXX_FLAGS) -g -c $< -I$(INCLUDE) -o $@
+all: $(TARGET)
 
-$(BIN)/%.o: $(SRC_PDCP_LAYER)/%.cpp $(HEADERS)
-	$(CXX) $(CXX_FLAGS) -g -c $< -I$(INCLUDE) -o $@
+run: all
+	./$(TARGET)
 
-$(BIN)/%.o: $(SRC_PHY_LAYER)/%.cpp $(HEADERS)
-	$(CXX) $(CXX_FLAGS) -g -c $< -I$(INCLUDE) -o $@
+$(TARGET): $(APP_OBJECTS)
+	@mkdir -p $(@D)
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
-$(BIN)/%.o: $(SRC_PHY_SHARED)/%.cpp $(HEADERS)
-	$(CXX) $(CXX_FLAGS) -g -c $< -I$(INCLUDE) -o $@
+$(OBJ_DIR)/%.o: %.cpp
+	@mkdir -p $(@D)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(DEPFLAGS) -c $< -o $@
 
-$(BIN)/%.o: $(SRC_MAP_HANDLER)/%.cpp $(HEADERS)
-	$(CXX) $(CXX_FLAGS) -g -c $< -I$(INCLUDE) -o $@
+$(TEST_OBJ_DIR)/%.o: $(TEST_DIR)/%.cpp
+	@mkdir -p $(@D)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(DEPFLAGS) -c $< -o $@
 
-$(BIN)/%.o: $(SRC_UE)/%.cpp $(HEADERS)
-	$(CXX) $(CXX_FLAGS) -g -c $< -I$(INCLUDE) -o $@
+$(TEST_OBJ_DIR)/%_test: $(TEST_OBJ_DIR)/%_test.o $(LIB_OBJECTS)
+	@mkdir -p $(@D)
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
-$(BIN)/%.o: $(SRC)/%.cpp $(HEADERS)
-	$(CXX) $(CXX_FLAGS) -g -c $< -I$(INCLUDE) -o $@
+test: $(TEST_BINS)
+	@set -e; \
+	for test_bin in $(TEST_BINS); do \
+		echo "[TEST] $$test_bin"; \
+		$$test_bin; \
+	done
 
-
+smoke: all
+	./$(TARGET) tests/smoke_sim.ini
 
 clean:
-	-rm $(BIN)/*
+	$(RM) -r $(BUILD_DIR) $(TARGET)
 
-# Print OBJFILES
-print-objfiles:
-	@echo $(OBJFILES)
+print-objects:
+	@printf '%s\n' $(APP_OBJECTS)
 
-.PHONY: all clean print-objfiles
+-include $(APP_DEPS) $(TEST_DEPS)

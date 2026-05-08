@@ -7,18 +7,12 @@
 #ifndef TRAFFIC_MODEL_BASE_H
 #define TRAFFIC_MODEL_BASE_H
 
-#ifndef T_DL
-#define T_DL 0
-#endif
-#ifndef T_UL
-#define T_UL 1
-#endif
-
 #define CONSTANT_TRAFFIC_MODEL 0
 
 #include <random>
 #include <assert.h>
 #include <memory>
+#include <common/direction.h>
 #include <utils/conversions.h>
 #include <traffic_models/traffic_config.h>
 //--------------------------------------------------------------------------------------------------

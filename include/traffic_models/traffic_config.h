@@ -6,12 +6,7 @@
 
 #pragma once
 
-#ifndef T_DL
-#define T_DL 0
-#endif
-#ifndef T_UL
-#define T_UL 1
-#endif
+#include <common/direction.h>
 
 #define CONSTANT_TRAFFIC_MODEL 0
 //--------------------------------------------------------------------------------------------------

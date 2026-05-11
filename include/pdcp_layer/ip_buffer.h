@@ -32,7 +32,7 @@ private:
     int verbosity = 0; 
 
 private: 
-    int max_size = 65500*8*20; 
+    float max_size = 65500.0f*8.0f*20000.0f;
     float current_size = 0; 
 
 private: 
@@ -51,7 +51,7 @@ public:
     int size() const { return (int)pkt_list.size(); }
     float get_generated(bool partial = true);
     float get_error(bool partial = true);
-    void add_pkt(ip_pkt pkt);
+    bool add_pkt(ip_pkt pkt);
 
 public:
     int debug_queue_num = -1; // Queue ID -- just for debug

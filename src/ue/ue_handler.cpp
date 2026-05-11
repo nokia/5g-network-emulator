@@ -17,19 +17,9 @@ void ue_handler::add_ues(std::chrono::microseconds * _init_t, ue_full_config ue_
     n_ues += ue_c.n_ues;
 
     int init_ids = id;
-    if(ue_c.ue_type == SIM_UE)
+    for(; id < init_ids + ue_c.n_ues; id++)
     {
-        for(; id < init_ids + ue_c.n_ues; id++)
-        {
-            ue_list.emplace_back(id, ue_c.ue_c, _scenario_c, _phy_enb_config, _pdcp_config_ul, _pdcp_config_dl, _harq_config, _stochastics);
-        }
-    }
-    else
-    {
-        for(; id < init_ids + ue_c.n_ues; id++)
-        {
-            ue_list.emplace_back(ue_c.ue_c.ul_queue_n, ue_c.ue_c.dl_queue_n, _init_t, id, ue_c.ue_c, _scenario_c, _phy_enb_config, _pdcp_config_ul, _pdcp_config_dl, _harq_config, _stochastics);
-        }
+        ue_list.emplace_back(id, ue_c.ue_c, _scenario_c, _phy_enb_config, _pdcp_config_ul, _pdcp_config_dl, _harq_config, ue_c.ue_type, _init_t, _stochastics);
     }
 
     log_ue_creation(id, ue_c.ue_type, ue_c.ue_c.ue_m.n_antennas, ue_c.ue_c.ue_m.cqi_period, ue_c.ue_c.ue_m.ri_period, ue_c.ue_c.ue_m.scaling_factor);
@@ -48,8 +38,7 @@ void ue_handler::add_ue(std::chrono::microseconds * _init_t, ue_full_config ue_c
 {
     n_ues++;
     id++;
-    if(ue_c.ue_type == SIM_UE) ue_list.emplace_back(id, ue_c.ue_c, _scenario_c, _phy_enb_config, _pdcp_config_ul, _pdcp_config_dl, _harq_config, _stochastics);
-    if(ue_c.ue_type == REAL_UE) ue_list.emplace_back(ue_c.ue_c.ul_queue_n, ue_c.ue_c.dl_queue_n, _init_t, id, ue_c.ue_c, _scenario_c, _phy_enb_config, _pdcp_config_ul, _pdcp_config_dl, _harq_config, _stochastics);
+    ue_list.emplace_back(id, ue_c.ue_c, _scenario_c, _phy_enb_config, _pdcp_config_ul, _pdcp_config_dl, _harq_config, ue_c.ue_type, _init_t, _stochastics);
 
     log_ue_creation(id, ue_c.ue_type, ue_c.ue_c.ue_m.n_antennas,
                     ue_c.ue_c.ue_m.cqi_period, ue_c.ue_c.ue_m.ri_period, ue_c.ue_c.ue_m.scaling_factor);

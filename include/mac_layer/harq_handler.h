@@ -70,6 +70,7 @@ public:
     void add_pkts(harq_pkt pkt);
     bool is_pkt_ready();
     harq_pkt get_pkt();
+    bool pop_pkt_older_than(float oldest_allowed_ip_t, harq_pkt& out_pkt);
     float get_oldest_t();
     bool get_rtx(int mcs, float sinr, int n_tx);
     bool get_rtx();

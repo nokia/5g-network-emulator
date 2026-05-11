@@ -80,6 +80,35 @@ harq_pkt harq_handler::get_pkt()
     return std::move(pkt); 
 }
 
+bool harq_handler::pop_pkt_older_than(float oldest_allowed_ip_t, harq_pkt& out_pkt)
+{
+    for(std::deque<harq_pkt>::iterator it = harq_buffer.begin(); it != harq_buffer.end(); ++it)
+    {
+        if(it->ip_t >= oldest_allowed_ip_t) continue;
+
+        rtx_mbit -= it->bits * BIT2MBIT;
+        if(rtx_mbit < 0) rtx_mbit = 0;
+
+        out_pkt = std::move(*it);
+        harq_buffer.erase(it);
+
+        if(!harq_buffer.empty())
+        {
+            oldest_t = harq_buffer.front().current_t;
+            t_out = harq_buffer.front().t_out;
+        }
+        else
+        {
+            oldest_t = current_t;
+            t_out = INF;
+        }
+
+        return true;
+    }
+
+    return false;
+}
+
 float harq_handler::get_oldest_t()
 {
     if(harq_buffer.size() > 0) return oldest_t; 

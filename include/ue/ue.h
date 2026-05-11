@@ -16,7 +16,6 @@
 #include <phy_shared/phy_shared.h>
 #include <mobility_models/mobility_model.h>
 #include <pdcp_layer/pdcp_layer.h>
-#include <traffic_models/traffic_model.h>
 #include <mac_layer/harq_config.h>
 #include <map/map_handler.h>
 
@@ -36,11 +35,10 @@ struct schedule_candidate
 //--------------------------------------------------------------------------------------------------
 // ue(): this class is in charge of modeling and updating the simulated UE's position, 
 // generating/handling packets, estimating the Channel State Indicator and Releasing or Dropping the 
-// already processed packets. The emulator's instances of mobility_model(), traffic_model(),
-// netfilter_queues()/pkt_capture(), phy_layer() and pdcp_layer() are all part of the UE module
+// already processed packets. The emulator's instances of mobility_model(), packet_handler(),
+// phy_layer() and pdcp_layer() are all part of the UE module.
 // Input: 
-//      _queue_num_ul/_queue_num_dl: Netfilter Queues IDs (only if real traffic is being used)
-//      _init_t: Initial timestamp (only for real IP traffic)
+//      ue_type/_init_t: select and initialize the packet ingress/release handlers for UL/DL.
 //      ue_c: configuration struct. Includes:
 //              *ue_m: UE configuration struct which includes: 
 //                      *n_antennas: number of physical antennas in the UE.
@@ -112,8 +110,16 @@ struct schedule_candidate
 class ue
 {
 public: 
-    ue(int _id, ue_config ue_c, scenario_config _scenario_c, phy_enb_config _phy_enb_config, pdcp_config _pdcp_config_ul, pdcp_config _pdcp_config_dl, harq_config _harq_config, bool _stochastics = true);
-    ue(int _queue_num_ul, int _queue_num_dl, std::chrono::microseconds * _init_t, int _id, ue_config ue_c, scenario_config _scenario_c, phy_enb_config _phy_enb_config, pdcp_config _pdcp_config_ul, pdcp_config _pdcp_config_dl, harq_config _harq_config, bool _stochastics = true);
+    ue(int _id,
+       ue_config ue_c,
+       scenario_config _scenario_c,
+       phy_enb_config _phy_enb_config,
+       pdcp_config _pdcp_config_ul,
+       pdcp_config _pdcp_config_dl,
+       harq_config _harq_config,
+       int ue_type,
+       std::chrono::microseconds *init_t,
+       bool _stochastics = true);
 
 public: 
     void init(); 
@@ -148,7 +154,7 @@ private:
     pdcp_layer& pdcp(int tx_dir);
     const pdcp_layer& pdcp(int tx_dir) const;
     void init_phy_update_rates(float _doppler_f, int _cqi_p, int _ri_p);
-    void estimate_channel_state(int tx_dir, phy_shared &phy_s, float distance, const pos2d &pos, float oldest_t, float avg_tp, float _current_t);
+    void estimate_channel_state();
 
 private:
     std::mt19937 gen;
@@ -160,8 +166,6 @@ protected:
 
     void update_pos();
     void update_pdcp(); 
-    float generate_data(int tx);
-    void generate_traffic();
     void add_ts(); 
 
 public:
@@ -169,7 +173,6 @@ public:
 
 protected: 
     int id; 
-    bool is_ip; 
 
 protected: 
     MapHandler map;
@@ -179,7 +182,6 @@ protected:
     phy_layer phy_ul;
     mobility_model mobility_m; 
     phy_shared phy_s;
-    std::shared_ptr<traffic_model> traffic_m; 
     float delta_metric; 
     float delay_t_metric; 
     float beta_metric; 

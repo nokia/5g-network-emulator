@@ -62,12 +62,19 @@ float ip_buffer::drop_pkt(int bits)
     return bits; 
 }
 
-void ip_buffer::add_pkt(ip_pkt pkt)
+bool ip_buffer::add_pkt(ip_pkt pkt)
 {
+    if(current_size + pkt.size > max_size)
+    {
+        if(verbosity > 0) e_mean.add(pkt.size);
+        return false;
+    }
+
     current_size += pkt.size; 
     if(verbosity > 0) g_mean.add(pkt.size);
     if(pkt_list.size() == 0) oldest_t = pkt.current_t; 
     pkt_list.push_back(std::move(pkt));
+    return true;
 }
 
 void ip_buffer::step(float _current_t){

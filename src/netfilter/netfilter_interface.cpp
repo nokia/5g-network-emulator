@@ -301,23 +301,24 @@ static int queue_cb(const struct nlmsghdr *nlh, void *data)
 	nfiface->last_recv_id = id;
 	nfiface->total_recv++;
 	nfiface->bytes_recv += orig_len;
-	nfiface->callback(nfiface->callback_data, nfiface, sec, usec, orig_len, id);
 
-#ifdef true
-
-	
 	uint32_t skbinfo;
-	struct nfgenmsg *nfg;
 	uint16_t plen;
-	
 
-	nfg = mnl_nlmsg_get_payload(nlh);
-
-
-	plen = mnl_attr_get_payload_len(attr[NFQA_PAYLOAD]);
+	plen = attr[NFQA_PAYLOAD] ? mnl_attr_get_payload_len(attr[NFQA_PAYLOAD]) : 0;
 	if (orig_len != plen)
 			PRINTF("truncated ");
-	void *payload = mnl_attr_get_payload(attr[NFQA_PAYLOAD]);
+	void *payload = attr[NFQA_PAYLOAD] ? mnl_attr_get_payload(attr[NFQA_PAYLOAD]) : NULL;
+	nfq_packet_metadata meta;
+	meta.timestamp_sec = sec;
+	meta.timestamp_usec = usec;
+	meta.bytes = orig_len;
+	meta.pkt_id = id;
+	meta.ecn = 0;
+	if(payload && plen > 0) {
+		uint8_t *payload_bytes = (uint8_t *)payload;
+		meta.payload.assign(payload_bytes, payload_bytes + plen);
+	}
 
 	skbinfo = attr[NFQA_SKB_INFO] ? ntohl(mnl_attr_get_u32(attr[NFQA_SKB_INFO])) : 0;
 
@@ -329,12 +330,13 @@ static int queue_cb(const struct nlmsghdr *nlh, void *data)
 		id, ntohs(ph->hw_protocol), ph->hook, plen);
 
 	// We have only called the bind to AF_INET protocol, so we shouldn't get anything else than ipv4...
-	if(ntohs(ph->hw_protocol) == ETH_P_IP) {
+	if(payload && ntohs(ph->hw_protocol) == ETH_P_IP) {
 		struct iphdr *ip = (struct iphdr*) payload;
 		if(plen < sizeof(*ip)) {
 			PRINTF("Not enough size to parse IP packet!!\n"); // FIXME return not ok or something
 		}
 		else {
+			meta.ecn = ip->tos & 0x03;
 			uint8_t *c = (uint8_t *) &(ip->saddr);
 			PRINTF(", src=%u.%u.%u.%u", c[0], c[1], c[2], c[3]);
 			c = (uint8_t *)  &(ip->daddr);
@@ -354,9 +356,7 @@ static int queue_cb(const struct nlmsghdr *nlh, void *data)
 	if (skbinfo & NFQA_SKB_CSUMNOTREADY)
 		PRINTF(", checksum not ready");
 	//PRINTF(")\n");
-
-	//nfq_send_verdict(ntohs(nfg->res_id), id);
-#endif
+	nfiface->callback(nfiface->callback_data, nfiface, meta);
 
 	return MNL_CB_OK;
 }
@@ -400,10 +400,9 @@ static void netfilter_interface_free(netfilter_interface_t *iface) {
 	}
 }
 
-void cb(void* handler, netfilter_interface_t *nfiface, uint64_t timestamp_sec, uint64_t timestamp_usec, 
-               uint64_t bytes, uint32_t pkt_id)
+void cb(void* handler, netfilter_interface_t *nfiface, const nfq_packet_metadata& meta)
                {   
-                   netfilter_interface_release_pkt(nfiface, pkt_id, 1);
+                   netfilter_interface_release_pkt(nfiface, meta.pkt_id, 1);
                }
 
 netfilter_interface_t *netfilter_interface_open(int queue_num, add_pkt_callback_t callback, void *handler)
@@ -482,6 +481,27 @@ int netfilter_interface_release_pkt(netfilter_interface_t *nfiface, uint32_t pkt
 	struct nlmsghdr *nlh;
 	nlh = nfq_nlmsg_put(buf, NFQNL_MSG_VERDICT, nfiface->queue_num);
 	nfq_nlmsg_verdict_put(nlh, pkt_id, accept ? NF_ACCEPT : NF_DROP);
+
+	if (mnl_socket_sendto(nfiface->nl, nlh, nlh->nlmsg_len) < 0) {
+		PERROR("mnl_socket_send");
+		nfiface->rlsd_fails++;
+		return -1;
+	}
+
+	nfiface->last_rlsd_id = pkt_id;
+	nfiface->total_rlsd++;
+
+	return 0;
+}
+
+int netfilter_interface_release_pkt_payload(netfilter_interface_t *nfiface, uint32_t pkt_id, int accept, const uint8_t *payload, uint32_t payload_len) {
+	char buf[0xffff + MNL_SOCKET_BUFFER_SIZE];
+	struct nlmsghdr *nlh;
+	nlh = nfq_nlmsg_put(buf, NFQNL_MSG_VERDICT, nfiface->queue_num);
+	nfq_nlmsg_verdict_put(nlh, pkt_id, accept ? NF_ACCEPT : NF_DROP);
+	if(accept && payload != NULL && payload_len > 0) {
+		nfq_nlmsg_verdict_put_pkt(nlh, payload, payload_len);
+	}
 
 	if (mnl_socket_sendto(nfiface->nl, nlh, nlh->nlmsg_len) < 0) {
 		PERROR("mnl_socket_send");

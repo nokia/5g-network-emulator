@@ -26,4 +26,16 @@ struct pdcp_queue_status
     float release_oldest_age = -1.0f;
 
     float pkt_delay_budget_s = -1.0f;
+
+    int l4s_ce_packets = 0;
+    float l4s_ce_bits = 0.0f;
+    int l4s_aqm_drops = 0;
+    float l4s_aqm_drop_bits = 0.0f;
+    int l4s_queue_size = 0;
+    int classic_queue_size = 0;
+    float l4s_queue_bits = 0.0f;
+    float classic_queue_bits = 0.0f;
+    float dualpi2_p_l = 0.0f;
+    float dualpi2_p_c = 0.0f;
+    float dualpi2_p_cl = 0.0f;
 };

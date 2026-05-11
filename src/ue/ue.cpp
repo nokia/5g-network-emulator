@@ -17,6 +17,7 @@ packet_handler_config make_pdcp_packet_config(int ue_type,
                                               std::chrono::microseconds *init_t,
                                               traffic_config traffic_c,
                                               pdcp_config pdcp_c,
+                                              dualpi2_config l4s_c,
                                               bool log_traffic,
                                               bool log_quality)
 {
@@ -28,6 +29,7 @@ packet_handler_config make_pdcp_packet_config(int ue_type,
     cfg.init_t = init_t;
     cfg.traffic_c = traffic_c;
     cfg.pdcp_c = pdcp_c;
+    cfg.l4s_c = l4s_c;
     cfg.log_traffic = log_traffic;
     cfg.log_quality = log_quality;
     return cfg;
@@ -45,8 +47,8 @@ ue::ue(int _id,
        std::chrono::microseconds *init_t,
        bool _stochastics)
      :  map(_scenario_c.map_file),
-        pdcp_dl(make_pdcp_packet_config(ue_type, TX_DL, ue_c.dl_queue_n, _id, init_t, ue_c.traffic_c, _pdcp_config_dl, ue_c.log_traffic, ue_c.log_quality), ue_c.log_traffic || ue_c.log_quality),
-        pdcp_ul(make_pdcp_packet_config(ue_type, TX_UL, ue_c.ul_queue_n, _id, init_t, ue_c.traffic_c, _pdcp_config_ul, ue_c.log_traffic, ue_c.log_quality), ue_c.log_traffic || ue_c.log_quality),
+        pdcp_dl(make_pdcp_packet_config(ue_type, TX_DL, ue_c.dl_queue_n, _id, init_t, ue_c.traffic_c, _pdcp_config_dl, ue_c.l4s_c, ue_c.log_traffic, ue_c.log_quality), ue_c.log_traffic || ue_c.log_quality),
+        pdcp_ul(make_pdcp_packet_config(ue_type, TX_UL, ue_c.ul_queue_n, _id, init_t, ue_c.traffic_c, _pdcp_config_ul, ue_c.l4s_c, ue_c.log_traffic, ue_c.log_quality), ue_c.log_traffic || ue_c.log_quality),
         phy_dl(TX_DL, _id, _scenario_c, ue_c.get_phy_config(), _phy_enb_config, _stochastics, ue_c.log_quality),
         phy_ul(TX_UL, _id, _scenario_c, ue_c.get_phy_config(), _phy_enb_config, _stochastics, ue_c.log_quality),
         mobility_m(_id, ue_c.mobility_c, _scenario_c.type, map.getMaxApothem()),
@@ -242,6 +244,12 @@ void ue::update_pdcp()
         ue_log.log_partial("lul:{} ldl:{} ", pdcp_ul.get_latency(true), pdcp_dl.get_latency(true));
         ue_log.log_partial("ilul:{} ildl:{} ", pdcp_ul.get_ip_latency(true), pdcp_dl.get_ip_latency(true));
         ue_log.log_partial("eul:{} edl:{} ", pdcp_ul.get_error(true), pdcp_dl.get_error(true));
+        dualpi2_stats l4s_ul = pdcp_ul.get_l4s_interval_stats();
+        dualpi2_stats l4s_dl = pdcp_dl.get_l4s_interval_stats();
+        ue_log.log_partial("ceul:{} cedl:{} cebul:{} cebdl:{} ", l4s_ul.ce_packets, l4s_dl.ce_packets, l4s_ul.ce_bits, l4s_dl.ce_bits);
+        ue_log.log_partial("aqmdul:{} aqmddl:{} aqmdbul:{} aqmdbdl:{} ", l4s_ul.aqm_drops, l4s_dl.aqm_drops, l4s_ul.aqm_drop_bits, l4s_dl.aqm_drop_bits);
+        ue_log.log_partial("qlul:{} qldl:{} qcul:{} qcdl:{} ", l4s_ul.l4s_queue_size, l4s_dl.l4s_queue_size, l4s_ul.classic_queue_size, l4s_dl.classic_queue_size);
+        ue_log.log_partial("plul:{} pldl:{} pcul:{} pcdl:{} pclul:{} pcldl:{} ", l4s_ul.p_l, l4s_dl.p_l, l4s_ul.p_c, l4s_dl.p_c, l4s_ul.p_cl, l4s_dl.p_cl);
     }
 }
 

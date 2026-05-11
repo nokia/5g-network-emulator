@@ -21,7 +21,11 @@ def parse_log_file_with_tx(file_path):
         'x': [], 'y': [],
         'rsrp_ul': [], 'rsrp_dl': [],
         'sinr_ul': [], 'sinr_dl': [],
-        'rul': [], 'rdl': [], 'ri': []
+        'rul': [], 'rdl': [], 'ri': [],
+        'ceul': [], 'cedl': [], 'cebul': [], 'cebdl': [],
+        'aqmdul': [], 'aqmddl': [], 'aqmdbul': [], 'aqmdbdl': [],
+        'qlul': [], 'qldl': [], 'qcul': [], 'qcdl': [],
+        'plul': [], 'pldl': [], 'pcul': [], 'pcdl': [], 'pclul': [], 'pcldl': []
     }
 
     with open(file_path, 'r') as f:
@@ -48,7 +52,11 @@ def parse_log_file_with_tx(file_path):
                     data['rsrp_ul'].append(temp['rsrp'])
                 else:
                     data['rsrp_dl'].append(temp['rsrp'])
-            for key in ['x', 'y', 'rul', 'rdl', 'ri']:
+            for key in ['x', 'y', 'rul', 'rdl', 'ri',
+                        'ceul', 'cedl', 'cebul', 'cebdl',
+                        'aqmdul', 'aqmddl', 'aqmdbul', 'aqmdbdl',
+                        'qlul', 'qldl', 'qcul', 'qcdl',
+                        'plul', 'pldl', 'pcul', 'pcdl', 'pclul', 'pcldl']:
                 if key in temp:
                     data[key].append(temp[key])
     return data
@@ -123,6 +131,43 @@ def plot_histograms_per_ue(all_data, key, title, xlabel, outname, outdir, bins):
     print(f"[SAVED] {path}")
 
 
+def plot_l4s_series(all_data, outdir):
+    series = [
+        ('ceul', 'cedl', 'CE Marks', 'Packets / log interval', 'ce_marks_ul_dl.png'),
+        ('aqmdul', 'aqmddl', 'AQM Drops', 'Packets / log interval', 'aqm_drops_ul_dl.png'),
+        ('qlul', 'qldl', 'L4S Queue Size', 'Packets', 'l4s_queue_size_ul_dl.png'),
+        ('qcul', 'qcdl', 'Classic Queue Size', 'Packets', 'classic_queue_size_ul_dl.png'),
+        ('plul', 'pldl', 'DualPI2 p_L', 'Probability', 'dualpi2_pl_ul_dl.png'),
+        ('pcul', 'pcdl', 'DualPI2 p_C', 'Probability', 'dualpi2_pc_ul_dl.png'),
+        ('pclul', 'pcldl', 'DualPI2 p_CL', 'Probability', 'dualpi2_pcl_ul_dl.png'),
+    ]
+    cmap = plt.get_cmap("tab10")
+    for key_ul, key_dl, title, ylabel, outname in series:
+        if not any(len(data.get(key_ul, [])) or len(data.get(key_dl, [])) for data in all_data):
+            continue
+        fig, axs = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
+        for i, data in enumerate(all_data):
+            ul_vals = np.asarray(data.get(key_ul, []), dtype=float)
+            dl_vals = np.asarray(data.get(key_dl, []), dtype=float)
+            if ul_vals.size:
+                axs[0].plot(np.arange(ul_vals.size), ul_vals, label=f"UE {i}", color=cmap(i % cmap.N), alpha=0.8)
+            if dl_vals.size:
+                axs[1].plot(np.arange(dl_vals.size), dl_vals, label=f"UE {i}", color=cmap(i % cmap.N), alpha=0.8)
+        axs[0].set_title(f"{title} (UL)")
+        axs[1].set_title(f"{title} (DL)")
+        axs[0].set_ylabel(ylabel)
+        axs[1].set_ylabel(ylabel)
+        axs[1].set_xlabel("Log sample")
+        axs[0].grid(True)
+        axs[1].grid(True)
+        axs[0].legend()
+        axs[1].legend()
+        fig.tight_layout()
+        path = os.path.join(outdir, outname)
+        plt.savefig(path)
+        print(f"[SAVED] {path}")
+
+
 def main():
     script_dir = os.path.dirname(os.path.realpath(sys.argv[0]))
     logs_base = os.path.join(script_dir, '..', 'logs')
@@ -139,6 +184,11 @@ def main():
     plot_histograms_per_ue(all_data, 'rul', 'UL Throughput Histogram', 'Throughput (Mbps)', 'rul_hist.png', outdir=out_dir, bins=30)
     plot_histograms_per_ue(all_data, 'rdl', 'DL Throughput Histogram', 'Throughput (Mbps)', 'rdl_hist.png', outdir=out_dir, bins=30)
     plot_histograms_per_ue(all_data, 'ri', 'Rank Indicator Histogram', 'Rank', 'ri_hist.png', outdir=out_dir, bins=np.arange(0.5, 5.5, 1))
+    plot_histograms_per_ue(all_data, 'ceul', 'UL CE Marks Histogram', 'CE marks / log interval', 'ceul_hist.png', outdir=out_dir, bins=30)
+    plot_histograms_per_ue(all_data, 'cedl', 'DL CE Marks Histogram', 'CE marks / log interval', 'cedl_hist.png', outdir=out_dir, bins=30)
+    plot_histograms_per_ue(all_data, 'aqmdul', 'UL AQM Drops Histogram', 'Drops / log interval', 'aqmdul_hist.png', outdir=out_dir, bins=30)
+    plot_histograms_per_ue(all_data, 'aqmddl', 'DL AQM Drops Histogram', 'Drops / log interval', 'aqmddl_hist.png', outdir=out_dir, bins=30)
+    plot_l4s_series(all_data, out_dir)
 
 
 if __name__ == "__main__":

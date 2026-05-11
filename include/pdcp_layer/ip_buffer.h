@@ -9,6 +9,7 @@
 #include <math.h>
 
 #include <mac_layer/harq_handler.h>
+#include <pdcp_layer/dualpi2_queue.h>
 #include <utils/conversions.h>
 #include <utils/logging/mean_handler.h>
 #include <pkts/pkts.h>
@@ -48,11 +49,20 @@ public:
     float get_pkts(float _bits, harq_pkt& pkt);
     bool pop_oldest_pkt(harq_pkt& pkt);
     const ip_pkt* peek_oldest_pkt() const;
-    int size() const { return (int)pkt_list.size(); }
+    int size() const { return l4s_cfg.enabled ? l4s_queue.size() : (int)pkt_list.size(); }
     float get_generated(bool partial = true);
     float get_error(bool partial = true);
     bool add_pkt(ip_pkt pkt);
+    void configure_l4s(dualpi2_config cfg);
+    bool using_dualpi2() const { return l4s_cfg.enabled; }
+    dualpi2_stats get_l4s_stats() const;
+    dualpi2_stats get_l4s_interval_stats();
+    bool pop_aqm_dropped_pkt(harq_pkt& pkt);
 
 public:
     int debug_queue_num = -1; // Queue ID -- just for debug
+
+private:
+    dualpi2_config l4s_cfg;
+    dualpi2_queue l4s_queue;
 };

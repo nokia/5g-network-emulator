@@ -10,7 +10,7 @@ public:
     virtual ~packet_capture_interface() {}
     virtual void start(add_pkt_callback_t cb) = 0;
     virtual void close() = 0;
-    virtual void release(int id) = 0;
+    virtual void release(int id, const std::vector<uint8_t>* payload = nullptr) = 0;
     virtual void drop(int id) = 0;
     virtual void lock() = 0;
     virtual void unlock() = 0;
@@ -27,7 +27,7 @@ public:
 
     void start(add_pkt_callback_t cb) override { capture->start(cb); }
     void close() override { capture->close(); }
-    void release(int id) override { capture->release(id); }
+    void release(int id, const std::vector<uint8_t>* payload = nullptr) override { capture->release(id, payload); }
     void drop(int id) override { capture->drop(id); }
     void lock() override { capture->lock(); }
     void unlock() override { capture->unlock(); }

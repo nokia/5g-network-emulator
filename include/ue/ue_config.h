@@ -9,6 +9,7 @@
 #include <phy_layer/phy_config.h>
 #include <random>
 #include <traffic_models/traffic_config.h>//este no estaba antes
+#include <pdcp_layer/pdcp_config.h>
 #include <mobility_models/mobility_config.h>
 #include <common/direction.h>
 
@@ -151,6 +152,7 @@ struct ue_config
     bool log_quality = false;
     std::string log_id = "";   
     float priority = 1; 
+    dualpi2_config l4s_c;
     phy_ue_config get_phy_config()
     {
       return phy_ue_config(ue_m.alpha_ul,ue_m.nominal_pusch_p0,ue_m.set_ul_pow,ue_m.tx_power_ul, ue_m.cqi_period, ue_m.ri_period,

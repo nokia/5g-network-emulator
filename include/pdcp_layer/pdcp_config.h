@@ -5,6 +5,34 @@
 **********************************************/
 
 #pragma once
+
+struct dualpi2_config
+{
+    bool enabled = false;
+    bool force_ect1 = false;
+    float k = 2.0f;
+    float target_s = 0.015f;
+    float rtt_max_s = 0.100f;
+    float min_th_s = 0.0008f;
+    float range_s = 0.0004f;
+    float p_lmax = 1.0f;
+    float classic_guard_s = 0.001f;
+};
+
+struct dualpi2_stats
+{
+    int ce_packets = 0;
+    float ce_bits = 0.0f;
+    int aqm_drops = 0;
+    float aqm_drop_bits = 0.0f;
+    int l4s_queue_size = 0;
+    int classic_queue_size = 0;
+    float l4s_queue_bits = 0.0f;
+    float classic_queue_bits = 0.0f;
+    float p_l = 0.0f;
+    float p_c = 0.0f;
+    float p_cl = 0.0f;
+};
 //--------------------------------------------------------------------------------------------------
 // pdcp_config(): PDCP configuration struct.
 // Input: 

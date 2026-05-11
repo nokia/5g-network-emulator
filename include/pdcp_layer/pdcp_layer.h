@@ -34,6 +34,7 @@ public:
     float get_latency(bool partial = true);
     float get_tp(bool partial = true);
     pdcp_queue_status get_queue_status() const;
+    dualpi2_stats get_l4s_interval_stats();
     void set_pkt_delay_budget(float budget_s) { pkt_delay_budget_s = budget_s; }
     float get_pkt_delay_budget() const { return pkt_delay_budget_s; }
 

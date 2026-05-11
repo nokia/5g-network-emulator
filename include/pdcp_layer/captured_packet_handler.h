@@ -31,8 +31,7 @@ public:
     void fill_queue_status(pdcp_queue_status& status, float current_t) const override;
 
 private:
-    void cb(void* handler, netfilter_interface_t *nfiface, uint64_t timestamp_sec, uint64_t timestamp_usec,
-            uint64_t bytes, uint32_t pkt_id);
+    void cb(void* handler, netfilter_interface_t *nfiface, const nfq_packet_metadata& meta);
     float get_current_ts() const;
     void sort_by_id();
     bool add_data(ip_pkt *recv_pkt);

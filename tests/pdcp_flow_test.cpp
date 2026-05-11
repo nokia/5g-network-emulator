@@ -24,7 +24,11 @@ public:
 
     void start(add_pkt_callback_t cb) override { callback = cb; }
     void close() override {}
-    void release(int id) override { released.push_back(id); }
+    void release(int id, const std::vector<uint8_t>* payload = nullptr) override
+    {
+        released.push_back(id);
+        if(payload != nullptr) released_payloads.push_back(*payload);
+    }
     void drop(int id) override { dropped.push_back(id); }
     void lock() override {}
     void unlock() override {}
@@ -32,11 +36,15 @@ public:
 
     void capture(uint64_t size_bytes, uint32_t id)
     {
-        callback(nullptr, nullptr, 0, 0, size_bytes, id);
+        nfq_packet_metadata meta;
+        meta.bytes = size_bytes;
+        meta.pkt_id = id;
+        callback(nullptr, nullptr, meta);
     }
 
     std::vector<int> released;
     std::vector<int> dropped;
+    std::vector<std::vector<uint8_t> > released_payloads;
 
 private:
     int queue;
@@ -53,6 +61,18 @@ public:
 bool near(float lhs, float rhs)
 {
     return std::fabs(lhs - rhs) < 0.001f;
+}
+
+std::vector<uint8_t> make_ipv4_payload(uint8_t ecn)
+{
+    std::vector<uint8_t> payload(20, 0);
+    payload[0] = 0x45;
+    payload[1] = ecn & 0x03;
+    payload[2] = 0;
+    payload[3] = 20;
+    payload[8] = 64;
+    payload[9] = 17;
+    return payload;
 }
 
 packet_handler_config make_sim_config(pdcp_config pdcp_c, traffic_config traffic)
@@ -266,6 +286,90 @@ void test_captured_packet_handler_timeout_drop()
     assert(fake_ptr->dropped.size() == 1);
     assert(fake_ptr->dropped.front() == 43);
 }
+
+void test_dualpi2_classification_and_ce_marking()
+{
+    dualpi2_config l4s;
+    l4s.enabled = true;
+    l4s.classic_guard_s = 1.0f;
+    ip_buffer buffer(1);
+    buffer.configure_l4s(l4s);
+    buffer.step(0.0f);
+
+    ip_pkt classic(0.0f, 1000.0f, 1000.0f, 1, 0.0f, 0.0f);
+    classic.ecn = ECN_NOT_ECT;
+    classic.original_ecn = ECN_NOT_ECT;
+    ip_pkt l_pkt(0.0f, 1000.0f, 1000.0f, 2, 0.0f, 0.0f);
+    l_pkt.ecn = ECN_ECT1;
+    l_pkt.original_ecn = ECN_ECT1;
+
+    assert(buffer.add_pkt(classic));
+    assert(buffer.add_pkt(l_pkt));
+
+    harq_pkt out(10, buffer.get_oldest_timestamp(), 0.010f, 0, 0, 0.0f, 0.0f, 0.0f);
+    buffer.step(0.010f);
+    assert(near(buffer.get_pkts(1000.0f, out), 1000.0f));
+    assert(out.pkts.size() == 1);
+    assert(out.pkts.front().uid == 2);
+    assert(out.pkts.front().ecn == ECN_CE);
+    assert(out.pkts.front().ce_marked);
+
+    dualpi2_stats stats = buffer.get_l4s_stats();
+    assert(stats.ce_packets == 1);
+    assert(stats.classic_queue_size == 1);
+}
+
+void test_dualpi2_classic_drop_notification()
+{
+    dualpi2_config l4s;
+    l4s.enabled = true;
+    l4s.target_s = 0.001f;
+    l4s.rtt_max_s = 0.003f;
+    ip_buffer buffer(1);
+    buffer.configure_l4s(l4s);
+    buffer.step(0.0f);
+
+    ip_pkt classic(0.0f, 1000.0f, 1000.0f, 3, 0.0f, 0.0f);
+    classic.ecn = ECN_NOT_ECT;
+    classic.original_ecn = ECN_NOT_ECT;
+    assert(buffer.add_pkt(classic));
+
+    for(int i = 1; i < 40; ++i) buffer.step(i * 0.002f);
+
+    harq_pkt out(11, buffer.get_oldest_timestamp(), 0.080f, 0, 0, 0.0f, 0.0f, 0.0f);
+    buffer.get_pkts(1000.0f, out);
+    harq_pkt dropped;
+    assert(buffer.pop_aqm_dropped_pkt(dropped));
+    assert(dropped.pkts.size() == 1);
+    assert(dropped.pkts.front().uid == 3);
+    assert(dropped.pkts.front().aqm_dropped);
+}
+
+void test_captured_packet_handler_rewrites_ecn_payload()
+{
+    pdcp_config config(4, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, true);
+    std::unique_ptr<fake_packet_capture> fake(new fake_packet_capture(79));
+    fake_packet_capture *fake_ptr = fake.get();
+    std::unique_ptr<packet_capture_interface> capture(std::move(fake));
+    captured_packet_handler handler(std::move(capture), nullptr, config, 1);
+
+    handler.init();
+    handler.step(0.0f);
+
+    ip_pkt pkt(0.0f, 160.0f, 160.0f, 99, 0.0f, 0.0f);
+    pkt.ecn = ECN_CE;
+    pkt.original_ecn = ECN_ECT1;
+    pkt.ce_marked = true;
+    pkt.payload = make_ipv4_payload(ECN_ECT1);
+
+    harq_pkt harq(12, 0.0f, 0.0f, 0, 0, pkt.size, 0.0f, 0.0f);
+    harq.pkts.push_back(pkt);
+    handler.push(std::move(harq));
+    assert(near(handler.release(), 160.0f));
+    assert(fake_ptr->released.size() == 1);
+    assert(fake_ptr->released_payloads.size() == 1);
+    assert((fake_ptr->released_payloads.front()[1] & 0x03) == ECN_CE);
+}
 }
 
 int main()
@@ -278,5 +382,8 @@ int main()
     test_harq_timeout_drop();
     test_captured_packet_handler_release();
     test_captured_packet_handler_timeout_drop();
+    test_dualpi2_classification_and_ce_marking();
+    test_dualpi2_classic_drop_notification();
+    test_captured_packet_handler_rewrites_ecn_payload();
     return 0;
 }

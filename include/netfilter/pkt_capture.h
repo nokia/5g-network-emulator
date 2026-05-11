@@ -6,6 +6,7 @@
 #include <iostream>
 #include <functional>
 #include <mutex>
+#include <vector>
 #include <netfilter/netfilter_interface.h>
 #include <utils/terminal_logging.h>
 
@@ -55,10 +56,13 @@ public:
         prev_id = id; 
     }
 
-    void release(int id)
+    void release(int id, const std::vector<uint8_t>* payload = nullptr)
     {
         check_pkt_order(id);
-        netfilter_interface_release_pkt(nfiface, id, 1);
+        if(payload != nullptr && !payload->empty())
+            netfilter_interface_release_pkt_payload(nfiface, id, 1, payload->data(), (uint32_t)payload->size());
+        else
+            netfilter_interface_release_pkt(nfiface, id, 1);
     }
 
     void drop(int id)

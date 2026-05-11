@@ -41,6 +41,7 @@ public:
     float get_latency(bool elapsed = true);
     float get_tp(bool elapsed = true);
     void record_error(float bits);
+    void set_force_ect1(bool enabled) { force_ect1 = enabled; }
 
 protected:
     void push_ingress_pkt(ip_pkt pkt);
@@ -58,6 +59,7 @@ protected:
     mean_handler<float> ipl_mean;
     mean_handler<float> g_mean;
     mean_handler<float> e_mean;
+    bool force_ect1 = false;
 
     std::mt19937 gauss_dist_gen;
     std::uniform_real_distribution<float> gauss_dist{-1,1};
@@ -72,6 +74,7 @@ struct packet_handler_config
     std::chrono::microseconds *init_t;
     traffic_config traffic_c;
     pdcp_config pdcp_c;
+    dualpi2_config l4s_c;
     bool log_traffic;
     bool log_quality;
 };

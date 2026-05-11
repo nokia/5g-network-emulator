@@ -201,6 +201,32 @@ void configuration_loader::load(std::string cfg_file)
                                 ue_c_list.back().ue_c.beta_metric = std::stof(value);
                             if (key == "pkt_delay_budget")
                                 ue_c_list.back().ue_c.pkt_delay_budget = std::stof(value);
+                            if (key == "l4s_dual_queue")
+                            {
+                                if (value == "true" || value == "1")
+                                    ue_c_list.back().ue_c.l4s_c.enabled = true;
+                                if (value == "false" || value == "0")
+                                    ue_c_list.back().ue_c.l4s_c.enabled = false;
+                            }
+                            if (key == "l4s_force_ect1")
+                            {
+                                if (value == "true" || value == "1")
+                                    ue_c_list.back().ue_c.l4s_c.force_ect1 = true;
+                                if (value == "false" || value == "0")
+                                    ue_c_list.back().ue_c.l4s_c.force_ect1 = false;
+                            }
+                            if (key == "l4s_target_ms")
+                                ue_c_list.back().ue_c.l4s_c.target_s = std::stof(value) * 0.001f;
+                            if (key == "l4s_rtt_max_ms")
+                                ue_c_list.back().ue_c.l4s_c.rtt_max_s = std::stof(value) * 0.001f;
+                            if (key == "l4s_min_th_us")
+                                ue_c_list.back().ue_c.l4s_c.min_th_s = std::stof(value) * 0.000001f;
+                            if (key == "l4s_range_us")
+                                ue_c_list.back().ue_c.l4s_c.range_s = std::stof(value) * 0.000001f;
+                            if (key == "l4s_k")
+                                ue_c_list.back().ue_c.l4s_c.k = std::stof(value);
+                            if (key == "l4s_classic_guard_ms")
+                                ue_c_list.back().ue_c.l4s_c.classic_guard_s = std::stof(value) * 0.001f;
                             // SCENARIO
                             if (key == "ue_height")
                                 ue_c_list.back().ue_c.ue_m.ue_h = std::stof(value);

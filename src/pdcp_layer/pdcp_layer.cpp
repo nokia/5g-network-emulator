@@ -20,6 +20,7 @@ pdcp_layer::pdcp_layer(packet_handler_config handler_cfg, int _verbosity)
       tx_dir(handler_cfg.tx_dir)
 {
     _ip_buffer.debug_queue_num = handler_cfg.queue_num;
+    _ip_buffer.configure_l4s(handler_cfg.l4s_c);
     bh_d = handler_cfg.pdcp_c.bh_d;
     bh_d_var = handler_cfg.pdcp_c.bh_d_var;
 }
@@ -61,6 +62,12 @@ void pdcp_layer::drain_ingress_pkts()
             _packet_h->drop_ingress_pkt(std::move(pkt));
         }
     }
+    harq_pkt dropped;
+    while(_ip_buffer.pop_aqm_dropped_pkt(dropped))
+    {
+        _packet_h->record_error(dropped.bits);
+        _packet_h->drop(std::move(dropped));
+    }
 }
 
 void pdcp_layer::release_pkts(harq_pkt pkt)
@@ -97,6 +104,13 @@ float pdcp_layer::handle_pkt(float bits, int mcs, float sinr, float distance)
                 harq_pkt pkt(current_id, _ip_buffer.get_oldest_timestamp(), current_t, mcs, distance, 0, bh_d, bh_d_var);
                 current_id++;
                 _ip_buffer.get_pkts(bits, pkt);
+                harq_pkt dropped;
+                while(_ip_buffer.pop_aqm_dropped_pkt(dropped))
+                {
+                    _packet_h->record_error(dropped.bits);
+                    _packet_h->drop(std::move(dropped));
+                }
+                if(pkt.bits <= 0.0f) continue;
                 if(is_expired(pkt))
                 {
                     drop_harq_pkt(std::move(pkt));
@@ -238,6 +252,23 @@ pdcp_queue_status pdcp_layer::get_queue_status() const
     }
 
     status.pkt_delay_budget_s = pkt_delay_budget_s;
+    dualpi2_stats l4s_stats = _ip_buffer.get_l4s_stats();
+    status.l4s_ce_packets = l4s_stats.ce_packets;
+    status.l4s_ce_bits = l4s_stats.ce_bits;
+    status.l4s_aqm_drops = l4s_stats.aqm_drops;
+    status.l4s_aqm_drop_bits = l4s_stats.aqm_drop_bits;
+    status.l4s_queue_size = l4s_stats.l4s_queue_size;
+    status.classic_queue_size = l4s_stats.classic_queue_size;
+    status.l4s_queue_bits = l4s_stats.l4s_queue_bits;
+    status.classic_queue_bits = l4s_stats.classic_queue_bits;
+    status.dualpi2_p_l = l4s_stats.p_l;
+    status.dualpi2_p_c = l4s_stats.p_c;
+    status.dualpi2_p_cl = l4s_stats.p_cl;
     _packet_h->fill_queue_status(status, current_t);
     return status;
+}
+
+dualpi2_stats pdcp_layer::get_l4s_interval_stats()
+{
+    return _ip_buffer.get_l4s_interval_stats();
 }

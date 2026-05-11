@@ -7,8 +7,18 @@
 #pragma once
 
 #include <deque>
+#include <cstdint>
+#include <vector>
 
 #define BIT_ROUND_MARGIN 0.99f
+
+enum ecn_codepoint
+{
+    ECN_NOT_ECT = 0,
+    ECN_ECT1 = 1,
+    ECN_ECT0 = 2,
+    ECN_CE = 3
+};
 
 struct ip_pkt
 {
@@ -56,6 +66,12 @@ struct ip_pkt
         is_head = cpy_pkt.is_head;
         erase = cpy_pkt.erase; 
         ip_t = cpy_pkt.ip_t; 
+        ecn = cpy_pkt.ecn;
+        original_ecn = cpy_pkt.original_ecn;
+        ce_marked = cpy_pkt.ce_marked;
+        force_ect1_applied = cpy_pkt.force_ect1_applied;
+        aqm_dropped = cpy_pkt.aqm_dropped;
+        payload = cpy_pkt.payload;
     };
 
     bool is_ready()
@@ -77,6 +93,12 @@ struct ip_pkt
     float backhaul_d_var; 
     bool is_head = true; 
     bool erase = false; 
+    uint8_t ecn = ECN_NOT_ECT;
+    uint8_t original_ecn = ECN_NOT_ECT;
+    bool ce_marked = false;
+    bool force_ect1_applied = false;
+    bool aqm_dropped = false;
+    std::vector<uint8_t> payload;
 };
 
 

@@ -5,6 +5,34 @@
 
 #include <pdcp_layer/captured_packet_handler.h>
 
+namespace
+{
+uint16_t ipv4_checksum(const uint8_t* data, size_t len)
+{
+    uint32_t sum = 0;
+    for(size_t i = 0; i + 1 < len; i += 2)
+    {
+        sum += ((uint16_t)data[i] << 8) | data[i + 1];
+    }
+    if(len & 1) sum += ((uint16_t)data[len - 1] << 8);
+    while(sum >> 16) sum = (sum & 0xffff) + (sum >> 16);
+    return (uint16_t)(~sum);
+}
+
+void apply_ipv4_ecn(std::vector<uint8_t>& payload, uint8_t ecn)
+{
+    if(payload.size() < 20) return;
+    uint8_t ihl = (payload[0] & 0x0f) * 4;
+    if(ihl < 20 || payload.size() < ihl) return;
+    payload[1] = (payload[1] & 0xfc) | (ecn & 0x03);
+    payload[10] = 0;
+    payload[11] = 0;
+    uint16_t csum = ipv4_checksum(payload.data(), ihl);
+    payload[10] = (uint8_t)(csum >> 8);
+    payload[11] = (uint8_t)(csum & 0xff);
+}
+}
+
 captured_packet_handler::captured_packet_handler(int queue_num, std::chrono::microseconds *_init_t, pdcp_config pdcp_c, int verbosity)
     : captured_packet_handler(std::unique_ptr<packet_capture_interface>(new real_packet_capture(queue_num)), _init_t, pdcp_c, verbosity)
 {
@@ -27,8 +55,7 @@ void captured_packet_handler::init()
 {
     if(!pkt_cptr) return;
     pkt_cptr->start(std::bind(&captured_packet_handler::cb, this, std::placeholders::_1, std::placeholders::_2,
-                              std::placeholders::_3, std::placeholders::_4,
-                              std::placeholders::_5, std::placeholders::_6));
+                              std::placeholders::_3));
 }
 
 void captured_packet_handler::quit()
@@ -118,7 +145,15 @@ float captured_packet_handler::release()
                         latency += current_t - it->current_t;
                         ip_latency += current_t - it->ip_t;
                         update_order(it->uid);
-                        pkt_cptr->release(it->uid);
+                        if(it->payload.size() > 0 && (it->ecn != it->original_ecn || it->ce_marked || it->force_ect1_applied))
+                        {
+                            apply_ipv4_ecn(it->payload, it->ecn);
+                            pkt_cptr->release(it->uid, &it->payload);
+                        }
+                        else
+                        {
+                            pkt_cptr->release(it->uid);
+                        }
                         it = out_pkts.erase(it);
                         count++;
                     }
@@ -170,18 +205,19 @@ void captured_packet_handler::fill_queue_status(pdcp_queue_status& status, float
     }
 }
 
-void captured_packet_handler::cb(void* handler, netfilter_interface_t *nfiface, uint64_t timestamp_sec,
-                                 uint64_t timestamp_usec, uint64_t bytes, uint32_t pkt_id)
+void captured_packet_handler::cb(void* handler, netfilter_interface_t *nfiface, const nfq_packet_metadata& meta)
 {
     (void)handler;
     (void)nfiface;
-    (void)timestamp_sec;
-    (void)timestamp_usec;
 
-    int size = (int)bytes * 8;
+    int size = (int)meta.bytes * 8;
     pkt_cptr->lock();
-    captured_pkts.push_back(ip_pkt(get_current_ts(), size, size, prev_uid, pkt_id, bh_d, bh_d_var));
-    prev_uid = pkt_id;
+    ip_pkt pkt(get_current_ts(), size, size, prev_uid, meta.pkt_id, bh_d, bh_d_var);
+    pkt.ecn = meta.ecn;
+    pkt.original_ecn = meta.ecn;
+    pkt.payload = meta.payload;
+    captured_pkts.push_back(std::move(pkt));
+    prev_uid = meta.pkt_id;
     pkt_cptr->unlock();
 }
 

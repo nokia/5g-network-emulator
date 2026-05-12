@@ -49,7 +49,7 @@ public:
     float get_pkts(float _bits, harq_pkt& pkt);
     bool pop_oldest_pkt(harq_pkt& pkt);
     const ip_pkt* peek_oldest_pkt() const;
-    int size() const { return l4s_cfg.enabled ? l4s_queue.size() : (int)pkt_list.size(); }
+    int size() const { return backend_size(); }
     float get_generated(bool partial = true);
     float get_error(bool partial = true);
     bool add_pkt(ip_pkt pkt);
@@ -65,4 +65,13 @@ public:
 private:
     dualpi2_config l4s_cfg;
     dualpi2_queue l4s_queue;
+
+private:
+    bool backend_has_pkts() const;
+    int backend_size() const;
+    bool backend_pop_next(ip_pkt& pkt);
+    bool backend_pop_oldest(ip_pkt& pkt);
+    void backend_requeue_front(ip_pkt pkt);
+    const ip_pkt* backend_peek_oldest() const;
+    float backend_oldest_timestamp() const;
 };

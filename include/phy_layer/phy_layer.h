@@ -88,6 +88,10 @@ public:
     float get_sinr(int f_index);
     float get_linear_sinr(int f_index);
     float get_mean_sinr();
+    float get_mean_rsrp();
+    float get_mean_cqi();
+    float get_mean_mcs();
+    float get_mean_eff();
     void set_logger(log_handler *_logger);
     float get_metric(int f, int n_ues);
     float get_tp(int f);

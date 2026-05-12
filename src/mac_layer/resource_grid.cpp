@@ -5,6 +5,7 @@
  **********************************************/
 
 #include <mac_layer/resource_grid.h>
+#include <vector>
 
 // Checks if a valid duplexing type (TDD or FDD) was selected
 int grid::check_duplexing_type(int d_type)
@@ -103,6 +104,7 @@ void grid::add_current_ts(float t) { current_t = t; }
 // Initializes the resource grid
 void grid::init(std::vector<ue> *ue_list)
 {
+    this->ue_list = ue_list;
     for (int t = 0; t < n_time_rbg; t++)
     {
         std::vector<rb> v_f;
@@ -123,7 +125,17 @@ void grid::init(std::vector<ue> *ue_list)
 void grid::step()
 {
     int syms = 0;
-    // TODO: throughput storage
+    last_step_metrics = grid_step_metrics();
+    last_step_metrics.grid_capacity_bits = max_capacity_bits;
+    if (ue_list != nullptr)
+    {
+        for (std::vector<ue>::iterator it = ue_list->begin(); it != ue_list->end(); ++it)
+        {
+            if (it->has_packets(tx))
+                last_step_metrics.active_ues_with_data++;
+        }
+    }
+    std::vector<bool> scheduled_ues(ue_list != nullptr ? ue_list->size() : 0, false);
     for (int t = 0; t < n_time_rbg; t++)
     {
         if (duplexing_t == TDD)
@@ -134,8 +146,25 @@ void grid::step()
         {
             rb_grid[t][f].estimate_params(syms, current_t);
             rb_grid[t][f].handle_packet(syms);
+            if (rb_grid[t][f].was_scheduled())
+            {
+                last_step_metrics.scheduled_rbg_count++;
+                last_step_metrics.scheduled_bits += rb_grid[t][f].last_scheduled_bits();
+                last_step_metrics.effective_bits += rb_grid[t][f].last_effective_bits();
+                int ue_index = rb_grid[t][f].last_ue_index();
+                if (ue_index >= 0 && ue_index < (int)scheduled_ues.size() && !scheduled_ues[ue_index])
+                {
+                    scheduled_ues[ue_index] = true;
+                    last_step_metrics.scheduled_ue_count++;
+                }
+            }
         }
     }
+    last_step_metrics.empty_rbg_count = n_freq_rbg * n_time_rbg - last_step_metrics.scheduled_rbg_count;
+    if (n_freq_rbg * n_time_rbg > 0)
+        last_step_metrics.utilization_ratio = (float)last_step_metrics.scheduled_rbg_count / (float)(n_freq_rbg * n_time_rbg);
+    if (last_step_metrics.scheduled_bits > 0.0f)
+        last_step_metrics.scheduling_efficiency_ratio = last_step_metrics.effective_bits / last_step_metrics.scheduled_bits;
 }
 
 float grid::assignRFBandwidth(float bandwidth)
@@ -264,4 +293,5 @@ grid::grid(int _tx, int _mimo_layers, int _numerology, int _n_re_f, int _n_re_t,
     n_logical_units = n_time_rb / n_time_rbg;
     metric_t = _metric_t;
     tdd_h.set_syms(n_sym_rbg);
+    max_capacity_bits = n_rb_total * n_ofdm_symbols * n_sc_rb * EFF_2_CQI[1][15];
 }

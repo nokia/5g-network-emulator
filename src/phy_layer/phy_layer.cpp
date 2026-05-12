@@ -565,6 +565,26 @@ float phy_layer::get_mean_sinr()
     return db_sinr_s;
 }
 
+float phy_layer::get_mean_rsrp()
+{
+    return rsrp_s;
+}
+
+float phy_layer::get_mean_cqi()
+{
+    return (float)cqi_s;
+}
+
+float phy_layer::get_mean_mcs()
+{
+    return (float)mcs_s;
+}
+
+float phy_layer::get_mean_eff()
+{
+    return eff_s;
+}
+
 int phy_layer::get_modulation_index()
 {
     return modulation_m;
@@ -762,14 +782,14 @@ void phy_layer::estimate_sinr(float distance, int f, float _macro_fading)
 
     db_sinr_s += db_sinr_v[f];
     rsrp_v[f] = db_sinr_v[f] + noise_interf - 10 * log10(n_rbs) - 10 * log10(n_sc_rb) + power_boost;
-
-    rsrp_s = rsrp_v[f];
+    rsrp_s += rsrp_v[f];
     l_sinr_v[f] = pow(10, db_sinr_v[f] / 10.0);
 }
 
 void phy_layer::average_sinr()
 {
     db_sinr_s /= n_rbs;
+    rsrp_s /= n_rbs;
     l_sinr_s = pow(10, db_sinr_s / 10.0);
 }
 
@@ -872,6 +892,7 @@ void phy_layer::estimate_channel_state(float distance, phy_shared &phy_s, float 
     if (update_sinr)
         // estimate_attenuation(distance,pos,phy_s);
         // pathloss=compute_pathloss(distance,_los);
+        rsrp_s = 0;
         db_sinr_s = 0;
     prepare_metrics(oldest_t, avg_tp);
 

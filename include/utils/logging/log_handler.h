@@ -8,6 +8,7 @@
 
 #include "spdlog/async.h"
 #include "spdlog/sinks/basic_file_sink.h"
+#include <functional>
 
 //--------------------------------------------------------------------------------------------------
 // log_config(): logger configuration struct.
@@ -41,6 +42,13 @@ struct log_config
 class log_handler
 {
 public:
+    using monitoring_cb_t = std::function<void(const std::string &line)>;
+
+    void set_monitoring_callback(monitoring_cb_t cb)
+    {
+        monitoring_cb = cb;
+    }
+
     void init( std::string dir, std::string filename)
     {
         if(dir[dir.length() - 1] != '/') dir += "/";
@@ -69,12 +77,14 @@ public:
     void log(std::string info)
     {
         if(is_ready) logger->info(info);
+        emit_monitoring(info);
         if(use_counter) handle_counter(); 
     }
 
     void log_force(std::string info)
     {
         logger->info(info);
+        emit_monitoring(info);
     }
 
     void handle_counter()
@@ -91,14 +101,21 @@ public:
     template<typename FormatString, typename... Args>
     void log(const FormatString &fmt, Args&&... args)
     {
-        if(is_ready) logger->info(fmt, std::forward<Args>(args)...);
+        if(is_ready)
+        {
+            auto formatted = fmt::format(fmt, std::forward<Args>(args)...);
+            logger->info(formatted);
+            emit_monitoring(formatted);
+        }
         if(use_counter) handle_counter(); 
     }
 
     template<typename FormatString, typename... Args>
     void log_force(const FormatString &fmt, Args&&... args)
     {
-        logger->info(fmt, std::forward<Args>(args)...);
+        auto formatted = fmt::format(fmt, std::forward<Args>(args)...);
+        logger->info(formatted);
+        emit_monitoring(formatted);
     }
 
    void log_partial(std::string info)
@@ -117,7 +134,11 @@ public:
         if(is_ready && info_out.size() > 0) 
         {
             info_out += info; 
-            if(info_out.size() > 0) logger->info(info_out);
+            if(info_out.size() > 0)
+            {
+                logger->info(info_out);
+                emit_monitoring(info_out);
+            }
             reset_info(); 
         }
         if(use_counter) handle_counter(); 
@@ -129,7 +150,11 @@ public:
         if(is_ready)
         {
             info_out += fmt::format(fmt, std::forward<Args>(args)...);
-            if(info_out.size() > 0) logger->info(info_out);
+            if(info_out.size() > 0)
+            {
+                logger->info(info_out);
+                emit_monitoring(info_out);
+            }
             reset_info(); 
         }
         if(use_counter) handle_counter(); 
@@ -139,13 +164,22 @@ public:
     {
         if(is_ready)
         {
-            if(info_out.size() > 0) logger->info(info_out);
+            if(info_out.size() > 0)
+            {
+                logger->info(info_out);
+                emit_monitoring(info_out);
+            }
             reset_info(); 
         }
         if(use_counter) handle_counter(); 
     }
     
 private: 
+    void emit_monitoring(const std::string &info)
+    {
+        if(monitoring_cb) monitoring_cb(info);
+    }
+
     void reset_info()
     {
         info_out.erase();
@@ -164,4 +198,5 @@ private:
 
 private: 
     std::shared_ptr<spdlog::logger> logger; 
+    monitoring_cb_t monitoring_cb = nullptr;
 };

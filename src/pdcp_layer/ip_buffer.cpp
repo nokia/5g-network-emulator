@@ -79,6 +79,8 @@ bool ip_buffer::add_pkt(ip_pkt pkt)
 
     current_size += pkt.size; 
     if(verbosity > 0) g_mean.add(pkt.size);
+    generated_pkts_interval++;
+    generated_pkts_total++;
     if(!backend_has_pkts()) oldest_t = pkt.current_t;
     backend_requeue_front(std::move(pkt));
     return true;
@@ -87,6 +89,7 @@ bool ip_buffer::add_pkt(ip_pkt pkt)
 void ip_buffer::step(float _current_t){
     if(verbosity > 0) g_mean.step();
     if(verbosity > 0) e_mean.step();
+    generated_pkts_interval = 0;
     current_t = _current_t;
     if(l4s_cfg.enabled) l4s_queue.step(current_t);
 }
@@ -144,6 +147,11 @@ float ip_buffer::get_generated(bool partial)
         else return BIT2MBIT*g_mean.get()*S2MS;
     }
     else return -1; 
+}
+
+int ip_buffer::get_generated_packets(bool partial)
+{
+    return partial ? generated_pkts_interval : generated_pkts_total;
 }
 
 float ip_buffer::get_error(bool partial)

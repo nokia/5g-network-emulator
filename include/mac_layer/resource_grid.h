@@ -18,6 +18,19 @@
 #include <phy_layer/phy_l_definitions.h>
 #include <utils/conversions.h>
 
+struct grid_step_metrics
+{
+    int scheduled_rbg_count = 0;
+    int empty_rbg_count = 0;
+    int scheduled_ue_count = 0;
+    int active_ues_with_data = 0;
+    float scheduled_bits = 0.0f;
+    float effective_bits = 0.0f;
+    float grid_capacity_bits = 0.0f;
+    float utilization_ratio = 0.0f;
+    float scheduling_efficiency_ratio = 0.0f;
+};
+
 //--------------------------------------------------------------------------------------------------
 // grid(): class is in charge of building the Resource Allocation grid for the assigned transmission
 // direction according to the selected configuration parameters. This is done following the
@@ -64,6 +77,7 @@ public:
     void init(std::vector<ue> * ue_list);
     float assignRFBandwidth(float bandwidth); 
     void step();
+    const grid_step_metrics &get_last_step_metrics() const { return last_step_metrics; }
     void set_logger(log_handler * _logger)
     {
         log = true; 
@@ -104,6 +118,9 @@ private:
     log_handler * logger; 
     int verbosity = 0; 
     float current_t = 0; 
+    std::vector<ue> *ue_list = nullptr;
+    float max_capacity_bits = 0.0f;
+    grid_step_metrics last_step_metrics;
 };
            
     

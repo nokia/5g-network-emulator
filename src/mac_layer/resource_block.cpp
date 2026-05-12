@@ -63,10 +63,18 @@ void rb::estimate_params(int syms, float _current_t)
 // Handle Packets
 float rb::handle_packet(int syms)
 {
+    last_scheduled = false;
+    last_ue_index_v = -1;
+    last_scheduled_bits_v = 0.0f;
+    last_effective_bits_v = 0.0f;
     if(check_ue_assignment())
     {
         float tp = max_metric.get_tp(); 
         float eff_tp = (*ue_list)[max_metric.get_index()].handle_pkt(tp*syms, tx, f);
+        last_scheduled = true;
+        last_ue_index_v = max_metric.get_index();
+        last_scheduled_bits_v = tp * syms;
+        last_effective_bits_v = eff_tp;
         if(log) logger->log_partial("tx:{} f:{} t:{} id:{} m:{} tp:{} e_tp:{} ts:{} \n", tx, f, t, max_metric.get_id(), max_metric.get_value(),tp*syms, eff_tp, current_t);
         //LOG_INFO_I("GRID") << current_t << (tx ? " UL[" : " DL[") << f << "," << t << "]: " <<
         //    "ID [" << max_metric.get_id() << "][]" max_metric.get_value(),tp*syms, eff_tp, current_t << END();

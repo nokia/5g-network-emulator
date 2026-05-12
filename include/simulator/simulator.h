@@ -35,7 +35,9 @@ public:
     void print_traffic();
 private: 
 
-    void handle_time_log(unsigned int _ts);
+    void handle_time_log(double sim_time_s);
+    void log_runtime_start();
+    void log_runtime_stop(const std::string &reason);
 
     void step(unsigned int _ts);
 
@@ -46,6 +48,7 @@ private:
 private: 
     int freq = 1000; 
     int step_c = 0; 
+    std::uint64_t total_steps = 0;
     std::chrono::duration<double> time_mac = std::chrono::duration<double>().zero(); 
     std::chrono::duration<double> time_ue = std::chrono::duration<double>().zero(); 
     float total_time_mac; 
@@ -56,6 +59,9 @@ private:
     float duration;
 private: 
     int verbosity = 0; 
+    bool runtime_started = false;
+    bool runtime_stopped = false;
+    std::chrono::steady_clock::time_point runtime_start_tp;
 
 };
 #endif

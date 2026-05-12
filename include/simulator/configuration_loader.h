@@ -22,6 +22,7 @@
 #include <phy_layer/phy_config.h>
 #include <mac_layer/tdd_handler.h>
 #include <utils/logging/log_handler.h>
+#include <utils/monitoring/monitoring_config.h>
 
 std::string getBaseMapPath();
 
@@ -217,6 +218,8 @@ public:
     bool get_log_mac();
     float get_freq();
     std::string getClosestMapFile(int scenario_type, double frequency);
+    // monitoring config
+    monitoring_config get_monitoring_config();
 
 private:
     float duration = DURATION_DEFAULT;
@@ -258,6 +261,9 @@ private:
     float air_delay_var_dl = AIR_DELAY_VAR_DEFAULT;
     float rtx_period_dl = RTX_PERIOD_DEFAULT;
     float rtx_period_var_dl = RTX_PERIOD_VAR_DEFAULT;
+
+    // Monitoring
+    monitoring_config monitoring_c;
     float rtx_proc_delay_dl = RTX_PROC_DELAY_DEFAULT;
     float rtx_proc_delay_var_dl = RTX_PROC_DELAY_VAR_DEFAULT;
     // METRIC COFIGURATION

@@ -149,6 +149,10 @@ public:
 
 private: 
     void init_logger(); 
+    void emit_pdcp_monitoring();
+    void emit_phy_monitoring();
+    void emit_l4s_monitoring();
+    void emit_mobility_monitoring();
     phy_layer& phy(int tx_dir);
     const phy_layer& phy(int tx_dir) const;
     pdcp_layer& pdcp(int tx_dir);

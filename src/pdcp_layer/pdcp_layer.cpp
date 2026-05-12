@@ -180,6 +180,11 @@ float pdcp_layer::get_generated(bool partial)
     return _ip_buffer.get_generated(partial);
 }
 
+int pdcp_layer::get_generated_packets(bool partial)
+{
+    return _ip_buffer.get_generated_packets(partial);
+}
+
 float pdcp_layer::get_error(bool partial)
 {
     return _ip_buffer.get_error(partial);
@@ -198,6 +203,11 @@ float pdcp_layer::get_ip_latency(bool partial)
 float pdcp_layer::get_tp(bool partial)
 {
     return _packet_h->get_tp(partial);
+}
+
+bool pdcp_layer::using_l4s() const
+{
+    return _ip_buffer.using_dualpi2();
 }
 
 void pdcp_layer::cleanup_expired_pkts()

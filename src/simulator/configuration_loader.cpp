@@ -12,6 +12,7 @@
 #include <unistd.h>
 
 #include <utils/terminal_logging.h>
+#include <utils/monitoring/monitoring_config.h>
 
 std::string getBaseMapPath()
 {
@@ -400,6 +401,109 @@ void configuration_loader::load(std::string cfg_file)
                                 if (key == "ratio_DL_UL")
                                     ratio_DL_UL = std::stof(value);
                             }
+                            if (mode == "Monitoring")
+                            {
+                                if (key == "enabled")
+                                {
+                                    if (value == "true" || value == "1") monitoring_c.enabled = true;
+                                    if (value == "false" || value == "0") monitoring_c.enabled = false;
+                                }
+                                if (key == "aggregation_window_ms") monitoring_c.aggregation_window_ms = std::stoi(value);
+                                if (key == "default_metric_type") monitoring_c.default_metric_type = value;
+                                if (key == "emit_ue_phy")
+                                {
+                                    if (value == "true" || value == "1") monitoring_c.emit_ue_phy = true;
+                                    if (value == "false" || value == "0") monitoring_c.emit_ue_phy = false;
+                                }
+                                if (key == "emit_ue_pdcp")
+                                {
+                                    if (value == "true" || value == "1") monitoring_c.emit_ue_pdcp = true;
+                                    if (value == "false" || value == "0") monitoring_c.emit_ue_pdcp = false;
+                                }
+                                if (key == "emit_ue_mobility")
+                                {
+                                    if (value == "true" || value == "1") monitoring_c.emit_ue_mobility = true;
+                                    if (value == "false" || value == "0") monitoring_c.emit_ue_mobility = false;
+                                }
+                                if (key == "emit_l4s")
+                                {
+                                    if (value == "true" || value == "1") monitoring_c.emit_l4s = true;
+                                    if (value == "false" || value == "0") monitoring_c.emit_l4s = false;
+                                }
+                                if (key == "emit_mac_scheduler")
+                                {
+                                    if (value == "true" || value == "1") monitoring_c.emit_mac_scheduler = true;
+                                    if (value == "false" || value == "0") monitoring_c.emit_mac_scheduler = false;
+                                }
+                                if (key == "emit_emulator_runtime")
+                                {
+                                    if (value == "true" || value == "1") monitoring_c.emit_emulator_runtime = true;
+                                    if (value == "false" || value == "0") monitoring_c.emit_emulator_runtime = false;
+                                }
+                                if (key == "emit_runtime_debug_logs")
+                                {
+                                    if (value == "true" || value == "1") monitoring_c.emit_runtime_debug_logs = true;
+                                    if (value == "false" || value == "0") monitoring_c.emit_runtime_debug_logs = false;
+                                }
+                                if (key == "emit_text_logs_compat")
+                                {
+                                    if (value == "true" || value == "1") monitoring_c.emit_text_logs_compat = true;
+                                    if (value == "false" || value == "0") monitoring_c.emit_text_logs_compat = false;
+                                }
+                                if (key == "outputs")
+                                {
+                                    monitoring_c.outputs.clear();
+                                    std::istringstream ss(value);
+                                    std::string token;
+                                    while(std::getline(ss, token, ','))
+                                    {
+                                        monitoring_output_config oc;
+                                        oc.name = token;
+                                        monitoring_c.outputs.push_back(oc);
+                                    }
+                                }
+                                if (key.rfind("output_",0) == 0)
+                                {
+                                    const std::string prefix = "output_";
+                                    const std::string type_suffix = "_type";
+                                    const std::string address_suffix = "_address";
+                                    const std::string port_suffix = "_port";
+                                    std::string name;
+                                    std::string prop;
+
+                                    if(key.size() > prefix.size() + type_suffix.size() &&
+                                       key.compare(key.size() - type_suffix.size(), type_suffix.size(), type_suffix) == 0)
+                                    {
+                                        name = key.substr(prefix.size(), key.size() - prefix.size() - type_suffix.size());
+                                        prop = "type";
+                                    }
+                                    else if(key.size() > prefix.size() + address_suffix.size() &&
+                                            key.compare(key.size() - address_suffix.size(), address_suffix.size(), address_suffix) == 0)
+                                    {
+                                        name = key.substr(prefix.size(), key.size() - prefix.size() - address_suffix.size());
+                                        prop = "address";
+                                    }
+                                    else if(key.size() > prefix.size() + port_suffix.size() &&
+                                            key.compare(key.size() - port_suffix.size(), port_suffix.size(), port_suffix) == 0)
+                                    {
+                                        name = key.substr(prefix.size(), key.size() - prefix.size() - port_suffix.size());
+                                        prop = "port";
+                                    }
+
+                                    if(!name.empty())
+                                    {
+                                        for(auto &oc : monitoring_c.outputs)
+                                        {
+                                            if(oc.name == name)
+                                            {
+                                                if(prop == "type") oc.type = value;
+                                                else if(prop == "address") oc.address = value;
+                                                else if(prop == "port") oc.port = std::stoi(value);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                             if (mode == "PHYLayer")
                             {
                                 // NOISE INTERFERENCE
@@ -621,4 +725,9 @@ std::string configuration_loader::getClosestMapFile(int scenario_type, double fr
     std::cout << "Generated map file path: " << mapFilePath << std::endl;
 
     return mapFilePath;
+}
+
+monitoring_config configuration_loader::get_monitoring_config()
+{
+    return monitoring_c;
 }

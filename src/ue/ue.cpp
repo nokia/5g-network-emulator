@@ -7,9 +7,59 @@
 #include <ue/ue.h>
 #include <cassert>
 #include <chrono>
+#include "utils/monitoring/monitoring_manager.h"
 
 namespace
 {
+std::string escape_influx_tag(const std::string &value)
+{
+    std::string out;
+    out.reserve(value.size());
+    for(char c : value)
+    {
+        if(c == ',' || c == ' ' || c == '=') out.push_back('\\');
+        out.push_back(c);
+    }
+    return out;
+}
+
+std::string escape_influx_string_field(const std::string &value)
+{
+    std::string out;
+    out.reserve(value.size());
+    for(char c : value)
+    {
+        if(c == '\\' || c == '"') out.push_back('\\');
+        out.push_back(c);
+    }
+    return out;
+}
+
+metric_field make_metric_field(double value, field_aggregation aggregation)
+{
+    metric_field field;
+    field.value = value;
+    field.aggregation = aggregation;
+    return field;
+}
+
+std::string make_text_log_line(int ue_id, const std::string &line)
+{
+    const auto now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    std::string lp = "emulator_log";
+    lp += ",component=ue";
+    lp += ",ue_id=" + escape_influx_tag(std::to_string(ue_id));
+    lp += " message=\"" + escape_influx_string_field(line) + "\"";
+    lp += " " + std::to_string(now_ns);
+    return lp;
+}
+
+std::string tx_dir_tag(int tx_dir)
+{
+    return tx_dir == TX_DL ? "dl" : "ul";
+}
+
 packet_handler_config make_pdcp_packet_config(int ue_type,
                                               int tx_dir,
                                               int queue_num,
@@ -47,10 +97,10 @@ ue::ue(int _id,
        std::chrono::microseconds *init_t,
        bool _stochastics)
      :  map(_scenario_c.map_file),
-        pdcp_dl(make_pdcp_packet_config(ue_type, TX_DL, ue_c.dl_queue_n, _id, init_t, ue_c.traffic_c, _pdcp_config_dl, ue_c.l4s_c, ue_c.log_traffic, ue_c.log_quality), ue_c.log_traffic || ue_c.log_quality),
-        pdcp_ul(make_pdcp_packet_config(ue_type, TX_UL, ue_c.ul_queue_n, _id, init_t, ue_c.traffic_c, _pdcp_config_ul, ue_c.l4s_c, ue_c.log_traffic, ue_c.log_quality), ue_c.log_traffic || ue_c.log_quality),
-        phy_dl(TX_DL, _id, _scenario_c, ue_c.get_phy_config(), _phy_enb_config, _stochastics, ue_c.log_quality),
-        phy_ul(TX_UL, _id, _scenario_c, ue_c.get_phy_config(), _phy_enb_config, _stochastics, ue_c.log_quality),
+        pdcp_dl(make_pdcp_packet_config(ue_type, TX_DL, ue_c.dl_queue_n, _id, init_t, ue_c.traffic_c, _pdcp_config_dl, ue_c.l4s_c, ue_c.log_traffic, ue_c.log_quality), ue_c.log_traffic || ue_c.log_quality || (monitoring_manager::instance().is_enabled() && (monitoring_manager::instance().get_config().emit_ue_pdcp || monitoring_manager::instance().get_config().emit_l4s))),
+        pdcp_ul(make_pdcp_packet_config(ue_type, TX_UL, ue_c.ul_queue_n, _id, init_t, ue_c.traffic_c, _pdcp_config_ul, ue_c.l4s_c, ue_c.log_traffic, ue_c.log_quality), ue_c.log_traffic || ue_c.log_quality || (monitoring_manager::instance().is_enabled() && (monitoring_manager::instance().get_config().emit_ue_pdcp || monitoring_manager::instance().get_config().emit_l4s))),
+        phy_dl(TX_DL, _id, _scenario_c, ue_c.get_phy_config(), _phy_enb_config, _stochastics, ue_c.log_quality || (monitoring_manager::instance().is_enabled() && monitoring_manager::instance().get_config().emit_ue_phy)),
+        phy_ul(TX_UL, _id, _scenario_c, ue_c.get_phy_config(), _phy_enb_config, _stochastics, ue_c.log_quality || (monitoring_manager::instance().is_enabled() && monitoring_manager::instance().get_config().emit_ue_phy)),
         mobility_m(_id, ue_c.mobility_c, _scenario_c.type, map.getMaxApothem()),
         phy_s(_id, ue_c, _scenario_c, _phy_enb_config)
 {
@@ -94,6 +144,13 @@ void ue::init_logger()
     {
         phy_dl.set_logger(&ue_log);
         phy_ul.set_logger(&ue_log);
+    }
+
+    if (log_ue)
+    {
+        ue_log.set_monitoring_callback([this](const std::string &line){
+            monitoring_manager::instance().send_text_line(make_text_log_line(id, line));
+        });
     }
 }
 
@@ -209,6 +266,19 @@ void ue::update_pos()
         ue_log.log_partial("x:{} y:{} ", mobility_m.x(), mobility_m.y());
 }
 
+void ue::emit_mobility_monitoring()
+{
+    monitoring_manager &monitoring = monitoring_manager::instance();
+    if(!monitoring.is_enabled() || !monitoring.get_config().emit_ue_mobility) return;
+
+    metric_point point;
+    point.measurement = "ue_mobility";
+    point.tags["ue_id"] = std::to_string(id);
+    point.fields["x"] = make_metric_field(mobility_m.x(), field_aggregation::last);
+    point.fields["y"] = make_metric_field(mobility_m.y(), field_aggregation::last);
+    point.fields["distance_m"] = make_metric_field(mobility_m.get_distance(), field_aggregation::last);
+    monitoring.publish(point);
+}
 
 
 float ue::handle_pkt(float bits, int tx_dir, int f_index)
@@ -253,6 +323,79 @@ void ue::update_pdcp()
     }
 }
 
+void ue::emit_pdcp_monitoring()
+{
+    monitoring_manager &monitoring = monitoring_manager::instance();
+    if(!monitoring.is_enabled() || !monitoring.get_config().emit_ue_pdcp) return;
+
+    const auto ts_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+
+    metric_point ul_point;
+    ul_point.measurement = "ue_pdcp";
+    ul_point.tags["ue_id"] = std::to_string(id);
+    ul_point.tags["tx_dir"] = tx_dir_tag(TX_UL);
+    ul_point.ts_ns = ts_ns;
+    ul_point.fields["throughput_mbps_mean"] = make_metric_field(pdcp_ul.get_tp(true), field_aggregation::mean);
+    ul_point.fields["generated_mbps_sum"] = make_metric_field(pdcp_ul.get_generated(true), field_aggregation::sum);
+    ul_point.fields["generated_packets_sum"] = make_metric_field(pdcp_ul.get_generated_packets(true), field_aggregation::sum);
+    ul_point.fields["error_mbps_sum"] = make_metric_field(pdcp_ul.get_error(true), field_aggregation::sum);
+    ul_point.fields["latency_s_mean"] = make_metric_field(pdcp_ul.get_latency(true), field_aggregation::mean);
+    ul_point.fields["ip_latency_s_mean"] = make_metric_field(pdcp_ul.get_ip_latency(true), field_aggregation::mean);
+    monitoring.publish(ul_point);
+
+    metric_point dl_point;
+    dl_point.measurement = "ue_pdcp";
+    dl_point.tags["ue_id"] = std::to_string(id);
+    dl_point.tags["tx_dir"] = tx_dir_tag(TX_DL);
+    dl_point.ts_ns = ts_ns;
+    dl_point.fields["throughput_mbps_mean"] = make_metric_field(pdcp_dl.get_tp(true), field_aggregation::mean);
+    dl_point.fields["generated_mbps_sum"] = make_metric_field(pdcp_dl.get_generated(true), field_aggregation::sum);
+    dl_point.fields["generated_packets_sum"] = make_metric_field(pdcp_dl.get_generated_packets(true), field_aggregation::sum);
+    dl_point.fields["error_mbps_sum"] = make_metric_field(pdcp_dl.get_error(true), field_aggregation::sum);
+    dl_point.fields["latency_s_mean"] = make_metric_field(pdcp_dl.get_latency(true), field_aggregation::mean);
+    dl_point.fields["ip_latency_s_mean"] = make_metric_field(pdcp_dl.get_ip_latency(true), field_aggregation::mean);
+    monitoring.publish(dl_point);
+}
+
+void ue::emit_l4s_monitoring()
+{
+    monitoring_manager &monitoring = monitoring_manager::instance();
+    if(!monitoring.is_enabled() || !monitoring.get_config().emit_l4s) return;
+    if(!pdcp_ul.using_l4s() && !pdcp_dl.using_l4s()) return;
+
+    const auto ts_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+
+    auto publish_l4s = [&](pdcp_layer &layer, int tx_dir) {
+        if(!layer.using_l4s()) return;
+        dualpi2_stats interval = layer.get_l4s_interval_stats();
+        pdcp_queue_status status = layer.get_queue_status();
+
+        metric_point point;
+        point.measurement = "ue_l4s";
+        point.tags["ue_id"] = std::to_string(id);
+        point.tags["tx_dir"] = tx_dir_tag(tx_dir);
+        point.ts_ns = ts_ns;
+        point.fields["generated_packets_sum"] = make_metric_field(layer.get_generated_packets(true), field_aggregation::sum);
+        point.fields["ce_packets_sum"] = make_metric_field(interval.ce_packets, field_aggregation::sum);
+        point.fields["ce_bits_sum"] = make_metric_field(interval.ce_bits, field_aggregation::sum);
+        point.fields["aqm_drops_sum"] = make_metric_field(interval.aqm_drops, field_aggregation::sum);
+        point.fields["aqm_drop_bits_sum"] = make_metric_field(interval.aqm_drop_bits, field_aggregation::sum);
+        point.fields["l4s_queue_packets_last"] = make_metric_field(status.l4s_queue_size, field_aggregation::last);
+        point.fields["classic_queue_packets_last"] = make_metric_field(status.classic_queue_size, field_aggregation::last);
+        point.fields["l4s_queue_bits_last"] = make_metric_field(status.l4s_queue_bits, field_aggregation::last);
+        point.fields["classic_queue_bits_last"] = make_metric_field(status.classic_queue_bits, field_aggregation::last);
+        point.fields["p_l_mean"] = make_metric_field(status.dualpi2_p_l, field_aggregation::mean);
+        point.fields["p_c_mean"] = make_metric_field(status.dualpi2_p_c, field_aggregation::mean);
+        point.fields["p_cl_mean"] = make_metric_field(status.dualpi2_p_cl, field_aggregation::mean);
+        monitoring.publish(point);
+    };
+
+    publish_l4s(pdcp_ul, TX_UL);
+    publish_l4s(pdcp_dl, TX_DL);
+}
+
 void ue::add_ts()
 {
     if (log_ue)
@@ -279,6 +422,41 @@ void ue::init_phy_update_rates(float _doppler_f, int _cqi_p, int _ri_p)
         phy_tc = -1;
         phy_sinr_period = std::min(_cqi_p, _ri_p);
     }
+}
+
+void ue::emit_phy_monitoring()
+{
+    monitoring_manager &monitoring = monitoring_manager::instance();
+    if(!monitoring.is_enabled() || !monitoring.get_config().emit_ue_phy) return;
+
+    const auto ts_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+
+    metric_point dl_point;
+    dl_point.measurement = "ue_phy";
+    dl_point.tags["ue_id"] = std::to_string(id);
+    dl_point.tags["tx_dir"] = tx_dir_tag(TX_DL);
+    dl_point.ts_ns = ts_ns;
+    dl_point.fields["sinr_db_mean"] = make_metric_field(phy_dl.get_mean_sinr(), field_aggregation::mean);
+    dl_point.fields["rsrp_db_mean"] = make_metric_field(phy_dl.get_mean_rsrp(), field_aggregation::mean);
+    dl_point.fields["cqi_mean"] = make_metric_field(phy_dl.get_mean_cqi(), field_aggregation::mean);
+    dl_point.fields["mcs_mean"] = make_metric_field(phy_dl.get_mean_mcs(), field_aggregation::mean);
+    dl_point.fields["eff_mean"] = make_metric_field(phy_dl.get_mean_eff(), field_aggregation::mean);
+    dl_point.fields["ri_mean"] = make_metric_field(phy_dl.get_ri(), field_aggregation::mean);
+    monitoring.publish(dl_point);
+
+    metric_point ul_point;
+    ul_point.measurement = "ue_phy";
+    ul_point.tags["ue_id"] = std::to_string(id);
+    ul_point.tags["tx_dir"] = tx_dir_tag(TX_UL);
+    ul_point.ts_ns = ts_ns;
+    ul_point.fields["sinr_db_mean"] = make_metric_field(phy_ul.get_mean_sinr(), field_aggregation::mean);
+    ul_point.fields["rsrp_db_mean"] = make_metric_field(phy_ul.get_mean_rsrp(), field_aggregation::mean);
+    ul_point.fields["cqi_mean"] = make_metric_field(phy_ul.get_mean_cqi(), field_aggregation::mean);
+    ul_point.fields["mcs_mean"] = make_metric_field(phy_ul.get_mean_mcs(), field_aggregation::mean);
+    ul_point.fields["eff_mean"] = make_metric_field(phy_ul.get_mean_eff(), field_aggregation::mean);
+    ul_point.fields["ri_mean"] = make_metric_field(phy_ul.get_ri(), field_aggregation::mean);
+    monitoring.publish(ul_point);
 }
 
 void ue::estimate_channel_state()
@@ -321,14 +499,18 @@ void ue::step()
 {
     update_pdcp();
     update_pos();
+    emit_mobility_monitoring();
     if (log_traffic && ue_log.ready())
     {
         ue_log.log_partial("gul:{} gdl:{} ", pdcp_ul.get_generated(true), pdcp_dl.get_generated(true));
     }
+    emit_pdcp_monitoring();
+    emit_l4s_monitoring();
     if (log_ue)
         add_ts();
 
     estimate_channel_state();
+    emit_phy_monitoring();
 
     return;
 }

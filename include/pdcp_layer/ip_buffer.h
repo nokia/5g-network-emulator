@@ -39,6 +39,8 @@ private:
 private: 
     mean_handler<float> g_mean; 
     mean_handler<float> e_mean; 
+    int generated_pkts_interval = 0;
+    int generated_pkts_total = 0;
 
 public: 
     float get_oldest_timestamp();
@@ -51,6 +53,7 @@ public:
     const ip_pkt* peek_oldest_pkt() const;
     int size() const { return backend_size(); }
     float get_generated(bool partial = true);
+    int get_generated_packets(bool partial = true);
     float get_error(bool partial = true);
     bool add_pkt(ip_pkt pkt);
     void configure_l4s(dualpi2_config cfg);

@@ -24,6 +24,16 @@ struct pdcp_queue_status
     int release_size = 0;
     int release_oldest_uid = -1;
     float release_oldest_age = -1.0f;
+    int nfqueue_queue_num = -1;
+    int nfqueue_rewrite_packets = 0;
+    int nfqueue_ce_rewrite_packets = 0;
+    int nfqueue_force_ect1_packets = 0;
+    int nfqueue_drop_packets = 0;
+    int nfqueue_total_recv = 0;
+    int nfqueue_total_rlsd = 0;
+    int nfqueue_bytes_recv = 0;
+    int nfqueue_recv_fails = 0;
+    int nfqueue_rlsd_fails = 0;
 
     float pkt_delay_budget_s = -1.0f;
 

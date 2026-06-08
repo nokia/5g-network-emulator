@@ -37,6 +37,7 @@ logs/
 results/
 testconfig/
 tmp/
+run_scripts/.generated/
 
 # Python
 __pycache__/

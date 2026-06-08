@@ -10,6 +10,16 @@
 #include <netfilter/netfilter_interface.h>
 #include <utils/terminal_logging.h>
 
+struct packet_capture_stats
+{
+    int queue_num = -1;
+    uint32_t total_recv = 0;
+    uint32_t total_rlsd = 0;
+    uint32_t bytes_recv = 0;
+    uint32_t recv_fails = 0;
+    uint32_t rlsd_fails = 0;
+};
+
 //--------------------------------------------------------------------------------------------------
 // pkt_capture(): simple class which interfaces with the C API provided by Netfilter Queues to
 // assign callbacks to the configured Netfilter Queues. This class is instanced for each transmission
@@ -79,6 +89,19 @@ public:
     void unlock()
     {
         mtx.unlock();
+    }
+
+    packet_capture_stats stats() const
+    {
+        packet_capture_stats out;
+        out.queue_num = queue_num;
+        if(nfiface == nullptr) return out;
+        out.total_recv = nfiface->total_recv;
+        out.total_rlsd = nfiface->total_rlsd;
+        out.bytes_recv = nfiface->bytes_recv;
+        out.recv_fails = nfiface->recv_fails;
+        out.rlsd_fails = nfiface->rlsd_fails;
+        return out;
     }
 
 private:

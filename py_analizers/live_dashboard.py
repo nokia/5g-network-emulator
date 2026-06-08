@@ -133,6 +133,10 @@ class DashboardState:
             "ul": collections.defaultdict(SlidingSeries),
             "dl": collections.defaultdict(SlidingSeries),
         }
+        self.l4s_last_fields = {
+            "ul": {},
+            "dl": {},
+        }
         self.phy = {
             "ul": collections.defaultdict(SlidingSeries),
             "dl": collections.defaultdict(SlidingSeries),
@@ -176,10 +180,36 @@ class DashboardState:
             l4s_fields = dict(fields)
             total_packets = fields.get("generated_packets_sum")
             ce_packets = fields.get("ce_packets_sum")
+            aqm_drops = fields.get("aqm_drops_sum")
+            congestion_rate = None
             if total_packets is not None and total_packets > 0 and ce_packets is not None:
                 l4s_fields["ce_rate"] = ce_packets / total_packets
+                congestion_rate = l4s_fields["ce_rate"]
+            if total_packets is not None and total_packets > 0 and aqm_drops is not None:
+                l4s_fields["drop_rate"] = aqm_drops / total_packets
+
+            prev_fields = self.l4s_last_fields[tx_dir].get(ue_id)
+            nfq_total_rlsd = fields.get("nfqueue_total_rlsd_last")
+            nfq_ce_rewrite = fields.get("nfqueue_ce_rewrite_packets_last")
+            if (
+                prev_fields is not None
+                and nfq_total_rlsd is not None
+                and nfq_ce_rewrite is not None
+                and prev_fields.get("nfqueue_total_rlsd_last") is not None
+                and prev_fields.get("nfqueue_ce_rewrite_packets_last") is not None
+            ):
+                delta_rlsd = nfq_total_rlsd - prev_fields["nfqueue_total_rlsd_last"]
+                delta_ce = nfq_ce_rewrite - prev_fields["nfqueue_ce_rewrite_packets_last"]
+                if delta_rlsd > 0 and delta_ce >= 0:
+                    l4s_fields["ce_release_rate"] = delta_ce / delta_rlsd
+                    congestion_rate = l4s_fields["ce_release_rate"]
+
+            if congestion_rate is not None:
+                l4s_fields["congestion_rate"] = congestion_rate
+
             self.l4s[tx_dir][ue_id].append(ts_s, l4s_fields)
             self.l4s[tx_dir][ue_id].prune(min_ts_s)
+            self.l4s_last_fields[tx_dir][ue_id] = dict(fields)
             return
 
         if measurement == "ue_phy":
@@ -232,16 +262,23 @@ def draw_time_plot(ax, series_by_ue, latest_ts_s, field_name, title, ylabel, win
         ax.legend(loc="upper left", fontsize=8)
 
 
-def draw_latency_plot_ms(ax, series_by_ue, latest_ts_s, field_name, title, window_s, cmap):
+def draw_latency_plot_ms(ax, series_by_ue, latest_ts_s, field_name, title, window_s, cmap, overlay_field_name=None):
     ax.clear()
     has_data = False
     for idx, ue_id in enumerate(sorted(series_by_ue.keys(), key=lambda x: int(x))):
+        color = cmap(idx % cmap.N)
         xs, ys = series_by_ue[ue_id].extract(field_name)
         if not xs:
             continue
         has_data = True
         ys_ms = [1000.0 * y for y in ys]
-        ax.plot(relative_times(xs, latest_ts_s), ys_ms, linewidth=1.8, color=cmap(idx % cmap.N), label=f"UE {ue_id}")
+        ax.plot(relative_times(xs, latest_ts_s), ys_ms, linewidth=1.8, color=color, label=f"UE {ue_id}")
+
+        if overlay_field_name is not None:
+            xs_ip, ys_ip = series_by_ue[ue_id].extract(overlay_field_name)
+            if xs_ip:
+                ys_ip_ms = [1000.0 * y for y in ys_ip]
+                ax.plot(relative_times(xs_ip, latest_ts_s), ys_ip_ms, "--", linewidth=1.6, color=color)
     ax.set_title(title)
     ax.set_ylabel("ms")
     ax.set_xlim(-window_s, 0)
@@ -268,7 +305,7 @@ def draw_runtime_plot(ax, series, latest_ts_s, fields, labels, title, ylabel, wi
 
 
 def build_dashboard(state, refresh_ms, window_s):
-    fig, axes = plt.subplots(5, 2, figsize=(15, 14), constrained_layout=True)
+    fig, axes = plt.subplots(6, 2, figsize=(15, 16), constrained_layout=True)
     cmap = plt.get_cmap("tab10")
     ax_traj = axes[0, 0]
     ax_sinr = axes[0, 1]
@@ -278,8 +315,10 @@ def build_dashboard(state, refresh_ms, window_s):
     ax_lat_dl = axes[2, 1]
     ax_cong_ul = axes[3, 0]
     ax_cong_dl = axes[3, 1]
-    ax_rt_total = axes[4, 0]
-    ax_rt_split = axes[4, 1]
+    ax_drop_ul = axes[4, 0]
+    ax_drop_dl = axes[4, 1]
+    ax_rt_total = axes[5, 0]
+    ax_rt_split = axes[5, 1]
 
     def update(_frame):
         with state.lock:
@@ -342,15 +381,19 @@ def build_dashboard(state, refresh_ms, window_s):
             draw_time_plot(ax_tp_dl, state.pdcp["dl"], latest_ts_s, "throughput_mbps_mean",
                            "Throughput DL", "Mbps", window_s, cmap)
             draw_latency_plot_ms(ax_lat_ul, state.pdcp["ul"], latest_ts_s, "latency_s_mean",
-                                 "Latency UL", window_s, cmap)
+                                 "Latency UL", window_s, cmap, overlay_field_name="ip_latency_s_mean")
             draw_latency_plot_ms(ax_lat_dl, state.pdcp["dl"], latest_ts_s, "latency_s_mean",
-                                 "Latency DL", window_s, cmap)
-            draw_time_plot(ax_cong_ul, state.l4s["ul"], latest_ts_s, "ce_rate",
-                           "L4S Congestion UL (EC1/total)", "ratio", window_s, cmap, ylim=(0.0, 1.0))
-            draw_time_plot(ax_cong_dl, state.l4s["dl"], latest_ts_s, "ce_rate",
-                           "L4S Congestion DL (EC1/total)", "ratio", window_s, cmap, ylim=(0.0, 1.0))
-            ax_cong_ul.set_xlabel(f"Time, relative [s], ventana={window_s:.0f}s")
-            ax_cong_dl.set_xlabel(f"Time, relative [s], ventana={window_s:.0f}s")
+                                 "Latency DL", window_s, cmap, overlay_field_name="ip_latency_s_mean")
+            draw_time_plot(ax_cong_ul, state.l4s["ul"], latest_ts_s, "congestion_rate",
+                           "L4S Congestion UL", "ratio", window_s, cmap, ylim=(0.0, 1.0))
+            draw_time_plot(ax_cong_dl, state.l4s["dl"], latest_ts_s, "congestion_rate",
+                           "L4S Congestion DL", "ratio", window_s, cmap, ylim=(0.0, 1.0))
+            draw_time_plot(ax_drop_ul, state.l4s["ul"], latest_ts_s, "drop_rate",
+                           "L4S Drops UL (drops/total)", "ratio", window_s, cmap, ylim=(0.0, 1.0))
+            draw_time_plot(ax_drop_dl, state.l4s["dl"], latest_ts_s, "drop_rate",
+                           "L4S Drops DL (drops/total)", "ratio", window_s, cmap, ylim=(0.0, 1.0))
+            ax_drop_ul.set_xlabel(f"Time, relative [s], ventana={window_s:.0f}s")
+            ax_drop_dl.set_xlabel(f"Time, relative [s], ventana={window_s:.0f}s")
             state.runtime.prune(min_ts_s)
             draw_runtime_plot(
                 ax_rt_total,

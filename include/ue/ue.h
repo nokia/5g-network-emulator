@@ -225,6 +225,8 @@ private:
     float phy_speed = 0.0f;
     float phy_doppler_f = 0.0f;
     bool phy_update_cs = true;
+    dualpi2_stats last_l4s_ul_interval_stats;
+    dualpi2_stats last_l4s_dl_interval_stats;
 
 };
 

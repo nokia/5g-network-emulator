@@ -4,8 +4,10 @@ BIN_DIR := bin
 BUILD_DIR := build
 OBJ_DIR := $(BUILD_DIR)/obj
 TEST_OBJ_DIR := $(BUILD_DIR)/tests
+TOOLS_OBJ_DIR := $(BUILD_DIR)/tools
 
 TARGET := $(BIN_DIR)/fikore
+TOOLS_TARGETS := $(BIN_DIR)/udp_tos_probe
 
 CPPFLAGS := -Iinclude
 CXXFLAGS := -O3 -g -std=c++11 -pthread
@@ -27,11 +29,16 @@ TEST_SOURCES := $(shell find $(TEST_DIR) -name '*_test.cpp' 2>/dev/null | sort)
 TEST_OBJECTS := $(patsubst $(TEST_DIR)/%.cpp,$(TEST_OBJ_DIR)/%.o,$(TEST_SOURCES))
 TEST_BINS := $(patsubst $(TEST_DIR)/%_test.cpp,$(TEST_OBJ_DIR)/%_test,$(TEST_SOURCES))
 TEST_DEPS := $(TEST_OBJECTS:.o=.d)
+TOOLS_SOURCES := $(shell find tools -name '*.cpp' 2>/dev/null | sort)
+TOOLS_OBJECTS := $(patsubst tools/%.cpp,$(TOOLS_OBJ_DIR)/%.o,$(TOOLS_SOURCES))
+TOOLS_DEPS := $(TOOLS_OBJECTS:.o=.d)
 
-.PHONY: all run test smoke clean print-objects
+.PHONY: all tools run test smoke clean print-objects
 .SECONDARY: $(TEST_OBJECTS)
 
-all: $(TARGET)
+all: $(TARGET) $(TOOLS_TARGETS)
+
+tools: $(TOOLS_TARGETS)
 
 run: all
 	./$(TARGET)
@@ -52,6 +59,14 @@ $(TEST_OBJ_DIR)/%_test: $(TEST_OBJ_DIR)/%_test.o $(LIB_OBJECTS)
 	@mkdir -p $(@D)
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
+$(TOOLS_OBJ_DIR)/%.o: tools/%.cpp
+	@mkdir -p $(@D)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(DEPFLAGS) -c $< -o $@
+
+$(BIN_DIR)/udp_tos_probe: $(TOOLS_OBJ_DIR)/udp_tos_probe.o
+	@mkdir -p $(@D)
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) $^ -o $@
+
 test: $(TEST_BINS)
 	@set -e; \
 	for test_bin in $(TEST_BINS); do \
@@ -63,9 +78,9 @@ smoke: all
 	./$(TARGET) tests/smoke_sim.ini
 
 clean:
-	$(RM) -r $(BUILD_DIR) $(TARGET)
+	$(RM) -r $(BUILD_DIR) $(TARGET) $(TOOLS_TARGETS)
 
 print-objects:
 	@printf '%s\n' $(APP_OBJECTS)
 
--include $(APP_DEPS) $(TEST_DEPS)
+-include $(APP_DEPS) $(TEST_DEPS) $(TOOLS_DEPS)

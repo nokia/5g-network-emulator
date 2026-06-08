@@ -132,6 +132,7 @@ float captured_packet_handler::release()
             if(it->erase)
             {
                 update_order(it->uid);
+                drop_packets++;
                 pkt_cptr->drop(it->uid);
                 it = out_pkts.erase(it);
             }
@@ -147,6 +148,9 @@ float captured_packet_handler::release()
                         update_order(it->uid);
                         if(it->payload.size() > 0 && (it->ecn != it->original_ecn || it->ce_marked || it->force_ect1_applied))
                         {
+                            rewrite_packets++;
+                            if(it->ce_marked) ce_rewrite_packets++;
+                            if(it->force_ect1_applied) force_ect1_packets++;
                             apply_ipv4_ecn(it->payload, it->ecn);
                             pkt_cptr->release(it->uid, &it->payload);
                         }
@@ -194,6 +198,14 @@ void captured_packet_handler::fill_queue_status(pdcp_queue_status& status, float
             status.capture_oldest_age = current_t - cap_pkt.ip_t;
         }
         pkt_cptr->unlock();
+
+        packet_capture_stats stats = pkt_cptr->stats();
+        status.nfqueue_queue_num = stats.queue_num;
+        status.nfqueue_total_recv = (int)stats.total_recv;
+        status.nfqueue_total_rlsd = (int)stats.total_rlsd;
+        status.nfqueue_bytes_recv = (int)stats.bytes_recv;
+        status.nfqueue_recv_fails = (int)stats.recv_fails;
+        status.nfqueue_rlsd_fails = (int)stats.rlsd_fails;
     }
 
     status.release_size = (int)out_pkts.size();
@@ -203,6 +215,10 @@ void captured_packet_handler::fill_queue_status(pdcp_queue_status& status, float
         status.release_oldest_uid = pkt.uid;
         status.release_oldest_age = current_t - pkt.ip_t;
     }
+    status.nfqueue_rewrite_packets = rewrite_packets;
+    status.nfqueue_ce_rewrite_packets = ce_rewrite_packets;
+    status.nfqueue_force_ect1_packets = force_ect1_packets;
+    status.nfqueue_drop_packets = drop_packets;
 }
 
 void captured_packet_handler::cb(void* handler, netfilter_interface_t *nfiface, const nfq_packet_metadata& meta)

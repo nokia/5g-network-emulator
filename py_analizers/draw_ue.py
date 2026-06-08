@@ -22,8 +22,13 @@ def parse_log_file_with_tx(file_path):
         'rsrp_ul': [], 'rsrp_dl': [],
         'sinr_ul': [], 'sinr_dl': [],
         'rul': [], 'rdl': [], 'ri': [],
+        'gul': [], 'gdl': [], 'eul': [], 'edl': [],
         'ceul': [], 'cedl': [], 'cebul': [], 'cebdl': [],
         'aqmdul': [], 'aqmddl': [], 'aqmdbul': [], 'aqmdbdl': [],
+        'nfqrecvul': [], 'nfqrecvdl': [], 'nfqrlsul': [], 'nfqrlsdl': [],
+        'nfqrewul': [], 'nfqrewdl': [], 'nfqcewul': [], 'nfqcewdl': [],
+        'nfqdropul': [], 'nfqdropdl': [], 'nfqrfailul': [], 'nfqrfaildl': [],
+        'nfqsfailul': [], 'nfqsfaildl': [],
         'qlul': [], 'qldl': [], 'qcul': [], 'qcdl': [],
         'plul': [], 'pldl': [], 'pcul': [], 'pcdl': [], 'pclul': [], 'pcldl': []
     }
@@ -38,6 +43,8 @@ def parse_log_file_with_tx(file_path):
                     k, v = token.split(':', 1)
                     try:
                         temp[k] = float(v)
+                        if k not in data:
+                            data[k] = []
                     except ValueError:
                         pass
             if 'tx' in temp:
@@ -52,13 +59,28 @@ def parse_log_file_with_tx(file_path):
                     data['rsrp_ul'].append(temp['rsrp'])
                 else:
                     data['rsrp_dl'].append(temp['rsrp'])
-            for key in ['x', 'y', 'rul', 'rdl', 'ri',
+            for key in ['x', 'y', 'rul', 'rdl', 'ri', 'gul', 'gdl', 'eul', 'edl',
                         'ceul', 'cedl', 'cebul', 'cebdl',
                         'aqmdul', 'aqmddl', 'aqmdbul', 'aqmdbdl',
+                        'nfqrecvul', 'nfqrecvdl', 'nfqrlsul', 'nfqrlsdl',
+                        'nfqrewul', 'nfqrewdl', 'nfqcewul', 'nfqcewdl',
+                        'nfqdropul', 'nfqdropdl', 'nfqrfailul', 'nfqrfaildl',
+                        'nfqsfailul', 'nfqsfaildl',
                         'qlul', 'qldl', 'qcul', 'qcdl',
                         'plul', 'pldl', 'pcul', 'pcdl', 'pclul', 'pcldl']:
                 if key in temp:
                     data[key].append(temp[key])
+            for key, value in temp.items():
+                if key not in ('tx', 'sinr', 'rsrp') and key not in ['x', 'y', 'rul', 'rdl', 'ri', 'gul', 'gdl', 'eul', 'edl',
+                                                                      'ceul', 'cedl', 'cebul', 'cebdl',
+                                                                      'aqmdul', 'aqmddl', 'aqmdbul', 'aqmdbdl',
+                                                                      'nfqrecvul', 'nfqrecvdl', 'nfqrlsul', 'nfqrlsdl',
+                                                                      'nfqrewul', 'nfqrewdl', 'nfqcewul', 'nfqcewdl',
+                                                                      'nfqdropul', 'nfqdropdl', 'nfqrfailul', 'nfqrfaildl',
+                                                                      'nfqsfailul', 'nfqsfaildl',
+                                                                      'qlul', 'qldl', 'qcul', 'qcdl',
+                                                                      'plul', 'pldl', 'pcul', 'pcdl', 'pclul', 'pcldl']:
+                    data[key].append(value)
     return data
 
 
@@ -168,6 +190,101 @@ def plot_l4s_series(all_data, outdir):
         print(f"[SAVED] {path}")
 
 
+def plot_drop_sources(all_data, outdir):
+    series_groups = [
+        (
+            'UL Drop Sources',
+            [
+                ('eul', 'Error rate [Mbps]'),
+                ('aqmdul', 'AQM drops [pkts]'),
+                ('aqmdbul', 'AQM dropped bits'),
+                ('nfqdropul', 'NFQUEUE dropped pkts'),
+                ('nfqrfailul', 'NFQUEUE recv fail events'),
+                ('nfqsfailul', 'NFQUEUE release fail events'),
+                ('ceul', 'CE marks [pkts]'),
+            ],
+            'drop_sources_ul.png',
+        ),
+        (
+            'DL Drop Sources',
+            [
+                ('edl', 'Error rate [Mbps]'),
+                ('aqmddl', 'AQM drops [pkts]'),
+                ('aqmdbdl', 'AQM dropped bits'),
+                ('nfqdropdl', 'NFQUEUE dropped pkts'),
+                ('nfqrfaildl', 'NFQUEUE recv fail events'),
+                ('nfqsfaildl', 'NFQUEUE release fail events'),
+                ('cedl', 'CE marks [pkts]'),
+            ],
+            'drop_sources_dl.png',
+        ),
+    ]
+
+    cmap = plt.get_cmap("tab10")
+    for title, key_specs, outname in series_groups:
+        present_specs = [spec for spec in key_specs if any(len(data.get(spec[0], [])) for data in all_data)]
+        if not present_specs:
+            continue
+
+        fig, axs = plt.subplots(len(present_specs), 1, figsize=(12, 2.6 * len(present_specs)), sharex=True)
+        if len(present_specs) == 1:
+            axs = [axs]
+
+        for ax, (key, ylabel) in zip(axs, present_specs):
+            for i, data in enumerate(all_data):
+                vals = np.asarray(data.get(key, []), dtype=float)
+                vals = vals[np.isfinite(vals)]
+                if not vals.size:
+                    continue
+                ax.plot(np.arange(vals.size), vals, label=f"UE {i}", color=cmap(i % cmap.N), alpha=0.8)
+            ax.set_ylabel(ylabel)
+            ax.grid(True)
+            ax.legend()
+
+        axs[0].set_title(title)
+        axs[-1].set_xlabel("Log sample")
+        fig.tight_layout()
+        path = os.path.join(outdir, outname)
+        plt.savefig(path)
+        print(f"[SAVED] {path}")
+
+
+def plot_nfqueue_series(all_data, outdir):
+    nfqueue_keys = sorted({
+        key for data in all_data for key in data.keys()
+        if key.startswith('nfqueue_') or key.startswith('nfq')
+    })
+    if not nfqueue_keys:
+        return
+
+    present_keys = [key for key in nfqueue_keys if any(len(data.get(key, [])) for data in all_data)]
+    if not present_keys:
+        return
+
+    fig, axs = plt.subplots(len(present_keys), 1, figsize=(12, 2.6 * len(present_keys)), sharex=True)
+    if len(present_keys) == 1:
+        axs = [axs]
+
+    cmap = plt.get_cmap("tab10")
+    for ax, key in zip(axs, present_keys):
+        for i, data in enumerate(all_data):
+            vals = np.asarray(data.get(key, []), dtype=float)
+            vals = vals[np.isfinite(vals)]
+            if not vals.size:
+                continue
+            ax.plot(np.arange(vals.size), vals, label=f"UE {i}", color=cmap(i % cmap.N), alpha=0.8)
+        ax.set_ylabel(key)
+        ax.grid(True)
+        ax.legend()
+
+    axs[0].set_title("NFQUEUE Results")
+    axs[-1].set_xlabel("Log sample")
+    fig.tight_layout()
+    path = os.path.join(outdir, "nfqueue_results.png")
+    plt.savefig(path)
+    print(f"[SAVED] {path}")
+
+
 def main():
     script_dir = os.path.dirname(os.path.realpath(sys.argv[0]))
     logs_base = os.path.join(script_dir, '..', 'logs')
@@ -189,6 +306,8 @@ def main():
     plot_histograms_per_ue(all_data, 'aqmdul', 'UL AQM Drops Histogram', 'Drops / log interval', 'aqmdul_hist.png', outdir=out_dir, bins=30)
     plot_histograms_per_ue(all_data, 'aqmddl', 'DL AQM Drops Histogram', 'Drops / log interval', 'aqmddl_hist.png', outdir=out_dir, bins=30)
     plot_l4s_series(all_data, out_dir)
+    plot_drop_sources(all_data, out_dir)
+    plot_nfqueue_series(all_data, out_dir)
 
 
 if __name__ == "__main__":

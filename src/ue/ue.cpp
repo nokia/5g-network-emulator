@@ -308,18 +308,37 @@ void ue::update_pdcp()
     pdcp_ul.step(current_t);
     pdcp_dl.release();
     pdcp_ul.release();
+    last_l4s_ul_interval_stats = pdcp_ul.get_l4s_interval_stats();
+    last_l4s_dl_interval_stats = pdcp_dl.get_l4s_interval_stats();
     if (log_traffic && ue_log.ready())
     {
         ue_log.log_partial("rul:{} rdl:{} ", pdcp_ul.get_tp(true), pdcp_dl.get_tp(true));
         ue_log.log_partial("lul:{} ldl:{} ", pdcp_ul.get_latency(true), pdcp_dl.get_latency(true));
         ue_log.log_partial("ilul:{} ildl:{} ", pdcp_ul.get_ip_latency(true), pdcp_dl.get_ip_latency(true));
         ue_log.log_partial("eul:{} edl:{} ", pdcp_ul.get_error(true), pdcp_dl.get_error(true));
-        dualpi2_stats l4s_ul = pdcp_ul.get_l4s_interval_stats();
-        dualpi2_stats l4s_dl = pdcp_dl.get_l4s_interval_stats();
+        const dualpi2_stats &l4s_ul = last_l4s_ul_interval_stats;
+        const dualpi2_stats &l4s_dl = last_l4s_dl_interval_stats;
         ue_log.log_partial("ceul:{} cedl:{} cebul:{} cebdl:{} ", l4s_ul.ce_packets, l4s_dl.ce_packets, l4s_ul.ce_bits, l4s_dl.ce_bits);
         ue_log.log_partial("aqmdul:{} aqmddl:{} aqmdbul:{} aqmdbdl:{} ", l4s_ul.aqm_drops, l4s_dl.aqm_drops, l4s_ul.aqm_drop_bits, l4s_dl.aqm_drop_bits);
         ue_log.log_partial("qlul:{} qldl:{} qcul:{} qcdl:{} ", l4s_ul.l4s_queue_size, l4s_dl.l4s_queue_size, l4s_ul.classic_queue_size, l4s_dl.classic_queue_size);
         ue_log.log_partial("plul:{} pldl:{} pcul:{} pcdl:{} pclul:{} pcldl:{} ", l4s_ul.p_l, l4s_dl.p_l, l4s_ul.p_c, l4s_dl.p_c, l4s_ul.p_cl, l4s_dl.p_cl);
+        pdcp_queue_status ul_status = pdcp_ul.get_queue_status();
+        pdcp_queue_status dl_status = pdcp_dl.get_queue_status();
+        if(ul_status.nfqueue_queue_num >= 0 || dl_status.nfqueue_queue_num >= 0)
+        {
+            ue_log.log_partial(
+                "nfqrecvul:{} nfqrecvdl:{} nfqrlsul:{} nfqrlsdl:{} nfqrewul:{} nfqrewdl:{} "
+                "nfqcewul:{} nfqcewdl:{} nfqdropul:{} nfqdropdl:{} nfqrfailul:{} nfqrfaildl:{} "
+                "nfqsfailul:{} nfqsfaildl:{} ",
+                ul_status.nfqueue_total_recv, dl_status.nfqueue_total_recv,
+                ul_status.nfqueue_total_rlsd, dl_status.nfqueue_total_rlsd,
+                ul_status.nfqueue_rewrite_packets, dl_status.nfqueue_rewrite_packets,
+                ul_status.nfqueue_ce_rewrite_packets, dl_status.nfqueue_ce_rewrite_packets,
+                ul_status.nfqueue_drop_packets, dl_status.nfqueue_drop_packets,
+                ul_status.nfqueue_recv_fails, dl_status.nfqueue_recv_fails,
+                ul_status.nfqueue_rlsd_fails, dl_status.nfqueue_rlsd_fails
+            );
+        }
     }
 }
 
@@ -369,7 +388,7 @@ void ue::emit_l4s_monitoring()
 
     auto publish_l4s = [&](pdcp_layer &layer, int tx_dir) {
         if(!layer.using_l4s()) return;
-        dualpi2_stats interval = layer.get_l4s_interval_stats();
+        const dualpi2_stats &interval = (tx_dir == TX_UL) ? last_l4s_ul_interval_stats : last_l4s_dl_interval_stats;
         pdcp_queue_status status = layer.get_queue_status();
 
         metric_point point;
@@ -389,6 +408,16 @@ void ue::emit_l4s_monitoring()
         point.fields["p_l_mean"] = make_metric_field(status.dualpi2_p_l, field_aggregation::mean);
         point.fields["p_c_mean"] = make_metric_field(status.dualpi2_p_c, field_aggregation::mean);
         point.fields["p_cl_mean"] = make_metric_field(status.dualpi2_p_cl, field_aggregation::mean);
+        point.fields["nfqueue_queue_num_last"] = make_metric_field(status.nfqueue_queue_num, field_aggregation::last);
+        point.fields["nfqueue_rewrite_packets_last"] = make_metric_field(status.nfqueue_rewrite_packets, field_aggregation::last);
+        point.fields["nfqueue_ce_rewrite_packets_last"] = make_metric_field(status.nfqueue_ce_rewrite_packets, field_aggregation::last);
+        point.fields["nfqueue_force_ect1_packets_last"] = make_metric_field(status.nfqueue_force_ect1_packets, field_aggregation::last);
+        point.fields["nfqueue_drop_packets_last"] = make_metric_field(status.nfqueue_drop_packets, field_aggregation::last);
+        point.fields["nfqueue_total_recv_last"] = make_metric_field(status.nfqueue_total_recv, field_aggregation::last);
+        point.fields["nfqueue_total_rlsd_last"] = make_metric_field(status.nfqueue_total_rlsd, field_aggregation::last);
+        point.fields["nfqueue_bytes_recv_last"] = make_metric_field(status.nfqueue_bytes_recv, field_aggregation::last);
+        point.fields["nfqueue_recv_fails_last"] = make_metric_field(status.nfqueue_recv_fails, field_aggregation::last);
+        point.fields["nfqueue_rlsd_fails_last"] = make_metric_field(status.nfqueue_rlsd_fails, field_aggregation::last);
         monitoring.publish(point);
     };
 

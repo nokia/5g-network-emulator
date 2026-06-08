@@ -455,9 +455,11 @@ netfilter_interface_t *netfilter_interface_open(int queue_num, add_pkt_callback_
     
 	nlh = nfq_nlmsg_put(nfiface->buf, NFQNL_MSG_CONFIG, nfiface->queue_num);
 	nfq_nlmsg_cfg_put_params(nlh, NFQNL_COPY_PACKET, 0xffff);
-
-	mnl_attr_put_u32(nlh, NFQA_CFG_FLAGS, htonl(NFQA_CFG_F_GSO));
-	mnl_attr_put_u32(nlh, NFQA_CFG_MASK, htonl(NFQA_CFG_F_GSO));
+	/*
+	 * Diagnostic setting: do not request NFQA_CFG_F_GSO while we are
+	 * rewriting ECN bits in userspace. This helps rule out interactions
+	 * between payload replacement and skb offload metadata.
+	 */
 
 	if (mnl_socket_sendto(nfiface->nl, nlh, nlh->nlmsg_len) < 0) {
 		PERROR("mnl_socket_send");

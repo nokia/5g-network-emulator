@@ -44,6 +44,10 @@ private:
     std::chrono::microseconds *init_t = nullptr;
     uint32_t prev_uid = static_cast<uint32_t>(-1);
     int prev_released_id = -1;
+    int rewrite_packets = 0;
+    int ce_rewrite_packets = 0;
+    int force_ect1_packets = 0;
+    int drop_packets = 0;
     std::unique_ptr<packet_capture_interface> pkt_cptr;
     std::deque<ip_pkt> captured_pkts;
     std::deque<ip_pkt> out_pkts;

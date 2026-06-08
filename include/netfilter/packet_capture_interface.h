@@ -15,6 +15,7 @@ public:
     virtual void lock() = 0;
     virtual void unlock() = 0;
     virtual int queue_num() const = 0;
+    virtual packet_capture_stats stats() const = 0;
 };
 
 class real_packet_capture : public packet_capture_interface
@@ -32,6 +33,7 @@ public:
     void lock() override { capture->lock(); }
     void unlock() override { capture->unlock(); }
     int queue_num() const override { return capture->queue_num; }
+    packet_capture_stats stats() const override { return capture->stats(); }
 
 private:
     std::unique_ptr<pkt_capture> capture;

@@ -150,6 +150,7 @@ public:
 private: 
     void init_logger(); 
     void emit_pdcp_monitoring();
+    void emit_queue_monitoring();
     void emit_phy_monitoring();
     void emit_l4s_monitoring();
     void emit_mobility_monitoring();

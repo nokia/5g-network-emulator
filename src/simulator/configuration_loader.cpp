@@ -420,6 +420,11 @@ void configuration_loader::load(std::string cfg_file)
                                     if (value == "true" || value == "1") monitoring_c.emit_ue_pdcp = true;
                                     if (value == "false" || value == "0") monitoring_c.emit_ue_pdcp = false;
                                 }
+                                if (key == "emit_ue_queue")
+                                {
+                                    if (value == "true" || value == "1") monitoring_c.emit_ue_queue = true;
+                                    if (value == "false" || value == "0") monitoring_c.emit_ue_queue = false;
+                                }
                                 if (key == "emit_ue_mobility")
                                 {
                                     if (value == "true" || value == "1") monitoring_c.emit_ue_mobility = true;

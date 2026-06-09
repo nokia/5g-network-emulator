@@ -19,6 +19,7 @@ struct monitoring_config
     std::string default_metric_type = "gauge"; // gauge|counter
     bool emit_ue_phy = true;
     bool emit_ue_pdcp = true;
+    bool emit_ue_queue = true;
     bool emit_ue_mobility = false;
     bool emit_l4s = true;
     bool emit_mac_scheduler = true;

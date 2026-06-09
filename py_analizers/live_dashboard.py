@@ -129,6 +129,14 @@ class DashboardState:
             "ul": collections.defaultdict(SlidingSeries),
             "dl": collections.defaultdict(SlidingSeries),
         }
+        self.queue = {
+            "ul": collections.defaultdict(SlidingSeries),
+            "dl": collections.defaultdict(SlidingSeries),
+        }
+        self.queue_last_fields = {
+            "ul": {},
+            "dl": {},
+        }
         self.l4s = {
             "ul": collections.defaultdict(SlidingSeries),
             "dl": collections.defaultdict(SlidingSeries),
@@ -174,6 +182,64 @@ class DashboardState:
         if measurement == "ue_pdcp":
             self.pdcp[tx_dir][ue_id].append(ts_s, fields)
             self.pdcp[tx_dir][ue_id].prune(min_ts_s)
+            return
+
+        if measurement == "ue_queue":
+            queue_fields = dict(fields)
+            total_packets = fields.get("generated_packets_sum")
+            queue_mode = tags.get("queue_mode")
+            prev_fields = self.queue_last_fields[tx_dir].get(ue_id)
+
+            ce_packets = fields.get("ce_packets_sum")
+            if total_packets is not None and total_packets > 0 and ce_packets is not None and queue_mode == "l4s":
+                queue_fields["ce_rate"] = ce_packets / total_packets
+
+            aqm_drops = fields.get("aqm_drops_sum")
+            if total_packets is not None and total_packets > 0 and aqm_drops is not None:
+                queue_fields["aqm_drop_rate"] = aqm_drops / total_packets
+
+            nfq_drop = fields.get("nfqueue_drop_packets_last")
+            if (
+                prev_fields is not None
+                and total_packets is not None
+                and total_packets > 0
+                and nfq_drop is not None
+                and prev_fields.get("nfqueue_drop_packets_last") is not None
+            ):
+                delta_drop = nfq_drop - prev_fields["nfqueue_drop_packets_last"]
+                if delta_drop >= 0:
+                    queue_fields["nfqueue_drop_rate"] = delta_drop / total_packets
+                    queue_fields["nfqueue_drop_packets_sum"] = delta_drop
+
+            nfq_total_rlsd = fields.get("nfqueue_total_rlsd_last")
+            nfq_ce_rewrite = fields.get("nfqueue_ce_rewrite_packets_last")
+            if (
+                prev_fields is not None
+                and nfq_total_rlsd is not None
+                and nfq_ce_rewrite is not None
+                and prev_fields.get("nfqueue_total_rlsd_last") is not None
+                and prev_fields.get("nfqueue_ce_rewrite_packets_last") is not None
+            ):
+                delta_rlsd = nfq_total_rlsd - prev_fields["nfqueue_total_rlsd_last"]
+                delta_ce = nfq_ce_rewrite - prev_fields["nfqueue_ce_rewrite_packets_last"]
+                if delta_rlsd > 0 and delta_ce >= 0:
+                    queue_fields["ce_release_rate"] = delta_ce / delta_rlsd
+
+            if queue_mode == "l4s":
+                if "aqm_drop_rate" in queue_fields:
+                    queue_fields["drop_rate"] = queue_fields["aqm_drop_rate"]
+                if "ce_release_rate" in queue_fields:
+                    queue_fields["signal_rate"] = queue_fields["ce_release_rate"]
+                elif "ce_rate" in queue_fields:
+                    queue_fields["signal_rate"] = queue_fields["ce_rate"]
+            else:
+                if "nfqueue_drop_rate" in queue_fields:
+                    queue_fields["drop_rate"] = queue_fields["nfqueue_drop_rate"]
+                    queue_fields["signal_rate"] = queue_fields["nfqueue_drop_rate"]
+
+            self.queue[tx_dir][ue_id].append(ts_s, queue_fields)
+            self.queue[tx_dir][ue_id].prune(min_ts_s)
+            self.queue_last_fields[tx_dir][ue_id] = dict(fields)
             return
 
         if measurement == "ue_l4s":
@@ -371,7 +437,7 @@ def build_dashboard(state, refresh_ms, window_s):
                              color=cmap(idx % cmap.N), label=f"UE {ue_id}")
             ax_sinr.set_title("SINR per UE")
             ax_sinr.set_xlabel("SINR [dB]")
-            ax_sinr.set_ylabel("Muestras")
+            ax_sinr.set_ylabel("Samples")
             ax_sinr.grid(True, alpha=0.3)
             if ue_ids:
                 ax_sinr.legend(loc="upper right", fontsize=8)
@@ -384,16 +450,16 @@ def build_dashboard(state, refresh_ms, window_s):
                                  "Latency UL", window_s, cmap, overlay_field_name="ip_latency_s_mean")
             draw_latency_plot_ms(ax_lat_dl, state.pdcp["dl"], latest_ts_s, "latency_s_mean",
                                  "Latency DL", window_s, cmap, overlay_field_name="ip_latency_s_mean")
-            draw_time_plot(ax_cong_ul, state.l4s["ul"], latest_ts_s, "congestion_rate",
-                           "L4S Congestion UL", "ratio", window_s, cmap, ylim=(0.0, 1.0))
-            draw_time_plot(ax_cong_dl, state.l4s["dl"], latest_ts_s, "congestion_rate",
-                           "L4S Congestion DL", "ratio", window_s, cmap, ylim=(0.0, 1.0))
-            draw_time_plot(ax_drop_ul, state.l4s["ul"], latest_ts_s, "drop_rate",
-                           "L4S Drops UL (drops/total)", "ratio", window_s, cmap, ylim=(0.0, 1.0))
-            draw_time_plot(ax_drop_dl, state.l4s["dl"], latest_ts_s, "drop_rate",
-                           "L4S Drops DL (drops/total)", "ratio", window_s, cmap, ylim=(0.0, 1.0))
-            ax_drop_ul.set_xlabel(f"Time, relative [s], ventana={window_s:.0f}s")
-            ax_drop_dl.set_xlabel(f"Time, relative [s], ventana={window_s:.0f}s")
+            draw_time_plot(ax_cong_ul, state.queue["ul"], latest_ts_s, "signal_rate",
+                           "Congestion Signal UL (L4S=CE, legacy=drops)", "ratio", window_s, cmap, ylim=(0.0, 1.0))
+            draw_time_plot(ax_cong_dl, state.queue["dl"], latest_ts_s, "signal_rate",
+                           "Congestion Signal DL (L4S=CE, legacy=drops)", "ratio", window_s, cmap, ylim=(0.0, 1.0))
+            draw_time_plot(ax_drop_ul, state.queue["ul"], latest_ts_s, "drop_rate",
+                           "Queue Drops UL (L4S=AQM, legacy=NFQUEUE)", "ratio", window_s, cmap, ylim=(0.0, 1.0))
+            draw_time_plot(ax_drop_dl, state.queue["dl"], latest_ts_s, "drop_rate",
+                           "Queue Drops DL (L4S=AQM, legacy=NFQUEUE)", "ratio", window_s, cmap, ylim=(0.0, 1.0))
+            ax_drop_ul.set_xlabel(f"Relative time [s], window={window_s:.0f}s")
+            ax_drop_dl.set_xlabel(f"Relative time [s], window={window_s:.0f}s")
             state.runtime.prune(min_ts_s)
             draw_runtime_plot(
                 ax_rt_total,
@@ -415,8 +481,8 @@ def build_dashboard(state, refresh_ms, window_s):
                 "ms",
                 window_s,
             )
-            ax_rt_total.set_xlabel(f"Time, relative [s], ventana={window_s:.0f}s")
-            ax_rt_split.set_xlabel(f"Time, relative [s], ventana={window_s:.0f}s")
+            ax_rt_total.set_xlabel(f"Relative time [s], window={window_s:.0f}s")
+            ax_rt_split.set_xlabel(f"Relative time [s], window={window_s:.0f}s")
 
             if latest_ts_s > 0:
                 fig.suptitle(f"Live Monitoring UDP  t={latest_ts_s:.3f}s", fontsize=14)

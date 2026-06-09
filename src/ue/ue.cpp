@@ -425,6 +425,64 @@ void ue::emit_l4s_monitoring()
     publish_l4s(pdcp_dl, TX_DL);
 }
 
+void ue::emit_queue_monitoring()
+{
+    monitoring_manager &monitoring = monitoring_manager::instance();
+    if(!monitoring.is_enabled() || !monitoring.get_config().emit_ue_queue) return;
+
+    const auto ts_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+
+    auto publish_queue = [&](pdcp_layer &layer, int tx_dir) {
+        const bool using_l4s = layer.using_l4s();
+        const dualpi2_stats &interval = (tx_dir == TX_UL) ? last_l4s_ul_interval_stats : last_l4s_dl_interval_stats;
+        pdcp_queue_status status = layer.get_queue_status();
+
+        metric_point point;
+        point.measurement = "ue_queue";
+        point.tags["ue_id"] = std::to_string(id);
+        point.tags["tx_dir"] = tx_dir_tag(tx_dir);
+        point.tags["queue_mode"] = using_l4s ? "l4s" : "legacy";
+        point.ts_ns = ts_ns;
+        point.fields["generated_packets_sum"] = make_metric_field(layer.get_generated_packets(true), field_aggregation::sum);
+        point.fields["using_l4s_last"] = make_metric_field(using_l4s ? 1 : 0, field_aggregation::last);
+        point.fields["pkt_delay_budget_s_last"] = make_metric_field(status.pkt_delay_budget_s, field_aggregation::last);
+        point.fields["ip_buffer_packets_last"] = make_metric_field(status.ip_buffer_size, field_aggregation::last);
+        point.fields["capture_packets_last"] = make_metric_field(status.capture_size, field_aggregation::last);
+        point.fields["release_packets_last"] = make_metric_field(status.release_size, field_aggregation::last);
+        point.fields["harq_packets_last"] = make_metric_field(status.harq_size, field_aggregation::last);
+        point.fields["ip_oldest_age_s_last"] = make_metric_field(status.ip_oldest_age, field_aggregation::last);
+        point.fields["capture_oldest_age_s_last"] = make_metric_field(status.capture_oldest_age, field_aggregation::last);
+        point.fields["release_oldest_age_s_last"] = make_metric_field(status.release_oldest_age, field_aggregation::last);
+        point.fields["harq_oldest_age_s_last"] = make_metric_field(status.harq_oldest_age, field_aggregation::last);
+        point.fields["nfqueue_queue_num_last"] = make_metric_field(status.nfqueue_queue_num, field_aggregation::last);
+        point.fields["nfqueue_rewrite_packets_last"] = make_metric_field(status.nfqueue_rewrite_packets, field_aggregation::last);
+        point.fields["nfqueue_ce_rewrite_packets_last"] = make_metric_field(status.nfqueue_ce_rewrite_packets, field_aggregation::last);
+        point.fields["nfqueue_force_ect1_packets_last"] = make_metric_field(status.nfqueue_force_ect1_packets, field_aggregation::last);
+        point.fields["nfqueue_drop_packets_last"] = make_metric_field(status.nfqueue_drop_packets, field_aggregation::last);
+        point.fields["nfqueue_total_recv_last"] = make_metric_field(status.nfqueue_total_recv, field_aggregation::last);
+        point.fields["nfqueue_total_rlsd_last"] = make_metric_field(status.nfqueue_total_rlsd, field_aggregation::last);
+        point.fields["nfqueue_bytes_recv_last"] = make_metric_field(status.nfqueue_bytes_recv, field_aggregation::last);
+        point.fields["nfqueue_recv_fails_last"] = make_metric_field(status.nfqueue_recv_fails, field_aggregation::last);
+        point.fields["nfqueue_rlsd_fails_last"] = make_metric_field(status.nfqueue_rlsd_fails, field_aggregation::last);
+        point.fields["ce_packets_sum"] = make_metric_field(interval.ce_packets, field_aggregation::sum);
+        point.fields["ce_bits_sum"] = make_metric_field(interval.ce_bits, field_aggregation::sum);
+        point.fields["aqm_drops_sum"] = make_metric_field(interval.aqm_drops, field_aggregation::sum);
+        point.fields["aqm_drop_bits_sum"] = make_metric_field(interval.aqm_drop_bits, field_aggregation::sum);
+        point.fields["l4s_queue_packets_last"] = make_metric_field(status.l4s_queue_size, field_aggregation::last);
+        point.fields["classic_queue_packets_last"] = make_metric_field(status.classic_queue_size, field_aggregation::last);
+        point.fields["l4s_queue_bits_last"] = make_metric_field(status.l4s_queue_bits, field_aggregation::last);
+        point.fields["classic_queue_bits_last"] = make_metric_field(status.classic_queue_bits, field_aggregation::last);
+        point.fields["p_l_mean"] = make_metric_field(status.dualpi2_p_l, field_aggregation::mean);
+        point.fields["p_c_mean"] = make_metric_field(status.dualpi2_p_c, field_aggregation::mean);
+        point.fields["p_cl_mean"] = make_metric_field(status.dualpi2_p_cl, field_aggregation::mean);
+        monitoring.publish(point);
+    };
+
+    publish_queue(pdcp_ul, TX_UL);
+    publish_queue(pdcp_dl, TX_DL);
+}
+
 void ue::add_ts()
 {
     if (log_ue)
@@ -534,6 +592,7 @@ void ue::step()
         ue_log.log_partial("gul:{} gdl:{} ", pdcp_ul.get_generated(true), pdcp_dl.get_generated(true));
     }
     emit_pdcp_monitoring();
+    emit_queue_monitoring();
     emit_l4s_monitoring();
     if (log_ue)
         add_ts();

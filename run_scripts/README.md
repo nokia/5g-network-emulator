@@ -12,6 +12,7 @@ The lab and the emulator config are separate concerns:
 
 - [run_fikore_nfqueue_lab.sh](run_fikore_nfqueue_lab.sh): creates, reuses, inspects, and tears down the lab topology, then launches FikoRE on top of it.
 - [run_docker.sh](run_docker.sh): builds or launches the helper container for Docker backends.
+- [run_sim.sh](run_sim.sh): simple offline simulation example that runs FikoRE with a config file and then generates plots from the latest logs.
 - [fikorens](fikorens): direct wrapper that opens a namespace shell without requiring `source`.
 - [fikorens-open](fikorens-open): direct wrapper that opens a namespace shell and returns when it exits.
 - [fikorens-exec](fikorens-exec): direct wrapper for one-shot commands inside a namespace.
@@ -24,6 +25,9 @@ The lab and the emulator config are separate concerns:
 - `status`, `shell`, `exec`, `capture-*`, `ue-add`, `ue-del`, and `down`: reuse the saved lab state. They do not need `BACKEND` again once the lab is up.
 
 This avoids the old destructive behavior where `run` recreated namespaces every time.
+
+For real-traffic emulation, use the lab scripts in this README.
+For offline simulated traffic, use [run_sim.sh](run_sim.sh).
 
 ## Topology
 

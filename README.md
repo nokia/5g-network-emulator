@@ -39,14 +39,21 @@ make test
 make smoke
 ```
 
-To run FikoRE with a specific configuration, execute any of the .sh scripts in the run_scripts/ directory:
-```bash
+To run FikoRE with a specific configuration:
 
+For offline simulated traffic:
+```bash
 bash run_scripts/run_sim.sh
-sudo bash run_scripts/run_tcp.sh
-sudo bash run_scripts/run_udp.sh
 ```
-For executing fikore as emulator scripts must be run with sudo privileges because iptables rules and raw socket access are required.
+
+For real-traffic emulation with Linux namespaces and `NFQUEUE`, use the lab workflow documented in [run_scripts/README.md](run_scripts/README.md), for example:
+
+```bash
+sudo BACKEND=host UE_COUNT=2 run_scripts/run_fikore_nfqueue_lab.sh up
+sudo CONFIG_FILE="$PWD/config/real_rural_shadowing.ini" run_scripts/run_fikore_nfqueue_lab.sh run
+```
+
+For emulation mode, `sudo` is required because namespaces, iptables rules, and packet queue access require elevated privileges.
 
 ## Execution Warnings and Troubleshooting
 When running FikoRE in emulator mode, you must press Ctrl+C twice:

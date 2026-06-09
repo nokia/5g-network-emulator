@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+if [[ $# -lt 2 ]]; then
+    echo "Usage: $(basename "$0") <ueN|dn|emu> <command> [args...]" >&2
+    exit 1
+fi
+
+target="$1"
+shift
+
+exec sudo -E "${ROOT_DIR}/run_scripts/run_fikore_nfqueue_lab.sh" exec "${target}" -- "$@"

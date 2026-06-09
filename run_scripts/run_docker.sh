@@ -19,13 +19,13 @@ die() {
 }
 
 require_cmd() {
-    command -v "$1" >/dev/null 2>&1 || die "Falta el comando requerido: $1"
+    command -v "$1" >/dev/null 2>&1 || die "Missing required command: $1"
 }
 
 validate_mode() {
     case "${MODE}" in
         host|none) ;;
-        *) die "MODE inválido: ${MODE}. Usa host o none." ;;
+        *) die "Invalid MODE: ${MODE}. Use host or none." ;;
     esac
 }
 
@@ -54,14 +54,14 @@ run_container() {
     docker rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
 
     mapfile -t args < <(docker_run_args)
-    log "Lanzando contenedor ${CONTAINER_NAME} con MODE=${MODE}"
+    log "Launching container ${CONTAINER_NAME} with MODE=${MODE}"
     docker run -d "${args[@]}" "${IMAGE_NAME}" sleep infinity >/dev/null
     docker exec "${CONTAINER_NAME}" mkdir -p "${CONTAINER_WORKDIR}/run_scripts/.generated"
 }
 
 build_image() {
     require_cmd docker
-    log "Construyendo imagen ${IMAGE_NAME}"
+    log "Building image ${IMAGE_NAME}"
     docker build -t "${IMAGE_NAME}" "${ROOT_DIR}"
 }
 

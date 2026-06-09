@@ -1,17 +1,29 @@
 # Run Scripts
 
-This directory includes two new scripts to bring up a fixed `NFQUEUE` test topology and run FikoRE in three different modes:
+This directory contains the scripts used to create and reuse the FikoRE `NFQUEUE` lab.
 
-- host
-- Docker with `--network host`
-- Docker with `--network none`
+The lab and the emulator config are separate concerns:
 
-The emulated traffic plane topology is the same in all three cases. Only `docker-none` adds an extra management plane for monitoring and auxiliary access.
+- the lab manages Linux namespaces, `veth` pairs, routes, and `NFQUEUE` rules;
+- the `.ini` file remains the source of truth for what FikoRE actually instantiates;
+- `run` uses `CONFIG_FILE` as-is and does not generate or patch a runtime copy.
 
 ## Scripts
 
-- [run_l4s_nfqueue_lab.sh](run_l4s_nfqueue_lab.sh): creates namespaces, `veth` pairs, routes, and `iptables`/`NFQUEUE` rules, generates a runtime `ini`, and launches FikoRE.
-- [run_docker.sh](run_docker.sh): builds or launches the helper container for the Docker modes.
+- [run_fikore_nfqueue_lab.sh](run_fikore_nfqueue_lab.sh): creates, reuses, inspects, and tears down the lab topology, then launches FikoRE on top of it.
+- [run_docker.sh](run_docker.sh): builds or launches the helper container for Docker backends.
+- [fikorens](fikorens): direct wrapper that opens a namespace shell without requiring `source`.
+- [fikorens-open](fikorens-open): direct wrapper that opens a namespace shell and returns when it exits.
+- [fikorens-exec](fikorens-exec): direct wrapper for one-shot commands inside a namespace.
+- [fikore_ns.sh](fikore_ns.sh): optional sourced helper exposing `fikorens`, `fikorens_open`, and `fikorens_exec`.
+
+## Mental Model
+
+- `up`: explicitly recreate the lab topology and save its state.
+- `run`: launch FikoRE on the current lab. If no lab exists yet, it creates one first. If saved state exists but the topology is broken, it fails and tells you to run `up`.
+- `status`, `shell`, `exec`, `capture-*`, `ue-add`, `ue-del`, and `down`: reuse the saved lab state. They do not need `BACKEND` again once the lab is up.
+
+This avoids the old destructive behavior where `run` recreated namespaces every time.
 
 ## Topology
 
@@ -36,8 +48,12 @@ Default queue mapping:
 - UE1: UL `100`, DL `101`
 - UE2: UL `110`, DL `111`
 
-In general, queues are assigned as `UL = QUEUE_BASE + (UE - 1) * QUEUE_STEP` and `DL = UL + 1`.
-With the default settings (`UE_COUNT=2`, `QUEUE_BASE=100`, `QUEUE_STEP=10`), `UE3` would use `120`/`121` only if `UE_COUNT>=3`.
+General formula:
+
+- `UL = QUEUE_BASE + (UE - 1) * QUEUE_STEP`
+- `DL = UL + 1`
+
+With the defaults (`UE_COUNT=2`, `QUEUE_BASE=100`, `QUEUE_STEP=10`), `UE3` would use `120/121` only if `UE_COUNT>=3` or if you add it later with `ue-add 3`.
 
 ### Management Plane
 
@@ -48,64 +64,248 @@ host <----> FikoRE container
 172.30.0.1      172.30.0.2
 ```
 
-This link is used so the container can send UDP monitoring traffic back to the host, for example to a dashboard listening on `172.30.0.1:8096`.
+It is only a management link. If your `.ini` emits dashboard UDP traffic from inside the container, that `.ini` must already point to a reachable host address such as `172.30.0.1:8096`.
 
 ## Requirements
 
-- Run [run_l4s_nfqueue_lab.sh](run_l4s_nfqueue_lab.sh) as `root`.
+- Run [run_fikore_nfqueue_lab.sh](run_fikore_nfqueue_lab.sh) through `sudo`.
 - Have `bin/fikore` already built.
-- For Docker modes, have an image built and a container started with [run_docker.sh](run_docker.sh).
+- For Docker backends, have an image built and a container started with [run_docker.sh](run_docker.sh).
+- For Docker backends, keep `CONFIG_FILE` inside the repository so the container can read that same file through the bind mount.
 
-## Quick Start
+## Recommended Example Config
 
-### 1. Host
+The best ready-to-use example is [config/real_rural_shadowing.ini](/home/pablop/devel/5g-network-emulator/config/real_rural_shadowing.ini).
 
-```bash
-sudo BACKEND=host run_scripts/run_l4s_nfqueue_lab.sh run
-```
+Why this file is the best default example:
 
-### 2. Docker with host networking
+- it defines two real UEs that match the lab queue plan:
+  `UE1 -> 100/101` and `UE2 -> 110/111`;
+- `UE1` keeps `l4s_dual_queue: true`, so it exercises the L4S / DualQ path;
+- `UE2` uses `l4s_dual_queue: false` and `pkt_delay_budget: 0.300`, so it exercises the legacy / non-L4S path;
+- it already enables `dashboard_udp`.
 
-```bash
-run_scripts/run_docker.sh build
-MODE=host run_scripts/run_docker.sh run
-sudo BACKEND=docker-host run_scripts/run_l4s_nfqueue_lab.sh run
-```
+Important:
 
-In this mode, the container shares the host network namespace. The emulated plane terminates directly on the host, and no management plane is created.
+- `run_fikore_nfqueue_lab.sh` does not rewrite monitoring keys anymore.
+- For `host` and `docker-host`, a dashboard on `127.0.0.1:8096` is usually fine if the `.ini` already says that.
+- For `docker-none`, the `.ini` should explicitly target the host-side management IP, typically `172.30.0.1:8096`.
+- Adding namespaces with `ue-add` does not modify the `.ini`; FikoRE only uses UEs actually defined in the config file.
 
-### 3. Docker with `network none`
+## Quick Workflow
 
-```bash
-run_scripts/run_docker.sh build
-MODE=none run_scripts/run_docker.sh run
-sudo BACKEND=docker-none run_scripts/run_l4s_nfqueue_lab.sh run
-```
+All commands below assume your current directory is the repository root.
 
-In this mode:
+### 1. Create the Lab
 
-- the emulated plane terminates inside the container network namespace;
-- the script adds a dedicated host `<->` container management `veth`;
-- the runtime `ini` generated by the script rewrites `output_dashboard_udp_address` to point to `172.30.0.1` by default.
-
-## Main Script Actions
+For the recommended example config:
 
 ```bash
-sudo BACKEND=host run_scripts/run_l4s_nfqueue_lab.sh up
-sudo BACKEND=host run_scripts/run_l4s_nfqueue_lab.sh status
-sudo BACKEND=host run_scripts/run_l4s_nfqueue_lab.sh capture-start
-sudo BACKEND=host run_scripts/run_l4s_nfqueue_lab.sh capture-stop
-sudo BACKEND=host run_scripts/run_l4s_nfqueue_lab.sh capture-summary
-sudo BACKEND=host run_scripts/run_l4s_nfqueue_lab.sh down
+sudo BACKEND=host UE_COUNT=2 run_scripts/run_fikore_nfqueue_lab.sh up
+sudo run_scripts/run_fikore_nfqueue_lab.sh status
 ```
 
-- `up`: prepares the topology and shows its status.
-- `run`: prepares the topology and launches FikoRE.
-- `status`: prints IPs, queues, and `iptables` rules.
-- `capture-start`: starts `tcpdump` on the EMU-facing DN interface and, by default, also inside the `fkdn` namespace.
-- `capture-stop`: stops the background captures for the selected session.
-- `capture-summary`: reads the generated `pcap` files and prints a small ECN summary (`CE`, `ECT(1)`, `ECT(0)`, `Not-ECT`) with sample lines.
-- `down`: removes namespaces, `veth` pairs, and rules.
+This creates two namespace UEs:
+
+- `ue1`: intended for the L4S path
+- `ue2`: intended for the legacy path
+
+If you need a different lab size, change `UE_COUNT` only when running `up`. Later `run` reuses the existing topology.
+
+### 2. Open Namespace Shells
+
+Direct wrappers work without `source`:
+
+```bash
+run_scripts/fikorens-open dn
+run_scripts/fikorens-open ue1
+run_scripts/fikorens-open ue2
+```
+
+For one-shot commands:
+
+```bash
+run_scripts/fikorens-exec dn iperf3 -s -p 5202
+run_scripts/fikorens-exec ue1 iperf3 -c 10.255.0.2 -p 5202 -t 30
+```
+
+Each interactive namespace shell adds a prompt prefix such as `(ue1)` or `(dn)` without replacing the whole prompt.
+
+If you still prefer sourced helpers:
+
+```bash
+source run_scripts/fikore_ns.sh
+fikorens_open ue1
+fikorens_exec dn iperf3 -s -p 5202
+```
+
+When sourced, `fikorens ue1` keeps its original "replace the current shell" behavior.
+
+### 3. Start the Dashboard
+
+Typical host-side dashboard command:
+
+```bash
+python3 py_analizers/live_dashboard.py --host 0.0.0.0 --port 8096
+```
+
+Make sure the `.ini` already points to the correct address for your backend.
+
+### 4. Launch FikoRE
+
+```bash
+sudo CONFIG_FILE="$PWD/config/real_rural_shadowing.ini" \
+  run_scripts/run_fikore_nfqueue_lab.sh run
+```
+
+Behavior:
+
+- if no lab exists yet, `run` creates it first using current defaults or supplied `BACKEND` / `UE_COUNT`;
+- if a valid lab already exists, `run` reuses it and does not recreate namespaces;
+- if saved state exists but the topology is broken, `run` fails and asks you to run `up`.
+
+### 5. Run Traffic Tests
+
+Assumed addresses:
+
+- DN IP: `10.255.0.2`
+- UE1 IP: `10.201.1.2`
+- UE2 IP: `10.201.2.2`
+
+#### TCP iperf3
+
+In `dn`:
+
+```bash
+iperf3 -s -p 5202
+```
+
+In `ue1`:
+
+```bash
+iperf3 -c 10.255.0.2 -p 5202 -t 60
+```
+
+Downlink:
+
+```bash
+iperf3 -c 10.255.0.2 -p 5202 -t 60 -R
+```
+
+#### UDP iperf3
+
+In `dn`:
+
+```bash
+iperf3 -s -p 5202
+```
+
+In `ue1`:
+
+```bash
+iperf3 -c 10.255.0.2 -u -b 20M -l 1200 -p 5202 -t 60
+```
+
+Downlink:
+
+```bash
+iperf3 -c 10.255.0.2 -u -b 20M -l 1200 -p 5202 -t 60 -R
+```
+
+#### UDP Prague
+
+In `dn`:
+
+```bash
+udp_prague_receiver -a 0.0.0.0 -p 8080
+```
+
+In `ue1`:
+
+```bash
+udp_prague_sender -c -a 10.255.0.2 -p 8080 -b 20000
+```
+
+#### SCReAM
+
+In `dn`:
+
+```bash
+scream_bw_test_rx 10.201.1.2 30122
+```
+
+In `ue1`:
+
+```bash
+scream_bw_test_tx -ect 1 -time 60 10.255.0.2 30122
+```
+
+### 6. Generate Offline Visualizations
+
+After the run:
+
+```bash
+python3 py_analizers/draw_mac.py
+python3 py_analizers/draw_ue.py
+```
+
+The analyzers read the newest log directory under `logs/` and write figures under `results/<latest-log>/`.
+
+### 7. Optional PCAP Capture
+
+Start:
+
+```bash
+sudo CAPTURE_ID=example CAPTURE_UDP_PORT=5202 run_scripts/run_fikore_nfqueue_lab.sh capture-start
+```
+
+Stop and summarize:
+
+```bash
+sudo CAPTURE_ID=example run_scripts/run_fikore_nfqueue_lab.sh capture-stop
+sudo CAPTURE_ID=example run_scripts/run_fikore_nfqueue_lab.sh capture-summary
+```
+
+Artifacts are written under `run_scripts/.captures/example/`.
+
+## Main Actions
+
+Create or recreate topology:
+
+```bash
+sudo BACKEND=host UE_COUNT=2 run_scripts/run_fikore_nfqueue_lab.sh up
+sudo BACKEND=docker-host UE_COUNT=2 run_scripts/run_fikore_nfqueue_lab.sh up
+sudo BACKEND=docker-none UE_COUNT=2 run_scripts/run_fikore_nfqueue_lab.sh up
+```
+
+Reuse current topology:
+
+```bash
+sudo CONFIG_FILE="$PWD/config/real_rural_shadowing.ini" run_scripts/run_fikore_nfqueue_lab.sh run
+sudo run_scripts/run_fikore_nfqueue_lab.sh status
+sudo run_scripts/run_fikore_nfqueue_lab.sh shell ue1
+sudo run_scripts/run_fikore_nfqueue_lab.sh exec dn -- iperf3 -s -p 5202
+sudo run_scripts/run_fikore_nfqueue_lab.sh capture-start
+sudo run_scripts/run_fikore_nfqueue_lab.sh capture-stop
+sudo run_scripts/run_fikore_nfqueue_lab.sh capture-summary
+sudo run_scripts/run_fikore_nfqueue_lab.sh down
+```
+
+Lab-only UE lifecycle:
+
+```bash
+sudo run_scripts/run_fikore_nfqueue_lab.sh ue-add 3
+sudo run_scripts/run_fikore_nfqueue_lab.sh ue-del 3
+```
+
+These commands only change lab topology:
+
+- create or remove `fkueN`;
+- create or remove its `veth` pair and routing;
+- add or remove the corresponding UL/DL `NFQUEUE` rules;
+- update saved lab state.
+
+They do not modify the `.ini`. If the config does not define a matching real UE and queue pair, FikoRE will ignore that extra namespace.
 
 ## Useful Variables
 
@@ -115,50 +315,18 @@ sudo BACKEND=host run_scripts/run_l4s_nfqueue_lab.sh down
 - `QUEUE_BASE=100`
 - `QUEUE_STEP=10`
 - `CONTAINER_NAME=fikore-emu`
-- `MONITOR_OUTPUT_NAME=dashboard_udp`
-- `MONITOR_PORT=8096`
-- `MONITOR_ADDRESS_OVERRIDE=x.x.x.x`
+- `CONTAINER_WORKDIR=/usr/src/5g-network-emulator`
 - `CAPTURE_ID=default`
 - `CAPTURE_UDP_PORT=9999`
 - `CAPTURE_DN_NAMESPACE=1`
 - `CAPTURE_DIR=/path/to/run_scripts/.captures`
+- `TARGET_UID=<uid>`
+- `TARGET_GID=<gid>`
+- `TARGET_USER=<user>`
+- `TARGET_HOME=/home/<user>`
 
-## Monitoring Configuration
+## Notes
 
-The script generates a runtime copy of the `ini` under `run_scripts/.generated/` and overwrites these keys:
-
-- `output_<name>_address`
-- `output_<name>_port`
-
-By default:
-
-- `host` and `docker-host`: `127.0.0.1:8096`
-- `docker-none`: `172.30.0.1:8096`
-
-If your monitoring output is not named `dashboard_udp`, set `MONITOR_OUTPUT_NAME` accordingly.
-
-## On-Wire CE Verification
-
-To validate whether `CE` really leaves the EMU node and reaches the receiver path:
-
-```bash
-sudo BACKEND=host run_scripts/run_l4s_nfqueue_lab.sh up
-sudo BACKEND=host CAPTURE_ID=ce-check CAPTURE_UDP_PORT=9999 run_scripts/run_l4s_nfqueue_lab.sh capture-start
-# launch FikoRE and your UE/DN traffic
-sudo BACKEND=host CAPTURE_ID=ce-check run_scripts/run_l4s_nfqueue_lab.sh capture-stop
-sudo BACKEND=host CAPTURE_ID=ce-check run_scripts/run_l4s_nfqueue_lab.sh capture-summary
-```
-
-Artifacts are written under `run_scripts/.captures/<CAPTURE_ID>/`:
-
-- `emu.pcap`: capture on the EMU side toward DN.
-- `dn.pcap`: optional capture inside the `fkdn` namespace.
-- `capture.env`: session metadata and filter used.
-- `emu.log` / `dn.log`: `tcpdump` startup logs, useful if one side fails to start.
-
-Recommended workflow:
-
-1. Compare `ceul` and `nfqcewul` in `ue_log`.
-2. Check whether `capture-summary` reports `ce > 0` in `emu.pcap`.
-3. If `emu.pcap` has `CE` but `dn.pcap` does not, the issue is after EMU.
-4. If neither capture shows `CE` while `nfqcewul > 0`, the problem is in the `NFQUEUE` reinjection path.
+- `emu` is only a valid namespace target in `docker-none`.
+- `shell` and `exec` use `root` only to cross into the namespace, then drop back to the original user from the `sudo` session.
+- If you invoke the script directly as `root` without `sudo`, set `TARGET_UID`, `TARGET_GID`, `TARGET_USER`, and `TARGET_HOME` explicitly so commands can run as a normal user once inside the namespace.

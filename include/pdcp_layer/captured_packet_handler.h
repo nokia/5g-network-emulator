@@ -36,15 +36,14 @@ private:
     bool remove_data(int id, float bits);
     bool check_order(int id);
     void update_order(int id);
+    void verdict(const ip_pkt& pkt, final_packet_verdict verdict) override;
 
 private:
     bool do_check = true;
     std::chrono::microseconds *init_t = nullptr;
     uint32_t prev_uid = static_cast<uint32_t>(-1);
     int prev_released_id = -1;
-    int rewrite_packets = 0;
     int ce_rewrite_packets = 0;
-    int force_ect1_packets = 0;
     int drop_packets = 0;
     std::unique_ptr<pkt_capture> pkt_cptr;
     std::deque<ip_pkt> out_pkts;

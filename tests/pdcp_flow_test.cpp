@@ -13,6 +13,7 @@
 #include <pdcp_layer/ip_buffer.h>
 #include <pdcp_layer/packet_handler.h>
 #include <pdcp_layer/pdcp_layer.h>
+#include <pdcp_layer/simulated_packet_handler.h>
 #include <simulator/configuration_loader.h>
 #include <traffic_models/traffic_config.h>
 
@@ -234,6 +235,9 @@ void test_harq_and_packet_handlers()
     release.step(0.0f);
     release.push(std::move(ready));
     assert(near(release.release(), 1200.0f));
+    pdcp_queue_status status;
+    release.fill_queue_status(status, 0.0f);
+    assert(status.final_accept_packets == 0);
 }
 
 void test_harq_timeout_drop()
@@ -288,6 +292,11 @@ void test_captured_packet_handler_release()
     assert(near(handler.release(), 2000.0f));
     assert(fake_ptr->released.size() == 1);
     assert(fake_ptr->released.front() == 42);
+    pdcp_queue_status status;
+    handler.fill_queue_status(status, 0.0f);
+    assert(status.final_accept_packets == 1);
+    assert(status.final_accept_ce_packets == 0);
+    assert(status.final_drop_packets == 0);
 }
 
 void test_captured_packet_handler_timeout_drop()
@@ -313,6 +322,65 @@ void test_captured_packet_handler_timeout_drop()
 
     assert(fake_ptr->dropped.size() == 1);
     assert(fake_ptr->dropped.front() == 43);
+    pdcp_queue_status status;
+    handler.fill_queue_status(status, 0.01f);
+    assert(status.final_drop_packets == 1);
+}
+
+void test_simulated_packet_handler_final_verdicts()
+{
+    pdcp_config config(4, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, true);
+    traffic_config traffic(CONSTANT_TRAFFIC_MODEL, 0.0f, 0.0f, "", "", 0.0f, 1000, 0.0f, 0.0f);
+    simulated_packet_handler handler(1, traffic, config, 1);
+    handler.step(0.0f);
+
+    ip_pkt frag_a(0.0f, 600.0f, 1000.0f, 10, 0.0f, 0.0f);
+    frag_a.is_fragment = true;
+    ip_pkt frag_b(0.0f, 400.0f, 1000.0f, 10, 0.0f, 0.0f);
+    frag_b.is_fragment = true;
+    frag_b.ecn = ECN_CE;
+    frag_b.original_ecn = ECN_ECT1;
+    frag_b.ce_marked = true;
+
+    harq_pkt first(20, 0.0f, 0.0f, 0, 0, frag_a.size, 0.0f, 0.0f);
+    first.pkts.push_back(frag_a);
+    handler.push(std::move(first));
+    assert(near(handler.release(), 600.0f));
+
+    pdcp_queue_status status;
+    handler.fill_queue_status(status, 0.0f);
+    assert(status.final_accept_packets == 0);
+    assert(status.final_accept_ce_packets == 0);
+    assert(status.final_drop_packets == 0);
+
+    harq_pkt second(21, 0.0f, 0.0f, 0, 0, frag_b.size, 0.0f, 0.0f);
+    second.pkts.push_back(frag_b);
+    handler.push(std::move(second));
+    assert(near(handler.release(), 400.0f));
+    handler.fill_queue_status(status, 0.0f);
+    assert(status.final_accept_packets == 0);
+    assert(status.final_accept_ce_packets == 1);
+    assert(status.final_drop_packets == 0);
+
+    handler.step(0.001f);
+
+    ip_pkt frag_c(0.0f, 600.0f, 1000.0f, 11, 0.0f, 0.0f);
+    frag_c.is_fragment = true;
+    ip_pkt frag_d(0.0f, 400.0f, 1000.0f, 11, 0.0f, 0.0f);
+    frag_d.is_fragment = true;
+
+    harq_pkt third(22, 0.0f, 0.001f, 0, 0, frag_c.size, 0.0f, 0.0f);
+    third.pkts.push_back(frag_c);
+    handler.push(std::move(third));
+    assert(near(handler.release(), 600.0f));
+
+    harq_pkt dropped(23, 0.0f, 0.001f, 0, 0, frag_d.size, 0.0f, 0.0f);
+    dropped.pkts.push_back(frag_d);
+    handler.drop(std::move(dropped));
+    handler.fill_queue_status(status, 0.001f);
+    assert(status.final_accept_packets == 0);
+    assert(status.final_accept_ce_packets == 0);
+    assert(status.final_drop_packets == 1);
 }
 
 void test_dualpi2_classification_and_ce_marking()
@@ -411,6 +479,7 @@ int main()
     test_harq_timeout_drop();
     test_captured_packet_handler_release();
     test_captured_packet_handler_timeout_drop();
+    test_simulated_packet_handler_final_verdicts();
     test_dualpi2_classification_and_ce_marking();
     test_dualpi2_classic_drop_notification();
     test_captured_packet_handler_rewrites_ecn_payload();

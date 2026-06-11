@@ -24,10 +24,11 @@ struct pdcp_queue_status
     int release_size = 0;
     int release_oldest_uid = -1;
     float release_oldest_age = -1.0f;
+    int final_accept_packets = 0;
+    int final_accept_ce_packets = 0;
+    int final_drop_packets = 0;
     int nfqueue_queue_num = -1;
-    int nfqueue_rewrite_packets = 0;
     int nfqueue_ce_rewrite_packets = 0;
-    int nfqueue_force_ect1_packets = 0;
     int nfqueue_drop_packets = 0;
     int nfqueue_total_recv = 0;
     int nfqueue_total_rlsd = 0;

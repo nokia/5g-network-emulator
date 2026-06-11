@@ -107,7 +107,7 @@ float captured_packet_handler::release()
             {
                 update_order(it->uid);
                 drop_packets++;
-                pkt_cptr->verdict(it->uid, packet_capture_action::DROP);
+                verdict(*it, final_packet_verdict::DROP);
                 it = out_pkts.erase(it);
             }
             else
@@ -120,16 +120,14 @@ float captured_packet_handler::release()
                         latency += current_t - it->current_t;
                         ip_latency += current_t - it->ip_t;
                         update_order(it->uid);
-                        if(it->ecn != it->original_ecn || it->ce_marked || it->force_ect1_applied)
+                        if(it->ce_marked)
                         {
-                            rewrite_packets++;
-                            if(it->ce_marked) ce_rewrite_packets++;
-                            if(it->force_ect1_applied) force_ect1_packets++;
-                            pkt_cptr->verdict(it->uid, packet_capture_action::ACCEPT_CE);
+                            ce_rewrite_packets++;
+                            verdict(*it, final_packet_verdict::ACCEPT_CE);
                         }
                         else
                         {
-                            pkt_cptr->verdict(it->uid, packet_capture_action::ACCEPT);
+                            verdict(*it, final_packet_verdict::ACCEPT);
                         }
                         it = out_pkts.erase(it);
                         count++;
@@ -160,6 +158,7 @@ float captured_packet_handler::release()
 
 void captured_packet_handler::fill_queue_status(pdcp_queue_status& status, float current_t) const
 {
+    packet_handler::fill_queue_status(status, current_t);
     if(pkt_cptr)
     {
         status.capture_size = pkt_cptr->captured_queue_size();
@@ -186,9 +185,7 @@ void captured_packet_handler::fill_queue_status(pdcp_queue_status& status, float
         status.release_oldest_uid = pkt.uid;
         status.release_oldest_age = current_t - pkt.ip_t;
     }
-    status.nfqueue_rewrite_packets = rewrite_packets;
     status.nfqueue_ce_rewrite_packets = ce_rewrite_packets;
-    status.nfqueue_force_ect1_packets = force_ect1_packets;
     status.nfqueue_drop_packets = drop_packets;
 }
 
@@ -242,4 +239,23 @@ bool captured_packet_handler::check_order(int id)
 void captured_packet_handler::update_order(int id)
 {
     prev_released_id = id;
+}
+
+void captured_packet_handler::verdict(const ip_pkt& pkt, final_packet_verdict verdict_value)
+{
+    packet_handler::verdict(pkt, verdict_value);
+    if(!pkt_cptr) return;
+
+    switch(verdict_value)
+    {
+    case final_packet_verdict::ACCEPT:
+        pkt_cptr->verdict(pkt.uid, packet_capture_action::ACCEPT);
+        break;
+    case final_packet_verdict::ACCEPT_CE:
+        pkt_cptr->verdict(pkt.uid, packet_capture_action::ACCEPT_CE);
+        break;
+    case final_packet_verdict::DROP:
+        pkt_cptr->verdict(pkt.uid, packet_capture_action::DROP);
+        break;
+    }
 }

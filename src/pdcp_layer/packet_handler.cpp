@@ -40,6 +40,9 @@ void packet_handler::step(float t)
     tp_mean.step();
     g_mean.step();
     e_mean.step();
+    final_accept_packets_interval = 0;
+    final_accept_ce_packets_interval = 0;
+    final_drop_packets_interval = 0;
     current_t = t;
 }
 
@@ -85,6 +88,10 @@ float packet_handler::release()
             latency += current_t - it->current_t;
             ip_latency += current_t - it->ip_t;
             count++;
+            for(std::deque<ip_pkt>::const_iterator pkt_it = it->pkts.begin(); pkt_it != it->pkts.end(); ++pkt_it)
+            {
+                verdict(*pkt_it, pkt_it->ce_marked ? final_packet_verdict::ACCEPT_CE : final_packet_verdict::ACCEPT);
+            }
             it = pkt_list.erase(it);
         }
         else it++;
@@ -109,6 +116,9 @@ void packet_handler::fill_queue_status(pdcp_queue_status& status, float current_
         status.release_oldest_uid = pkt.id;
         status.release_oldest_age = current_t - pkt.ip_t;
     }
+    status.final_accept_packets = final_accept_packets_interval;
+    status.final_accept_ce_packets = final_accept_ce_packets_interval;
+    status.final_drop_packets = final_drop_packets_interval;
 }
 
 float packet_handler::get_generated(bool partial)
@@ -158,6 +168,22 @@ void packet_handler::push_ingress_pkt(ip_pkt pkt)
     }
     if(verbosity > 0) g_mean.add(pkt.size);
     ingress_pkts.push_back(std::move(pkt));
+}
+
+void packet_handler::verdict(const ip_pkt&, final_packet_verdict verdict_value)
+{
+    switch(verdict_value)
+    {
+    case final_packet_verdict::ACCEPT:
+        final_accept_packets_interval++;
+        break;
+    case final_packet_verdict::ACCEPT_CE:
+        final_accept_ce_packets_interval++;
+        break;
+    case final_packet_verdict::DROP:
+        final_drop_packets_interval++;
+        break;
+    }
 }
 
 std::unique_ptr<packet_handler> make_packet_handler(packet_handler_config cfg)

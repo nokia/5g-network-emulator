@@ -327,12 +327,11 @@ void ue::update_pdcp()
         if(ul_status.nfqueue_queue_num >= 0 || dl_status.nfqueue_queue_num >= 0)
         {
             ue_log.log_partial(
-                "nfqrecvul:{} nfqrecvdl:{} nfqrlsul:{} nfqrlsdl:{} nfqrewul:{} nfqrewdl:{} "
+                "nfqrecvul:{} nfqrecvdl:{} nfqrlsul:{} nfqrlsdl:{} "
                 "nfqcewul:{} nfqcewdl:{} nfqdropul:{} nfqdropdl:{} nfqrfailul:{} nfqrfaildl:{} "
                 "nfqsfailul:{} nfqsfaildl:{} ",
                 ul_status.nfqueue_total_recv, dl_status.nfqueue_total_recv,
                 ul_status.nfqueue_total_rlsd, dl_status.nfqueue_total_rlsd,
-                ul_status.nfqueue_rewrite_packets, dl_status.nfqueue_rewrite_packets,
                 ul_status.nfqueue_ce_rewrite_packets, dl_status.nfqueue_ce_rewrite_packets,
                 ul_status.nfqueue_drop_packets, dl_status.nfqueue_drop_packets,
                 ul_status.nfqueue_recv_fails, dl_status.nfqueue_recv_fails,
@@ -409,15 +408,16 @@ void ue::emit_l4s_monitoring()
         point.fields["p_c_mean"] = make_metric_field(status.dualpi2_p_c, field_aggregation::mean);
         point.fields["p_cl_mean"] = make_metric_field(status.dualpi2_p_cl, field_aggregation::mean);
         point.fields["nfqueue_queue_num_last"] = make_metric_field(status.nfqueue_queue_num, field_aggregation::last);
-        point.fields["nfqueue_rewrite_packets_last"] = make_metric_field(status.nfqueue_rewrite_packets, field_aggregation::last);
         point.fields["nfqueue_ce_rewrite_packets_last"] = make_metric_field(status.nfqueue_ce_rewrite_packets, field_aggregation::last);
-        point.fields["nfqueue_force_ect1_packets_last"] = make_metric_field(status.nfqueue_force_ect1_packets, field_aggregation::last);
         point.fields["nfqueue_drop_packets_last"] = make_metric_field(status.nfqueue_drop_packets, field_aggregation::last);
         point.fields["nfqueue_total_recv_last"] = make_metric_field(status.nfqueue_total_recv, field_aggregation::last);
         point.fields["nfqueue_total_rlsd_last"] = make_metric_field(status.nfqueue_total_rlsd, field_aggregation::last);
         point.fields["nfqueue_bytes_recv_last"] = make_metric_field(status.nfqueue_bytes_recv, field_aggregation::last);
         point.fields["nfqueue_recv_fails_last"] = make_metric_field(status.nfqueue_recv_fails, field_aggregation::last);
         point.fields["nfqueue_rlsd_fails_last"] = make_metric_field(status.nfqueue_rlsd_fails, field_aggregation::last);
+        point.fields["final_accept_packets_sum"] = make_metric_field(status.final_accept_packets, field_aggregation::sum);
+        point.fields["final_accept_ce_packets_sum"] = make_metric_field(status.final_accept_ce_packets, field_aggregation::sum);
+        point.fields["final_drop_packets_sum"] = make_metric_field(status.final_drop_packets, field_aggregation::sum);
         monitoring.publish(point);
     };
 
@@ -456,15 +456,16 @@ void ue::emit_queue_monitoring()
         point.fields["release_oldest_age_s_last"] = make_metric_field(status.release_oldest_age, field_aggregation::last);
         point.fields["harq_oldest_age_s_last"] = make_metric_field(status.harq_oldest_age, field_aggregation::last);
         point.fields["nfqueue_queue_num_last"] = make_metric_field(status.nfqueue_queue_num, field_aggregation::last);
-        point.fields["nfqueue_rewrite_packets_last"] = make_metric_field(status.nfqueue_rewrite_packets, field_aggregation::last);
         point.fields["nfqueue_ce_rewrite_packets_last"] = make_metric_field(status.nfqueue_ce_rewrite_packets, field_aggregation::last);
-        point.fields["nfqueue_force_ect1_packets_last"] = make_metric_field(status.nfqueue_force_ect1_packets, field_aggregation::last);
         point.fields["nfqueue_drop_packets_last"] = make_metric_field(status.nfqueue_drop_packets, field_aggregation::last);
         point.fields["nfqueue_total_recv_last"] = make_metric_field(status.nfqueue_total_recv, field_aggregation::last);
         point.fields["nfqueue_total_rlsd_last"] = make_metric_field(status.nfqueue_total_rlsd, field_aggregation::last);
         point.fields["nfqueue_bytes_recv_last"] = make_metric_field(status.nfqueue_bytes_recv, field_aggregation::last);
         point.fields["nfqueue_recv_fails_last"] = make_metric_field(status.nfqueue_recv_fails, field_aggregation::last);
         point.fields["nfqueue_rlsd_fails_last"] = make_metric_field(status.nfqueue_rlsd_fails, field_aggregation::last);
+        point.fields["final_accept_packets_sum"] = make_metric_field(status.final_accept_packets, field_aggregation::sum);
+        point.fields["final_accept_ce_packets_sum"] = make_metric_field(status.final_accept_ce_packets, field_aggregation::sum);
+        point.fields["final_drop_packets_sum"] = make_metric_field(status.final_drop_packets, field_aggregation::sum);
         point.fields["ce_packets_sum"] = make_metric_field(interval.ce_packets, field_aggregation::sum);
         point.fields["ce_bits_sum"] = make_metric_field(interval.ce_bits, field_aggregation::sum);
         point.fields["aqm_drops_sum"] = make_metric_field(interval.aqm_drops, field_aggregation::sum);

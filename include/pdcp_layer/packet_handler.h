@@ -17,6 +17,13 @@
 #include <traffic_models/traffic_config.h>
 #include <utils/logging/mean_handler.h>
 
+enum class final_packet_verdict
+{
+    ACCEPT,
+    ACCEPT_CE,
+    DROP
+};
+
 class packet_handler
 {
 public:
@@ -45,6 +52,7 @@ public:
 
 protected:
     void push_ingress_pkt(ip_pkt pkt);
+    virtual void verdict(const ip_pkt& pkt, final_packet_verdict verdict);
 
 protected:
     std::deque<ip_pkt> ingress_pkts;
@@ -60,6 +68,9 @@ protected:
     mean_handler<float> g_mean;
     mean_handler<float> e_mean;
     bool force_ect1 = false;
+    int final_accept_packets_interval = 0;
+    int final_accept_ce_packets_interval = 0;
+    int final_drop_packets_interval = 0;
 
     std::mt19937 gauss_dist_gen;
     std::uniform_real_distribution<float> gauss_dist{-1,1};

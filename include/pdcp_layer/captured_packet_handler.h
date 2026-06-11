@@ -8,17 +8,16 @@
 
 #include <chrono>
 #include <cstdint>
-#include <deque>
 #include <memory>
 
-#include <netfilter/packet_capture_interface.h>
+#include <netfilter/pkt_capture.h>
 #include <pdcp_layer/packet_handler.h>
 
 class captured_packet_handler : public packet_handler
 {
 public:
     captured_packet_handler(int queue_num, std::chrono::microseconds *init_t, pdcp_config pdcp_c, int verbosity = 0);
-    captured_packet_handler(std::unique_ptr<packet_capture_interface> capture, std::chrono::microseconds *init_t, pdcp_config pdcp_c, int verbosity = 0);
+    captured_packet_handler(std::unique_ptr<pkt_capture> capture, std::chrono::microseconds *init_t, pdcp_config pdcp_c, int verbosity = 0);
     ~captured_packet_handler() override;
 
     void init() override;
@@ -31,7 +30,6 @@ public:
     void fill_queue_status(pdcp_queue_status& status, float current_t) const override;
 
 private:
-    void cb(void* handler, netfilter_interface_t *nfiface, const nfq_packet_metadata& meta);
     float get_current_ts() const;
     void sort_by_id();
     bool add_data(ip_pkt *recv_pkt);
@@ -48,7 +46,6 @@ private:
     int ce_rewrite_packets = 0;
     int force_ect1_packets = 0;
     int drop_packets = 0;
-    std::unique_ptr<packet_capture_interface> pkt_cptr;
-    std::deque<ip_pkt> captured_pkts;
+    std::unique_ptr<pkt_capture> pkt_cptr;
     std::deque<ip_pkt> out_pkts;
 };

@@ -414,33 +414,33 @@ def build_dashboard(state, refresh_ms, window_s):
                 ax_traj.legend(loc="upper left", fontsize=8)
 
             ax_sinr.clear()
-            sinr_bins = None
+            has_sinr_data = False
             for idx, ue_id in enumerate(ue_ids):
-                samples = []
-                for tx_dir in ("ul", "dl"):
+                color = cmap(idx % cmap.N)
+                for tx_dir, linestyle in (("ul", "-"), ("dl", "--")):
                     state.phy[tx_dir][ue_id].prune(min_ts_s)
-                    _, vals = state.phy[tx_dir][ue_id].extract("sinr_db_mean")
-                    samples.extend(vals)
-                if not samples:
-                    continue
-                values = np.asarray(samples, dtype=float)
-                values = values[np.isfinite(values)]
-                if values.size == 0:
-                    continue
-                if sinr_bins is None:
-                    vmin = math.floor(float(values.min())) - 1
-                    vmax = math.ceil(float(values.max())) + 1
-                    if vmax <= vmin:
-                        vmax = vmin + 2
-                    sinr_bins = np.linspace(vmin, vmax, 25)
-                ax_sinr.hist(values, bins=sinr_bins, histtype="step", linewidth=2.0,
-                             color=cmap(idx % cmap.N), label=f"UE {ue_id}")
+                    xs, vals = state.phy[tx_dir][ue_id].extract("sinr_db_mean")
+                    if not xs:
+                        continue
+                    values = np.asarray(vals, dtype=float)
+                    if values.size == 0:
+                        continue
+                    finite = np.isfinite(values)
+                    if not np.any(finite):
+                        continue
+                    plot_xs = np.asarray(relative_times(xs, latest_ts_s), dtype=float)[finite]
+                    plot_vals = values[finite]
+                    ax_sinr.plot(plot_xs, plot_vals, linewidth=1.8, linestyle=linestyle,
+                                 color=color, label=f"UE {ue_id} {tx_dir.upper()}")
+                    ax_sinr.plot(plot_xs[-1], plot_vals[-1], "o", color=color, markersize=4)
+                    has_sinr_data = True
             ax_sinr.set_title("SINR per UE")
-            ax_sinr.set_xlabel("SINR [dB]")
-            ax_sinr.set_ylabel("Samples")
+            ax_sinr.set_xlabel("Time [s]")
+            ax_sinr.set_ylabel("SINR [dB]")
+            ax_sinr.set_xlim(-window_s, 0)
             ax_sinr.grid(True, alpha=0.3)
-            if ue_ids:
-                ax_sinr.legend(loc="upper right", fontsize=8)
+            if has_sinr_data:
+                ax_sinr.legend(loc="upper left", fontsize=8)
 
             draw_time_plot(ax_tp_ul, state.pdcp["ul"], latest_ts_s, "throughput_mbps_mean",
                            "Throughput UL", "Mbps", window_s, cmap)

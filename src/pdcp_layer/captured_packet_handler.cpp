@@ -5,40 +5,12 @@
 
 #include <pdcp_layer/captured_packet_handler.h>
 
-namespace
-{
-uint16_t ipv4_checksum(const uint8_t* data, size_t len)
-{
-    uint32_t sum = 0;
-    for(size_t i = 0; i + 1 < len; i += 2)
-    {
-        sum += ((uint16_t)data[i] << 8) | data[i + 1];
-    }
-    if(len & 1) sum += ((uint16_t)data[len - 1] << 8);
-    while(sum >> 16) sum = (sum & 0xffff) + (sum >> 16);
-    return (uint16_t)(~sum);
-}
-
-void apply_ipv4_ecn(std::vector<uint8_t>& payload, uint8_t ecn)
-{
-    if(payload.size() < 20) return;
-    uint8_t ihl = (payload[0] & 0x0f) * 4;
-    if(ihl < 20 || payload.size() < ihl) return;
-    payload[1] = (payload[1] & 0xfc) | (ecn & 0x03);
-    payload[10] = 0;
-    payload[11] = 0;
-    uint16_t csum = ipv4_checksum(payload.data(), ihl);
-    payload[10] = (uint8_t)(csum >> 8);
-    payload[11] = (uint8_t)(csum & 0xff);
-}
-}
-
 captured_packet_handler::captured_packet_handler(int queue_num, std::chrono::microseconds *_init_t, pdcp_config pdcp_c, int verbosity)
-    : captured_packet_handler(std::unique_ptr<packet_capture_interface>(new real_packet_capture(queue_num)), _init_t, pdcp_c, verbosity)
+    : captured_packet_handler(std::unique_ptr<pkt_capture>(new pkt_capture(queue_num)), _init_t, pdcp_c, verbosity)
 {
 }
 
-captured_packet_handler::captured_packet_handler(std::unique_ptr<packet_capture_interface> capture, std::chrono::microseconds *_init_t, pdcp_config pdcp_c, int verbosity)
+captured_packet_handler::captured_packet_handler(std::unique_ptr<pkt_capture> capture, std::chrono::microseconds *_init_t, pdcp_config pdcp_c, int verbosity)
     : packet_handler(pdcp_c, verbosity),
       init_t(_init_t),
       pkt_cptr(std::move(capture))
@@ -54,8 +26,7 @@ captured_packet_handler::~captured_packet_handler()
 void captured_packet_handler::init()
 {
     if(!pkt_cptr) return;
-    pkt_cptr->start(std::bind(&captured_packet_handler::cb, this, std::placeholders::_1, std::placeholders::_2,
-                              std::placeholders::_3));
+    pkt_cptr->start();
 }
 
 void captured_packet_handler::quit()
@@ -70,14 +41,17 @@ float captured_packet_handler::ingest(int tx_dir, float current_t)
     if(!pkt_cptr) return 0.0f;
 
     float bits = 0.0f;
-    pkt_cptr->lock();
-    for(std::deque<ip_pkt>::iterator it = captured_pkts.begin(); it != captured_pkts.end();)
+    captured_packet_info info;
+    while(pkt_cptr->pop_captured_packet(info))
     {
-        bits += it->size;
-        push_ingress_pkt(std::move(*it));
-        it = captured_pkts.erase(it);
+        int size = (int)info.bytes * 8;
+        ip_pkt pkt(get_current_ts(), size, size, prev_uid, info.pkt_id, bh_d, bh_d_var);
+        pkt.ecn = info.ecn;
+        pkt.original_ecn = info.ecn;
+        bits += pkt.size;
+        push_ingress_pkt(std::move(pkt));
+        prev_uid = info.pkt_id;
     }
-    pkt_cptr->unlock();
     return bits;
 }
 
@@ -133,7 +107,7 @@ float captured_packet_handler::release()
             {
                 update_order(it->uid);
                 drop_packets++;
-                pkt_cptr->drop(it->uid);
+                pkt_cptr->verdict(it->uid, packet_capture_action::DROP);
                 it = out_pkts.erase(it);
             }
             else
@@ -146,17 +120,16 @@ float captured_packet_handler::release()
                         latency += current_t - it->current_t;
                         ip_latency += current_t - it->ip_t;
                         update_order(it->uid);
-                        if(it->payload.size() > 0 && (it->ecn != it->original_ecn || it->ce_marked || it->force_ect1_applied))
+                        if(it->ecn != it->original_ecn || it->ce_marked || it->force_ect1_applied)
                         {
                             rewrite_packets++;
                             if(it->ce_marked) ce_rewrite_packets++;
                             if(it->force_ect1_applied) force_ect1_packets++;
-                            apply_ipv4_ecn(it->payload, it->ecn);
-                            pkt_cptr->release(it->uid, &it->payload);
+                            pkt_cptr->verdict(it->uid, packet_capture_action::ACCEPT_CE);
                         }
                         else
                         {
-                            pkt_cptr->release(it->uid);
+                            pkt_cptr->verdict(it->uid, packet_capture_action::ACCEPT);
                         }
                         it = out_pkts.erase(it);
                         count++;
@@ -189,15 +162,13 @@ void captured_packet_handler::fill_queue_status(pdcp_queue_status& status, float
 {
     if(pkt_cptr)
     {
-        pkt_cptr->lock();
-        status.capture_size = (int)captured_pkts.size();
-        if(!captured_pkts.empty())
+        status.capture_size = pkt_cptr->captured_queue_size();
+        captured_packet_info oldest_capture;
+        if(pkt_cptr->peek_oldest_captured(oldest_capture))
         {
-            const ip_pkt &cap_pkt = captured_pkts.front();
-            status.capture_oldest_uid = cap_pkt.uid;
-            status.capture_oldest_age = current_t - cap_pkt.ip_t;
+            status.capture_oldest_uid = (int)oldest_capture.pkt_id;
+            status.capture_oldest_age = -1.0f;
         }
-        pkt_cptr->unlock();
 
         packet_capture_stats stats = pkt_cptr->stats();
         status.nfqueue_queue_num = stats.queue_num;
@@ -219,22 +190,6 @@ void captured_packet_handler::fill_queue_status(pdcp_queue_status& status, float
     status.nfqueue_ce_rewrite_packets = ce_rewrite_packets;
     status.nfqueue_force_ect1_packets = force_ect1_packets;
     status.nfqueue_drop_packets = drop_packets;
-}
-
-void captured_packet_handler::cb(void* handler, netfilter_interface_t *nfiface, const nfq_packet_metadata& meta)
-{
-    (void)handler;
-    (void)nfiface;
-
-    int size = (int)meta.bytes * 8;
-    pkt_cptr->lock();
-    ip_pkt pkt(get_current_ts(), size, size, prev_uid, meta.pkt_id, bh_d, bh_d_var);
-    pkt.ecn = meta.ecn;
-    pkt.original_ecn = meta.ecn;
-    pkt.payload = meta.payload;
-    captured_pkts.push_back(std::move(pkt));
-    prev_uid = meta.pkt_id;
-    pkt_cptr->unlock();
 }
 
 float captured_packet_handler::get_current_ts() const

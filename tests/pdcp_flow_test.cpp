@@ -2,12 +2,13 @@
 #include <cmath>
 #include <cstdint>
 #include <memory>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include <common/direction.h>
 #include <mac_layer/harq_handler.h>
-#include <netfilter/packet_capture_interface.h>
+#include <netfilter/pkt_capture.h>
 #include <pdcp_layer/captured_packet_handler.h>
 #include <pdcp_layer/ip_buffer.h>
 #include <pdcp_layer/packet_handler.h>
@@ -17,38 +18,65 @@
 
 namespace
 {
-class fake_packet_capture : public packet_capture_interface
+class fake_packet_capture : public pkt_capture
 {
 public:
-    explicit fake_packet_capture(int queue_num) : queue(queue_num) {}
+    explicit fake_packet_capture(int queue_num) : pkt_capture(queue_num) {}
 
-    void start(add_pkt_callback_t cb) override { callback = cb; }
+    void start() override {}
     void close() override {}
-    void release(int id, const std::vector<uint8_t>* payload = nullptr) override
+    void verdict(uint32_t pkt_id, packet_capture_action action) override
     {
-        released.push_back(id);
-        if(payload != nullptr) released_payloads.push_back(*payload);
-    }
-    void drop(int id) override { dropped.push_back(id); }
-    void lock() override {}
-    void unlock() override {}
-    int queue_num() const override { return queue; }
+        verdicts.emplace_back(pkt_id, action);
+        if(action == packet_capture_action::DROP)
+        {
+            dropped.push_back((int)pkt_id);
+            payloads.erase(pkt_id);
+            original_ecns.erase(pkt_id);
+            return;
+        }
 
-    void capture(uint64_t size_bytes, uint32_t id)
+        released.push_back((int)pkt_id);
+        std::unordered_map<uint32_t, std::vector<uint8_t>>::iterator it = payloads.find(pkt_id);
+        if(it != payloads.end())
+        {
+            std::vector<uint8_t> payload = it->second;
+            if(action == packet_capture_action::ACCEPT_CE && !payload.empty())
+            {
+                payload[1] = (payload[1] & 0xfc) | ECN_CE;
+            }
+            released_payloads.push_back(std::move(payload));
+            payloads.erase(it);
+        }
+        original_ecns.erase(pkt_id);
+    }
+    packet_capture_stats stats() const override
     {
-        nfq_packet_metadata meta;
-        meta.bytes = size_bytes;
-        meta.pkt_id = id;
-        callback(nullptr, nullptr, meta);
+        packet_capture_stats out;
+        out.queue_num = pkt_capture::queue_num();
+        out.total_rlsd = (uint32_t)(released.size() + dropped.size());
+        return out;
+    }
+
+    void capture(uint64_t size_bytes, uint32_t id, uint8_t ecn = ECN_NOT_ECT, std::vector<uint8_t> payload = std::vector<uint8_t>())
+    {
+        captured_packet_info info;
+        info.bytes = size_bytes;
+        info.pkt_id = id;
+        info.ecn = ecn;
+        payloads[id] = payload;
+        original_ecns[id] = ecn;
+        enqueue_captured_packet(info, std::move(payload), ecn);
     }
 
     std::vector<int> released;
     std::vector<int> dropped;
     std::vector<std::vector<uint8_t> > released_payloads;
+    std::vector<std::pair<uint32_t, packet_capture_action>> verdicts;
 
 private:
-    int queue;
-    add_pkt_callback_t callback;
+    std::unordered_map<uint32_t, std::vector<uint8_t>> payloads;
+    std::unordered_map<uint32_t, uint8_t> original_ecns;
 };
 
 class fake_packet_handler : public packet_handler
@@ -231,7 +259,7 @@ void test_captured_packet_handler_release()
     pdcp_config config(4, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, true);
     std::unique_ptr<fake_packet_capture> fake(new fake_packet_capture(77));
     fake_packet_capture *fake_ptr = fake.get();
-    std::unique_ptr<packet_capture_interface> capture(std::move(fake));
+    std::unique_ptr<pkt_capture> capture(std::move(fake));
     captured_packet_handler handler(std::move(capture), nullptr, config, 1);
 
     handler.init();
@@ -267,7 +295,7 @@ void test_captured_packet_handler_timeout_drop()
     pdcp_config config(4, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, true);
     std::unique_ptr<fake_packet_capture> fake(new fake_packet_capture(78));
     fake_packet_capture *fake_ptr = fake.get();
-    std::unique_ptr<packet_capture_interface> capture(std::move(fake));
+    std::unique_ptr<pkt_capture> capture(std::move(fake));
     captured_packet_handler handler(std::move(capture), nullptr, config, 1);
 
     handler.init();
@@ -350,17 +378,17 @@ void test_captured_packet_handler_rewrites_ecn_payload()
     pdcp_config config(4, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, true);
     std::unique_ptr<fake_packet_capture> fake(new fake_packet_capture(79));
     fake_packet_capture *fake_ptr = fake.get();
-    std::unique_ptr<packet_capture_interface> capture(std::move(fake));
+    std::unique_ptr<pkt_capture> capture(std::move(fake));
     captured_packet_handler handler(std::move(capture), nullptr, config, 1);
 
     handler.init();
     handler.step(0.0f);
+    fake_ptr->capture(20, 99, ECN_ECT1, make_ipv4_payload(ECN_ECT1));
 
     ip_pkt pkt(0.0f, 160.0f, 160.0f, 99, 0.0f, 0.0f);
     pkt.ecn = ECN_CE;
     pkt.original_ecn = ECN_ECT1;
     pkt.ce_marked = true;
-    pkt.payload = make_ipv4_payload(ECN_ECT1);
 
     harq_pkt harq(12, 0.0f, 0.0f, 0, 0, pkt.size, 0.0f, 0.0f);
     harq.pkts.push_back(pkt);
@@ -368,6 +396,7 @@ void test_captured_packet_handler_rewrites_ecn_payload()
     assert(near(handler.release(), 160.0f));
     assert(fake_ptr->released.size() == 1);
     assert(fake_ptr->released_payloads.size() == 1);
+    assert(fake_ptr->verdicts.front().second == packet_capture_action::ACCEPT_CE);
     assert((fake_ptr->released_payloads.front()[1] & 0x03) == ECN_CE);
 }
 }

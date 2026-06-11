@@ -8,8 +8,7 @@
 
 #include <deque>
 #include <cstdint>
-#include <vector>
-
+#include <cmath>
 #define BIT_ROUND_MARGIN 0.99f
 
 enum ecn_codepoint
@@ -71,7 +70,6 @@ struct ip_pkt
         ce_marked = cpy_pkt.ce_marked;
         force_ect1_applied = cpy_pkt.force_ect1_applied;
         aqm_dropped = cpy_pkt.aqm_dropped;
-        payload = cpy_pkt.payload;
     };
 
     bool is_ready()
@@ -98,7 +96,6 @@ struct ip_pkt
     bool ce_marked = false;
     bool force_ect1_applied = false;
     bool aqm_dropped = false;
-    std::vector<uint8_t> payload;
 };
 
 

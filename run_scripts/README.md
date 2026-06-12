@@ -12,7 +12,10 @@ The lab and the emulator config are separate concerns:
 
 - [run_fikore_nfqueue_lab.sh](run_fikore_nfqueue_lab.sh): creates, reuses, inspects, and tears down the lab topology, then launches FikoRE on top of it.
 - [run_docker.sh](run_docker.sh): builds or launches the helper container for Docker backends.
-- [run_sim.sh](run_sim.sh): simple offline simulation example that runs FikoRE with a config file and then generates plots from the latest logs.
+- [run_offline.sh](run_offline.sh): runs an offline simulation from a positional config file and then generates plots from the latest logs. By default it keeps only the general offline plots; pass `-a` to also generate DualQ/L4S/NFQUEUE-specific plots.
+- [run_emulated.sh](run_emulated.sh): runs the NFQUEUE lab workflow with a positional emulation config file.
+- [run_dashboard.sh](run_dashboard.sh): activates the repository Python environment and starts the live dashboard.
+- [python_env.sh](python_env.sh): shared Python environment helper used by the other run scripts.
 - [fikorens](fikorens): direct wrapper that opens a namespace shell without requiring `source`.
 - [fikorens-open](fikorens-open): direct wrapper that opens a namespace shell and returns when it exits.
 - [fikorens-exec](fikorens-exec): direct wrapper for one-shot commands inside a namespace.
@@ -26,8 +29,8 @@ The lab and the emulator config are separate concerns:
 
 This avoids the old destructive behavior where `run` recreated namespaces every time.
 
-For real-traffic emulation, use the lab scripts in this README.
-For offline simulated traffic, use [run_sim.sh](run_sim.sh).
+For real-traffic emulation, use [run_emulated.sh](run_emulated.sh) or the lab script directly.
+For offline simulated traffic, use [run_offline.sh](run_offline.sh).
 
 ## Topology
 
@@ -79,15 +82,14 @@ It is only a management link. If your `.ini` emits dashboard UDP traffic from in
 
 ## Recommended Example Config
 
-The best ready-to-use example is [config/real_rural_shadowing.ini](/home/pablop/devel/5g-network-emulator/config/real_rural_shadowing.ini).
+The best ready-to-use emulated example is [config/emulated_rural_n78_single_with_background.ini](/home/pablop/devel/5g-network-emulator/config/emulated_rural_n78_single_with_background.ini).
 
 Why this file is the best default example:
 
-- it defines two real UEs that match the lab queue plan:
-  `UE1 -> 100/101` and `UE2 -> 110/111`;
-- `UE1` keeps `l4s_dual_queue: true`, so it exercises the L4S / DualQ path;
-- `UE2` uses `l4s_dual_queue: false` and `pkt_delay_budget: 0.300`, so it exercises the legacy / non-L4S path;
-- it already enables `dashboard_udp`.
+- it matches the lab queue plan directly with `UE1 -> 100/101`;
+- it keeps `l4s_dual_queue: true`, so it exercises the L4S / DualQ path;
+- it adds simulated background users to create load around the captured UE;
+- it already enables UDP dashboard output on `127.0.0.1:8096`.
 
 Important:
 
@@ -150,7 +152,7 @@ When sourced, `fikorens ue1` keeps its original "replace the current shell" beha
 Typical host-side dashboard command:
 
 ```bash
-python3 py_analizers/live_dashboard.py --host 0.0.0.0 --port 8096
+run_scripts/run_dashboard.sh --host 0.0.0.0 --port 8096
 ```
 
 Make sure the `.ini` already points to the correct address for your backend.
@@ -158,7 +160,13 @@ Make sure the `.ini` already points to the correct address for your backend.
 ### 4. Launch FikoRE
 
 ```bash
-sudo CONFIG_FILE="$PWD/config/real_rural_shadowing.ini" \
+run_scripts/run_emulated.sh config/emulated_rural_n78_single_with_background.ini
+```
+
+Equivalent direct lab invocation:
+
+```bash
+sudo CONFIG_FILE="$PWD/config/emulated_rural_n78_single_with_background.ini" \
   run_scripts/run_fikore_nfqueue_lab.sh run
 ```
 
@@ -249,8 +257,7 @@ scream_bw_test_tx -ect 1 -time 60 10.255.0.2 30122
 After the run:
 
 ```bash
-python3 py_analizers/draw_mac.py
-python3 py_analizers/draw_ue.py
+run_scripts/run_offline.sh plots
 ```
 
 The analyzers read the newest log directory under `logs/` and write figures under `results/<latest-log>/`.
@@ -285,7 +292,7 @@ sudo BACKEND=docker-none UE_COUNT=2 run_scripts/run_fikore_nfqueue_lab.sh up
 Reuse current topology:
 
 ```bash
-sudo CONFIG_FILE="$PWD/config/real_rural_shadowing.ini" run_scripts/run_fikore_nfqueue_lab.sh run
+sudo CONFIG_FILE="$PWD/config/emulated_rural_n78_single_with_background.ini" run_scripts/run_fikore_nfqueue_lab.sh run
 sudo run_scripts/run_fikore_nfqueue_lab.sh status
 sudo run_scripts/run_fikore_nfqueue_lab.sh shell ue1
 sudo run_scripts/run_fikore_nfqueue_lab.sh exec dn -- iperf3 -s -p 5202

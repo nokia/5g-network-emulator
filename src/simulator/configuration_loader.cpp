@@ -209,13 +209,6 @@ void configuration_loader::load(std::string cfg_file)
                                 if (value == "false" || value == "0")
                                     ue_c_list.back().ue_c.l4s_c.enabled = false;
                             }
-                            if (key == "l4s_force_ect1")
-                            {
-                                if (value == "true" || value == "1")
-                                    ue_c_list.back().ue_c.l4s_c.force_ect1 = true;
-                                if (value == "false" || value == "0")
-                                    ue_c_list.back().ue_c.l4s_c.force_ect1 = false;
-                            }
                             if (key == "l4s_target_ms")
                                 ue_c_list.back().ue_c.l4s_c.target_s = std::stof(value) * 0.001f;
                             if (key == "l4s_rtt_max_ms")
@@ -274,6 +267,8 @@ void configuration_loader::load(std::string cfg_file)
                                     duration = std::stof(value);
                                 if (key == "period")
                                     period = std::stof(value);
+                                if (key == "progress_log_period_s")
+                                    progress_log_period_s = std::stof(value);
                                 if (key == "multithreading")
                                 {
                                     if (value == "true" || value == "1")
@@ -579,6 +574,11 @@ float configuration_loader::get_duration()
     return duration;
 }
 
+float configuration_loader::get_progress_log_period_s()
+{
+    return progress_log_period_s;
+}
+
 std::list<ue_full_config> configuration_loader::get_ue_c_list()
 {
     return ue_c_list;
@@ -645,7 +645,9 @@ std::string configuration_loader::get_unique_id()
     {
         time_t now = std::time(0);
         tm *ltm = std::localtime(&now);
-        return std::to_string(1 + ltm->tm_mon) + "_" + std::to_string(ltm->tm_mday) + "_" + std::to_string(ltm->tm_hour) + "_" + std::to_string(ltm->tm_min) + "_" + std::to_string(ltm->tm_sec);
+        std::ostringstream oss;
+        oss << std::put_time(ltm, "%Y_%m_%d_%H_%M_%S");
+        return oss.str();
     }
 
     return unique_id;

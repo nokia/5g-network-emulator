@@ -2,8 +2,11 @@
 import sys
 import os
 import glob
+import re
 import numpy as np
 import matplotlib.pyplot as plt
+
+TIMESTAMP_DIR_RE = re.compile(r"^\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}$")
 
 class ShannonParams:
     def __init__(self, bandwidth_mhz, mimo_layers=1, bw_efficiency=0.67,
@@ -27,6 +30,9 @@ def latest_log_dir(base_path: str) -> str:
     if not dirs:
         print(f"[ERROR] No log directories found in {base_path}")
         sys.exit(1)
+    timestamp_dirs = sorted(d for d in dirs if TIMESTAMP_DIR_RE.fullmatch(d))
+    if timestamp_dirs:
+        return os.path.join(base_path, timestamp_dirs[-1])
     dirs.sort(key=lambda d: os.path.getmtime(os.path.join(base_path, d)), reverse=True)
     return os.path.join(base_path, dirs[0])
 

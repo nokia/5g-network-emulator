@@ -43,14 +43,17 @@ To run FikoRE with a specific configuration:
 
 For offline simulated traffic:
 ```bash
-bash run_scripts/run_sim.sh
+bash run_scripts/run_offline.sh
+bash run_scripts/run_offline.sh config/offline_umi_n40_npn.ini
+bash run_scripts/run_offline.sh -a config/offline_umi_n40_npn.ini
 ```
 
 For real-traffic emulation with Linux namespaces and `NFQUEUE`, use the lab workflow documented in [run_scripts/README.md](run_scripts/README.md), for example:
 
 ```bash
 sudo BACKEND=host UE_COUNT=2 run_scripts/run_fikore_nfqueue_lab.sh up
-sudo CONFIG_FILE="$PWD/config/real_rural_shadowing.ini" run_scripts/run_fikore_nfqueue_lab.sh run
+bash run_scripts/run_dashboard.sh --host 0.0.0.0 --port 8096
+run_scripts/run_emulated.sh config/emulated_rural_n78_single_with_background.ini
 ```
 
 For emulation mode, `sudo` is required because namespaces, iptables rules, and packet queue access require elevated privileges.
@@ -62,15 +65,20 @@ When running FikoRE in emulator mode, you must press Ctrl+C twice:
 
   -Second Ctrl+C stops the iperf3 process and triggers the results plotting.
 
-  If you encounter Python errors such as:
+If you encounter Python errors such as:
 ```bash
 ModuleNotFoundError: No module named 'numpy'
 ```
-It means that your Python environment is missing required libraries. Install them with sudo for global accessibility:
+it means that your Python environment is missing required libraries. The run scripts now prefer the repository virtual environment at `.venv`.
+
+Recommended setup:
 ```bash
-sudo pip install numpy matplotlib
+python3 -m venv .venv
+. .venv/bin/activate
+pip install numpy matplotlib
 ```
-Alternatively, ensure that your Python virtual environment is activated and correctly used within the scripts.
+
+If you use the wrappers under `run_scripts/`, they will automatically pick `.venv` when it exists.
 
 ## Citing
 

@@ -1,17 +1,30 @@
 #!/usr/bin/env python3
+import argparse
 import os
+import re
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from glob import glob
 
+TIMESTAMP_DIR_RE = re.compile(r"^\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}$")
+
 
 def find_ue_logs(base_path):
-    ue_dirs = glob(os.path.join(base_path, '*', 'ue'))
+    timestamp_ue_dirs = []
+    fallback_ue_dirs = []
+    for ue_dir in glob(os.path.join(base_path, '*', 'ue')):
+        log_dir = os.path.basename(os.path.dirname(ue_dir))
+        if TIMESTAMP_DIR_RE.fullmatch(log_dir):
+            timestamp_ue_dirs.append(ue_dir)
+        else:
+            fallback_ue_dirs.append(ue_dir)
+
+    ue_dirs = sorted(timestamp_ue_dirs) if timestamp_ue_dirs else fallback_ue_dirs
     if not ue_dirs:
         print(f"[ERROR] No UE log directories found in {base_path}")
         sys.exit(1)
-    latest_dir = max(ue_dirs, key=os.path.getmtime)
+    latest_dir = ue_dirs[-1] if timestamp_ue_dirs else max(ue_dirs, key=os.path.getmtime)
     log_files = sorted(glob(os.path.join(latest_dir, 'ue_log_*.txt')))
     return latest_dir, log_files
 
@@ -285,7 +298,21 @@ def plot_nfqueue_series(all_data, outdir):
     print(f"[SAVED] {path}")
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Generate UE plots from the latest offline log directory."
+    )
+    parser.add_argument(
+        "-a",
+        "--all",
+        action="store_true",
+        help="include DualQ/L4S/NFQUEUE-specific plots in addition to the general ones",
+    )
+    return parser.parse_args()
+
+
 def main():
+    args = parse_args()
     script_dir = os.path.dirname(os.path.realpath(sys.argv[0]))
     logs_base = os.path.join(script_dir, '..', 'logs')
     ue_dir, log_files = find_ue_logs(logs_base)
@@ -301,13 +328,14 @@ def main():
     plot_histograms_per_ue(all_data, 'rul', 'UL Throughput Histogram', 'Throughput (Mbps)', 'rul_hist.png', outdir=out_dir, bins=30)
     plot_histograms_per_ue(all_data, 'rdl', 'DL Throughput Histogram', 'Throughput (Mbps)', 'rdl_hist.png', outdir=out_dir, bins=30)
     plot_histograms_per_ue(all_data, 'ri', 'Rank Indicator Histogram', 'Rank', 'ri_hist.png', outdir=out_dir, bins=np.arange(0.5, 5.5, 1))
-    plot_histograms_per_ue(all_data, 'ceul', 'UL CE Marks Histogram', 'CE marks / log interval', 'ceul_hist.png', outdir=out_dir, bins=30)
-    plot_histograms_per_ue(all_data, 'cedl', 'DL CE Marks Histogram', 'CE marks / log interval', 'cedl_hist.png', outdir=out_dir, bins=30)
-    plot_histograms_per_ue(all_data, 'aqmdul', 'UL AQM Drops Histogram', 'Drops / log interval', 'aqmdul_hist.png', outdir=out_dir, bins=30)
-    plot_histograms_per_ue(all_data, 'aqmddl', 'DL AQM Drops Histogram', 'Drops / log interval', 'aqmddl_hist.png', outdir=out_dir, bins=30)
-    plot_l4s_series(all_data, out_dir)
     plot_drop_sources(all_data, out_dir)
-    plot_nfqueue_series(all_data, out_dir)
+    if args.all:
+        plot_histograms_per_ue(all_data, 'ceul', 'UL CE Marks Histogram', 'CE marks / log interval', 'ceul_hist.png', outdir=out_dir, bins=30)
+        plot_histograms_per_ue(all_data, 'cedl', 'DL CE Marks Histogram', 'CE marks / log interval', 'cedl_hist.png', outdir=out_dir, bins=30)
+        plot_histograms_per_ue(all_data, 'aqmdul', 'UL AQM Drops Histogram', 'Drops / log interval', 'aqmdul_hist.png', outdir=out_dir, bins=30)
+        plot_histograms_per_ue(all_data, 'aqmddl', 'DL AQM Drops Histogram', 'Drops / log interval', 'aqmddl_hist.png', outdir=out_dir, bins=30)
+        plot_l4s_series(all_data, out_dir)
+        plot_nfqueue_series(all_data, out_dir)
 
 
 if __name__ == "__main__":

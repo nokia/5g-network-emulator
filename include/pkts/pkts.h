@@ -68,7 +68,6 @@ struct ip_pkt
         ecn = cpy_pkt.ecn;
         original_ecn = cpy_pkt.original_ecn;
         ce_marked = cpy_pkt.ce_marked;
-        force_ect1_applied = cpy_pkt.force_ect1_applied;
         aqm_dropped = cpy_pkt.aqm_dropped;
     };
 
@@ -94,7 +93,6 @@ struct ip_pkt
     uint8_t ecn = ECN_NOT_ECT;
     uint8_t original_ecn = ECN_NOT_ECT;
     bool ce_marked = false;
-    bool force_ect1_applied = false;
     bool aqm_dropped = false;
 };
 

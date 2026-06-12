@@ -271,7 +271,7 @@ private:
     float antenna_h_172;
     float w;
     int o2i;
-int tx_dir;
+    int tx_dir = TX_DL;
 private:
     pos2d prev_pos;
     float a_oxygen;

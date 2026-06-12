@@ -20,7 +20,6 @@ packet_handler::packet_handler(pdcp_config pdcp_c, int _verbosity)
     bh_d = pdcp_c.bh_d;
     bh_d_var = pdcp_c.bh_d_var;
     verbosity = _verbosity;
-    force_ect1 = false;
 }
 
 packet_handler::~packet_handler()
@@ -160,12 +159,6 @@ void packet_handler::record_error(float bits)
 
 void packet_handler::push_ingress_pkt(ip_pkt pkt)
 {
-    if(force_ect1 && pkt.ecn != ECN_ECT1 && pkt.ecn != ECN_CE)
-    {
-        pkt.original_ecn = pkt.ecn;
-        pkt.ecn = ECN_ECT1;
-        pkt.force_ect1_applied = true;
-    }
     if(verbosity > 0) g_mean.add(pkt.size);
     ingress_pkts.push_back(std::move(pkt));
 }
@@ -191,12 +184,10 @@ std::unique_ptr<packet_handler> make_packet_handler(packet_handler_config cfg)
     if(cfg.ue_type == SIM_UE)
     {
         std::unique_ptr<packet_handler> handler(new simulated_packet_handler(cfg.ue_id, cfg.traffic_c, cfg.pdcp_c, cfg.log_traffic));
-        handler->set_force_ect1(cfg.l4s_c.force_ect1);
         return handler;
     }
 
     assert(cfg.queue_num >= 0);
     std::unique_ptr<packet_handler> handler(new captured_packet_handler(cfg.queue_num, cfg.init_t, cfg.pdcp_c, cfg.log_quality));
-    handler->set_force_ect1(cfg.l4s_c.force_ect1);
     return handler;
 }

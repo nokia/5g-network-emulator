@@ -20,6 +20,9 @@ simulator::simulator(std::string config_file)
 {
     verbosity = config_loader.get_log_config().verbosity;
     duration = config_loader.get_duration();
+    progress_log_period_s = config_loader.get_progress_log_period_s();
+    if(progress_log_period_s > 0)
+        next_progress_log_sim_time_s = progress_log_period_s;
     // initialize monitoring manager if configured
     monitoring_manager::instance().init(config_loader.get_monitoring_config());
     std::list<ue_full_config> ue_c_list = config_loader.get_ue_c_list();
@@ -78,6 +81,7 @@ void simulator::log_runtime_start()
         << " mode=" << (realtime ? "realtime" : "fast")
         << " duration_s=" << duration
         << " period_ms=" << config_loader.get_period()
+        << " progress_log_period_s=" << progress_log_period_s
         << " ues=" << ue_h.get_ue_list()->size()
         << " monitoring=" << (monitoring_cfg.enabled ? "on" : "off")
         << " outputs=" << monitoring_cfg.outputs.size()
@@ -135,6 +139,31 @@ void simulator::handle_time_log(double sim_time_s)
     }
 }
 
+void simulator::maybe_log_progress(double sim_time_s)
+{
+    if(progress_log_period_s <= 0 || progress_steps == 0)
+        return;
+
+    if(sim_time_s + 1e-9 < next_progress_log_sim_time_s)
+        return;
+
+    const double mac_mean_ms = 1000.0 * progress_time_mac.count() / progress_steps;
+    const double ue_mean_ms = 1000.0 * progress_time_ue.count() / progress_steps;
+
+    LOG_INFO_I("simulator::progress")
+        << "sim_time_s=" << sim_time_s
+        << " mac_cycle_ms_mean=" << mac_mean_ms
+        << " ue_cycle_ms_mean=" << ue_mean_ms
+        << END();
+
+    progress_steps = 0;
+    progress_time_mac = std::chrono::duration<double>().zero();
+    progress_time_ue = std::chrono::duration<double>().zero();
+
+    while(next_progress_log_sim_time_s <= sim_time_s)
+        next_progress_log_sim_time_s += progress_log_period_s;
+}
+
 void simulator::step(unsigned int _ts)
 {
     double ts = (double)_ts * US2S;
@@ -153,11 +182,19 @@ void simulator::step(unsigned int _ts)
 
     std::chrono::steady_clock::time_point t = std::chrono::steady_clock::now();
     mac_l.step(ts);
-    time_mac += std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - t);
+    const std::chrono::duration<double> mac_step_time =
+        std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - t);
+    time_mac += mac_step_time;
+    progress_time_mac += mac_step_time;
 
     t = std::chrono::steady_clock::now();
     ue_h.step(ts);
-    time_ue += std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - t);
+    const std::chrono::duration<double> ue_step_time =
+        std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - t);
+    time_ue += ue_step_time;
+    progress_time_ue += ue_step_time;
+    progress_steps++;
     monitoring.clear_slot_timestamp_ns();
     handle_time_log(ts);
+    maybe_log_progress(ts);
 }

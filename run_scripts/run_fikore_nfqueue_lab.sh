@@ -7,7 +7,8 @@ STATE_FILE="${GENERATED_DIR}/fikore_nfqueue_lab.env"
 
 ACTION="${1:-run}"
 BACKEND="${BACKEND:-}"
-CONFIG_FILE="${CONFIG_FILE:-}"
+CFG="${CFG:-}"
+CONFIG_FILE="${CONFIG_FILE:-${CFG}}"
 
 CONTAINER_NAME="${CONTAINER_NAME:-fikore-emu}"
 CONTAINER_WORKDIR="${CONTAINER_WORKDIR:-/usr/src/5g-network-emulator}"
@@ -50,7 +51,7 @@ die() {
 
 apply_default_settings() {
     BACKEND="${BACKEND:-host}"
-    CONFIG_FILE="${CONFIG_FILE:-${ROOT_DIR}/config/live_dashboard_multi_user.ini}"
+    CONFIG_FILE="${CONFIG_FILE:-${ROOT_DIR}/config/emulated_rural_n78_single_with_background.ini}"
     UE_COUNT="${UE_COUNT:-2}"
     if [[ -z "${UE_ACTIVE_SET}" ]]; then
         UE_ACTIVE_SET="$(default_active_ue_set "${UE_COUNT}")"
@@ -1041,7 +1042,7 @@ Variables:
 
 Examples:
   sudo BACKEND=host UE_COUNT=2 $(basename "$0") up
-  sudo CONFIG_FILE=$PWD/config/real_rural_shadowing.ini $(basename "$0") run
+  sudo CONFIG_FILE=$PWD/config/emulated_rural_n78_single_with_background.ini $(basename "$0") run
   sudo BACKEND=docker-host $(basename "$0") run
   sudo $(basename "$0") status
   sudo $(basename "$0") shell ue1

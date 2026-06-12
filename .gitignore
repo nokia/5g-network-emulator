@@ -38,6 +38,8 @@ results/
 testconfig/
 tmp/
 run_scripts/.generated/
+wiki/
+*.captures/
 
 # Python
 __pycache__/

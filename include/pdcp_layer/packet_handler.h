@@ -48,7 +48,6 @@ public:
     float get_latency(bool elapsed = true);
     float get_tp(bool elapsed = true);
     void record_error(float bits);
-    void set_force_ect1(bool enabled) { force_ect1 = enabled; }
 
 protected:
     void push_ingress_pkt(ip_pkt pkt);
@@ -67,7 +66,6 @@ protected:
     mean_handler<float> ipl_mean;
     mean_handler<float> g_mean;
     mean_handler<float> e_mean;
-    bool force_ect1 = false;
     int final_accept_packets_interval = 0;
     int final_accept_ce_packets_interval = 0;
     int final_drop_packets_interval = 0;

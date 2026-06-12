@@ -9,7 +9,6 @@
 struct dualpi2_config
 {
     bool enabled = false;
-    bool force_ect1 = false;
     float k = 2.0f;
     float target_s = 0.015f;
     float rtt_max_s = 0.100f;

@@ -101,6 +101,7 @@ phy_layer::phy_layer(int _tx, int _id, scenario_config _scenario_config, phy_ue_
 
     // Transmission direction
     tx = _tx;
+    tx_dir = _tx;
 
     // Enable stochastics
     stochastics = _stochastics;
@@ -702,7 +703,7 @@ void phy_layer::estimate_noise_interference(float _tx_power, int _n_ues, float _
     float tx_power;
     float n_rbs_local;
 
-    if (tx_dir == 1) // UL
+    if (tx == TX_UL)
     {
         tx_power = -23 + uniform_stochastics(gen) * 46;
         n_rbs_local = 1.0f;
@@ -890,10 +891,12 @@ void phy_layer::estimate_channel_state(float distance, phy_shared &phy_s, float 
     if (update_cqi)
         reset_cqi();
     if (update_sinr)
+    {
         // estimate_attenuation(distance,pos,phy_s);
         // pathloss=compute_pathloss(distance,_los);
         rsrp_s = 0;
         db_sinr_s = 0;
+    }
     prepare_metrics(oldest_t, avg_tp);
 
     for (int i = 0; i < n_rbs; i++)

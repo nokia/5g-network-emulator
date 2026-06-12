@@ -28,6 +28,7 @@ std::string getBaseMapPath();
 
 #define DURATION_DEFAULT 10.0f
 #define PERIOD_DEFAULT 1.0f
+#define PROGRESS_LOG_PERIOD_S_DEFAULT 10.0f
 //
 // MAC LAYER
 //
@@ -200,6 +201,7 @@ public:
 
     float get_period();
     float get_duration();
+    float get_progress_log_period_s();
     std::list<ue_full_config> get_ue_c_list();
     phy_enb_config get_phy_enb_config();
     pdcp_config get_pdcp_config_ul();
@@ -224,6 +226,7 @@ public:
 private:
     float duration = DURATION_DEFAULT;
     float period = PERIOD_DEFAULT;
+    float progress_log_period_s = PROGRESS_LOG_PERIOD_S_DEFAULT;
     // UE CONFIG
     std::list<ue_full_config> ue_c_list;
     // ENB CONFIG

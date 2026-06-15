@@ -85,20 +85,16 @@ If you use the wrappers under `run_scripts/`, they will automatically pick `.ven
 If you want to use FikoRE in your research, don't forget to cite us!
 
 ```
-@misc{GonzalezD2022,
-  doi = {10.48550/ARXIV.2204.04290},
-  url = {https://arxiv.org/abs/2204.04290},
-  author = {
-    Gonzalez Morin, Diego and
-    Lopez Morales, Manuel-Jose and
-    Pérez, Pablo and
-    Villegas, Alvaro and
-    García-Armada, Ana and
-    Reyero, José María
-  },
-  title = {FikoRE: 5G and Beyond RAN Emulator for Application Level Experimentation and Prototyping},
-  publisher = {arXiv},
-  year = {2025}
+@article{gonzalezmorin2023fikore,
+  author  = {González Morín, Diego and López-Morales, Manuel J. and Pérez, Pablo and García Armada, Ana and Villegas, Álvaro},
+  title   = {FikoRE: 5G and Beyond RAN Emulator for Application Level Experimentation and Prototyping},
+  journal = {IEEE Network},
+  year    = {2023},
+  volume  = {37},
+  number  = {4},
+  pages   = {48--55},
+  doi     = {10.1109/MNET.002.2200595},
+  url     = {https://doi.org/10.1109/MNET.002.2200595}
 }
 ```
 

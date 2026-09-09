@@ -152,6 +152,11 @@ public:
     ue_overrides& overrides() { return ctl; }
     const ue_overrides& overrides() const { return ctl; }
 
+    // Logical attach/detach. On detach the UE drops every live buffer; see
+    // 02-enabled-semantics: it is removed from the simulation for all purposes.
+    void set_enabled(bool on);
+    bool is_enabled() const { return ctl.enabled; }
+
 private: 
     void init_logger(); 
     void emit_pdcp_monitoring();

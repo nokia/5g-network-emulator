@@ -764,7 +764,7 @@ float phy_layer::sinr_power_model(float _tx_power, float distance, float pathlos
     float rayleigh = stochastics ? compute_rayleigh() : 0;
 
     float sinr = tx_power - 10 * log10(n_rbs_local) + rayleigh - pathloss + _macro_fading + antenna_gain_tx + antenna_gain_rx - noise_interf - 10 * log10(current_ri);
-    return sinr;
+    return sinr + sinr_offset_db;
 }
 
 void phy_layer::estimate_sinr(float distance, int f, float _macro_fading)
@@ -837,10 +837,10 @@ void phy_layer::estimate_tp(int f)
     tp_v[f] = current_tp;
 }
 
-float phy_layer::get_metric(int f, int n_ues, float priority)
+float phy_layer::get_metric(int f, int rr_n, int rr_rank, float priority)
 {
     if (metric_h.is_rr())
-        return metric_h.get_rr_metric(f, id, n_ues);
+        return metric_h.get_rr_metric(f, rr_rank, rr_n);
     return metric_v[f] * priority;
 }
 
@@ -867,7 +867,7 @@ void phy_layer::init_update_rates(float _doppler_f, int _cqi_p, int _ri_p)
     }
 }
 
-void phy_layer::estimate_channel_state(float distance, phy_shared &phy_s, float _macro_fading, int _o2i, int _tx_dir, const pos2d &pos, float oldest_t, float avg_tp, float _current_t)
+void phy_layer::estimate_channel_state(float distance, phy_shared &phy_s, float _macro_fading, int _o2i, int _tx_dir, const pos2d &pos, float oldest_t, float avg_tp, float _current_t, float _sinr_offset_db)
 {
     // doppler_f = freq * _speed / LIGHTSPEED;
 
@@ -875,6 +875,7 @@ void phy_layer::estimate_channel_state(float distance, phy_shared &phy_s, float 
     o2i = _o2i;
     tx_dir = _tx_dir;
     macro_fading = _macro_fading;
+    sinr_offset_db = _sinr_offset_db;
 
     if (!d_in_computed)
     {

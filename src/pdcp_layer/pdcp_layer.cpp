@@ -4,6 +4,7 @@
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 **********************************************/
 
+#include <limits>
 #include <utility>
 
 #include <pdcp_layer/pdcp_layer.h>
@@ -213,6 +214,28 @@ float pdcp_layer::get_tp(bool partial)
 bool pdcp_layer::using_l4s() const
 {
     return _ip_buffer.using_dualpi2();
+}
+
+void pdcp_layer::drop_all()
+{
+    while(_packet_h->has_ingress_pkts())
+    {
+        _packet_h->drop_ingress_pkt(_packet_h->pop_ingress_pkt());
+    }
+
+    while(_ip_buffer.has_pkts())
+    {
+        harq_pkt pkt(current_id, _ip_buffer.get_oldest_timestamp(), current_t, 0, 0, 0, bh_d, bh_d_var);
+        current_id++;
+        if(!_ip_buffer.pop_oldest_pkt(pkt)) break;
+        drop_harq_pkt(std::move(pkt));
+    }
+
+    harq_pkt rtx_pkt;
+    while(_harq_buffer.pop_pkt_older_than(std::numeric_limits<float>::max(), rtx_pkt))
+    {
+        drop_harq_pkt(std::move(rtx_pkt));
+    }
 }
 
 void pdcp_layer::cleanup_expired_pkts()

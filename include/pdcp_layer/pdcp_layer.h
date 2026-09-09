@@ -39,6 +39,10 @@ public:
     dualpi2_stats get_l4s_interval_stats();
     void set_pkt_delay_budget(float budget_s) { pkt_delay_budget_s = budget_s; }
     float get_pkt_delay_budget() const { return pkt_delay_budget_s; }
+    // Empties every live buffer through the existing drop paths. Used when a UE is
+    // logically detached: for a real UE the drop path is what issues the netfilter
+    // verdict, so packets must not be discarded silently or the kernel queue stalls.
+    void drop_all();
 
 private:
     void release_pkts(harq_pkt pkt);

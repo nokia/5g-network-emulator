@@ -182,7 +182,8 @@ const pdcp_layer& ue::pdcp(int tx_dir) const
 
 float ue::get_metric(int tx_dir, int f_index, int n_ues)
 {
-    return phy(tx_dir).get_metric(f_index, n_ues, ctl.priority);
+    (void)n_ues;
+    return phy(tx_dir).get_metric(f_index, ctl.rr_n, ctl.rr_rank, ctl.priority);
 }
 
 float ue::get_tp(int tx_dir, int f_index)
@@ -252,13 +253,28 @@ bool ue::has_packets(int tx_dir)
 
 schedule_candidate ue::get_schedule_candidate(int tx_dir, int f_index, int n_ues, int ue_index)
 {
+    (void)n_ues;   // the rotation runs over the enabled UEs, not over the whole list
     schedule_candidate candidate;
     candidate.ue_index = ue_index;
     candidate.ue_id = id;
     candidate.bits_per_symbol = phy(tx_dir).get_tp(f_index);
-    candidate.metric = phy(tx_dir).get_metric(f_index, n_ues, ctl.priority);
-    candidate.has_data = pdcp(tx_dir).has_pkts() && candidate.bits_per_symbol > 0;
+    candidate.metric = phy(tx_dir).get_metric(f_index, ctl.rr_n, ctl.rr_rank, ctl.priority);
+    candidate.has_data = ctl.enabled
+                      && pdcp(tx_dir).has_pkts()
+                      && candidate.bits_per_symbol > 0
+                      && (ctl.rmax_bps[tx_dir] <= 0.0f || ctl.rmax_tokens[tx_dir] > 0.0f);
     return candidate;
+}
+
+void ue::set_enabled(bool on)
+{
+    if (ctl.enabled == on) return;
+    ctl.enabled = on;
+    if (!on)
+    {
+        pdcp_dl.drop_all();
+        pdcp_ul.drop_all();
+    }
 }
 
 void ue::update_pos()
@@ -285,6 +301,10 @@ void ue::emit_mobility_monitoring()
 
 float ue::handle_pkt(float bits, int tx_dir, int f_index)
 {
+    // The cap is on the bits granted over the air, retransmissions and padding included.
+    // Tokens may go negative: the UE stops being a candidate until the per-TTI refill
+    // brings them back, which keeps the long run rate at rmax without splitting an RBG.
+    if (ctl.rmax_bps[tx_dir] > 0.0f) ctl.rmax_tokens[tx_dir] -= bits;
     float eff_tp = pdcp(tx_dir).handle_pkt(bits, phy(tx_dir).get_mcs(f_index), phy(tx_dir).get_sinr(f_index), mobility_m.get_distance());
     return eff_tp;
 }
@@ -580,13 +600,27 @@ void ue::estimate_channel_state()
         
     }
 
-    phy(TX_DL).estimate_channel_state(distance, phy_s, phy_macro_fading, phy_o2i, TX_DL, pos, get_oldest_timestamp(TX_DL), get_avg_tp(TX_DL), current_t);
-    phy(TX_UL).estimate_channel_state(distance, phy_s, phy_macro_fading, phy_o2i, TX_UL, pos, get_oldest_timestamp(TX_UL), get_avg_tp(TX_UL), current_t);
+    phy(TX_DL).estimate_channel_state(distance, phy_s, phy_macro_fading, phy_o2i, TX_DL, pos, get_oldest_timestamp(TX_DL), get_avg_tp(TX_DL), current_t, ctl.sinr_offset_db[TX_DL]);
+    phy(TX_UL).estimate_channel_state(distance, phy_s, phy_macro_fading, phy_o2i, TX_UL, pos, get_oldest_timestamp(TX_UL), get_avg_tp(TX_UL), current_t, ctl.sinr_offset_db[TX_UL]);
     phy_period_counter++;
 }
 
 void ue::step()
 {
+    if (!ctl.enabled)
+    {
+        // A detached UE is gone from the simulation, but its source still has to be
+        // drained: for a real UE that is the netfilter queue, which would otherwise back
+        // up in the kernel, and for a simulated one it keeps the traffic generator's
+        // random stream advancing, so that detaching a UE does not shift its own
+        // realization. Everything ingested is dropped on the spot.
+        pdcp_dl.step(current_t);
+        pdcp_ul.step(current_t);
+        pdcp_dl.drop_all();
+        pdcp_ul.drop_all();
+        return;
+    }
+
     update_pdcp();
     update_pos();
     emit_mobility_monitoring();

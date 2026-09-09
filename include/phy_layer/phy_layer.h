@@ -93,15 +93,19 @@ public:
     float get_mean_mcs();
     float get_mean_eff();
     void set_logger(log_handler *_logger);
-    // priority comes by value from ue_overrides, applied here and not inside
-    // metric_handler: metric_v[] is only rewritten on a CQI refresh, so folding it into
-    // the cached value would delay a priority change by up to cqi_period.
-    float get_metric(int f, int n_ues, float priority);
+    // priority, rr_rank and rr_n come by value from ue_overrides. priority is applied here
+    // and not inside metric_handler: metric_v[] is only rewritten on a CQI refresh, so
+    // folding it into the cached value would delay a priority change by up to cqi_period.
+    float get_metric(int f, int rr_n, int rr_rank, float priority);
     float get_tp(int f);
     float assignRFBandwidth(float bandwidth);
 
 public:
-    void estimate_channel_state(float distance, phy_shared &phy_s, float macro_fading, int o2i, int _tx_dir, const pos2d &pos, float oldest_t, float avg_tp, float _current_t);
+    // sinr_offset_db comes by value from ue_overrides and is added in sinr_power_model,
+    // which also shifts the reported RSRP: an offset standing for power or losses moves
+    // both. Stored in a member for the duration of the call instead of threaded through
+    // estimate_sinr; only this UE's own thread is inside estimate_channel_state.
+    void estimate_channel_state(float distance, phy_shared &phy_s, float macro_fading, int o2i, int _tx_dir, const pos2d &pos, float oldest_t, float avg_tp, float _current_t, float sinr_offset_db);
 
 private:
     void init_metric(int _index);
@@ -205,6 +209,7 @@ private:
 private:
     float pathloss;
     float macro_fading;
+    float sinr_offset_db = 0.0f;
     float c_dist;
 
 private:

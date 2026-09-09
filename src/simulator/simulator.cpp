@@ -128,7 +128,7 @@ void simulator::handle_time_log(double sim_time_s)
             point.fields["step_time_ms_mean"] = make_runtime_field(1000.0 * (time_ue.count() + time_mac.count()) / step_c, field_aggregation::mean);
             point.fields["sim_time_s_last"] = make_runtime_field(sim_time_s, field_aggregation::last);
             point.fields["loop_iterations_sum"] = make_runtime_field(step_c, field_aggregation::sum);
-            point.fields["active_ues_last"] = make_runtime_field(ue_h.get_ue_list()->size(), field_aggregation::last);
+            point.fields["active_ues_last"] = make_runtime_field(ue_h.enabled_count(), field_aggregation::last);
             monitoring.publish(point);
         }
 

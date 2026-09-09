@@ -15,6 +15,7 @@
 #include <ue/ue_handler.h>
 #include <mac_layer/mac_layer.h>
 #include <timer/timer.h>
+#include <utils/control/control_manager.h>
 #include <utils/terminal_logging.h>
 
 class simulator
@@ -53,6 +54,7 @@ private:
     configuration_loader config_loader; 
     ue_handler ue_h; 
     mac_layer mac_l;
+    control_manager control;
 private: 
     int freq = 1000; 
     int step_c = 0; 

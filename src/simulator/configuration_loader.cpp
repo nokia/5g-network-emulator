@@ -396,6 +396,23 @@ void configuration_loader::load(std::string cfg_file)
                                 if (key == "ratio_DL_UL")
                                     ratio_DL_UL = std::stof(value);
                             }
+                            if (mode == "Control")
+                            {
+                                if (key == "enabled")
+                                {
+                                    if (value == "true" || value == "1") control_c.enabled = true;
+                                    if (value == "false" || value == "0") control_c.enabled = false;
+                                }
+                                if (key == "transport") control_c.transport = value;
+                                if (key == "address") control_c.address = value;
+                                if (key == "port") control_c.port = std::stoi(value);
+                                if (key == "sync_mode") control_c.sync_mode = value;
+                                if (key == "credit_timeout_ms") control_c.credit_timeout_ms = std::stoi(value);
+                                if (key == "on_timeout") control_c.on_timeout = value;
+                                if (key == "timeline_file") control_c.timeline_file = value;
+                                if (key == "journal_file") control_c.journal_file = value;
+                                if (key == "max_cmds_per_tick") control_c.max_cmds_per_tick = std::stoi(value);
+                            }
                             if (mode == "Monitoring")
                             {
                                 if (key == "enabled")
@@ -737,4 +754,9 @@ std::string configuration_loader::getClosestMapFile(int scenario_type, double fr
 monitoring_config configuration_loader::get_monitoring_config()
 {
     return monitoring_c;
+}
+
+control_config configuration_loader::get_control_config()
+{
+    return control_c;
 }

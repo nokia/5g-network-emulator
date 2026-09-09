@@ -22,6 +22,7 @@
 #include <phy_layer/phy_config.h>
 #include <mac_layer/tdd_handler.h>
 #include <utils/logging/log_handler.h>
+#include <utils/control/control_config.h>
 #include <utils/monitoring/monitoring_config.h>
 
 std::string getBaseMapPath();
@@ -223,6 +224,9 @@ public:
     // monitoring config
     monitoring_config get_monitoring_config();
 
+    // runtime control config
+    control_config get_control_config();
+
 private:
     float duration = DURATION_DEFAULT;
     float period = PERIOD_DEFAULT;
@@ -267,6 +271,7 @@ private:
 
     // Monitoring
     monitoring_config monitoring_c;
+    control_config control_c;
     float rtx_proc_delay_dl = RTX_PROC_DELAY_DEFAULT;
     float rtx_proc_delay_var_dl = RTX_PROC_DELAY_VAR_DEFAULT;
     // METRIC COFIGURATION

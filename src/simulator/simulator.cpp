@@ -38,6 +38,10 @@ simulator::simulator(std::string config_file)
         ue_h.add_ues(ticker.get_init_t(), *it, phy_c, scenario_c, pdcp_c_ul, pdcp_c_dl, harq_c, config_loader.get_stochastics());
     }
     ue_h.init();
+    // After ue_h.init(): the ue_list is final from here on, which is what makes the
+    // addresses the control plane keeps valid for the whole run.
+    control.init(config_loader.get_control_config(), ue_h.get_ue_list(),
+                 config_loader.get_period(), config_loader.get_mac_config().metric_type);
 }
 
 void simulator::override_duration(float _duration)
@@ -60,6 +64,7 @@ void simulator::join()
 void simulator::terminate()
 {
     ticker.stop();
+    control.stop();
     log_runtime_stop("terminated");
 }
 
@@ -185,6 +190,9 @@ void simulator::step(unsigned int _ts)
     {
         monitoring.clear_slot_timestamp_ns();
     }
+
+    // Only point where control state is written: both thread pools are parked here.
+    control.tick(ts, (std::int64_t)total_steps - 1);
 
     std::chrono::steady_clock::time_point t = std::chrono::steady_clock::now();
     mac_l.step(ts);

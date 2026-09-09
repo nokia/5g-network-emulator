@@ -76,6 +76,7 @@ test: $(TEST_BINS)
 
 smoke: all
 	./$(TARGET) tests/smoke_sim.ini
+	./$(TARGET) tests/control_smoke.ini
 
 clean:
 	$(RM) -r $(BUILD_DIR) $(TARGET) $(TOOLS_TARGETS)

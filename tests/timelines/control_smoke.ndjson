@@ -1,0 +1,5 @@
+# Guion del smoke del plano de control. Una linea NDJSON por mensaje.
+# at_tti es el instante canonico; at_t (segundos) se convierte a TTI al cargar.
+{"id":1,"at_tti":10,"cmds":[{"target":"ue/0","set":{"priority":8.0}}]}
+{"id":2,"at_t":0.030,"cmds":[{"target":"ue/1","set":{"enabled":false}}]}
+{"id":3,"at_tti":40,"cmds":[{"target":"ue/1","set":{"enabled":true}}]}

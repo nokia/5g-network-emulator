@@ -68,6 +68,12 @@ void simulator::print_traffic()
     ue_h.print_traffic();
 }
 
+void simulator::run_steps(unsigned int n)
+{
+    for(unsigned int i = 0; i < n; i++)
+        step(i * 1000);
+}
+
 void simulator::log_runtime_start()
 {
     if(runtime_started) return;

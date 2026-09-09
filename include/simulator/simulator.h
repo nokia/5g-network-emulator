@@ -33,14 +33,21 @@ public:
     void terminate();
 
     void print_traffic();
+
+    // One simulation step. Public so that tests can drive the loop without the
+    // timer thread; the emulator itself still gets here through timer::start().
+    void step(unsigned int _ts);
+
+    // Runs n steps back to back in the calling thread, with the same simulated
+    // time base as the fast mode of the ticker (1 ms per step).
+    void run_steps(unsigned int n);
+
 private: 
 
     void handle_time_log(double sim_time_s);
     void log_runtime_start();
     void log_runtime_stop(const std::string &reason);
     void maybe_log_progress(double sim_time_s);
-
-    void step(unsigned int _ts);
 
 private: 
     configuration_loader config_loader; 

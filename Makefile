@@ -10,7 +10,7 @@ TARGET := $(BIN_DIR)/fikore
 TOOLS_TARGETS := $(BIN_DIR)/udp_tos_probe
 
 CPPFLAGS := -Iinclude
-CXXFLAGS := -O3 -g -std=c++11 -pthread
+CXXFLAGS := -O3 -g -std=c++17 -pthread
 DEPFLAGS := -MMD -MP
 LDFLAGS :=
 LDLIBS := -pthread -lmnl -lnetfilter_queue

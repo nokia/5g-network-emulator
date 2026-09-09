@@ -93,7 +93,7 @@ void phy_layer::init_rank(int _period, int _n_antennas,int _mimo_layers)
 phy_layer::phy_layer(int _tx, int _id, scenario_config _scenario_config, phy_ue_config _phy_ue_config, phy_enb_config _phy_enb_config, bool _stochastics, int _verbosity)
     : distance_cqi_dist(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()),
       gen(rng_seed(_stochastics, 2 * _id + _tx + 1)),
-      metric_h(_phy_enb_config.metric_type, _phy_ue_config.priority, _phy_ue_config.beta, _phy_ue_config.delay_t, _phy_ue_config.delta)
+      metric_h(_phy_enb_config.metric_type, _phy_ue_config.beta, _phy_ue_config.delay_t, _phy_ue_config.delta)
 
 {
 
@@ -837,11 +837,11 @@ void phy_layer::estimate_tp(int f)
     tp_v[f] = current_tp;
 }
 
-float phy_layer::get_metric(int f, int n_ues)
+float phy_layer::get_metric(int f, int n_ues, float priority)
 {
     if (metric_h.is_rr())
         return metric_h.get_rr_metric(f, id, n_ues);
-    return metric_v[f];
+    return metric_v[f] * priority;
 }
 
 float phy_layer::get_tp(int f)

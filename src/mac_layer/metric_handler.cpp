@@ -64,14 +64,13 @@ float max_metric_handler::get_value()
 // METRIC HANDLER METHODS
 //-------------------------
 
-metric_handler::metric_handler(int _metric_type, float _priority, float _beta, float _delay_t, float _delta)
+metric_handler::metric_handler(int _metric_type, float _beta, float _delay_t, float _delta)
 {
     metric_t = check_metric(_metric_type);
     assign_metric();
     beta = _beta; 
     delay_t = _delay_t; 
     delta = _delta; 
-    priority = _priority; 
 }
 
 float metric_handler::get_metric(metric_info metric_i, float current_t, int f)
@@ -92,27 +91,27 @@ void metric_handler::assign_metric()
 
 float metric_handler::fifo(metric_info metric_i, float current_t, int f)
 {
-    return priority*(current_t - metric_i.req_time);
+    return current_t - metric_i.req_time;
 }
 
 float metric_handler::bet(metric_info metric_i, float current_t, int f)
 {
-    return priority*(1/(beta*metric_i.avrg_tp + (1 - beta)*metric_i.current_tp));
+    return 1/(beta*metric_i.avrg_tp + (1 - beta)*metric_i.current_tp);
 }
 
 float metric_handler::dist_delay(metric_info metric_i, float current_t, int f)
 {
-    return priority*(1/(metric_i.delay_t - metric_i.current_delay));
+    return 1/(metric_i.delay_t - metric_i.current_delay);
 }
 
 float metric_handler::w_delay(metric_info metric_i, float current_t, int f)
 {
-    return -(log(metric_i.delta)/metric_i.delay_t) *priority* metric_i.current_delay;
+    return -(log(metric_i.delta)/metric_i.delay_t) * metric_i.current_delay;
 }
 
 float metric_handler::max_tp(metric_info metric_i, float current_t, int f)
 {
-    return priority*metric_i.current_tp;
+    return metric_i.current_tp;
 }
 
 float metric_handler::rr(metric_info metric_i, float current_t, int f)
@@ -123,8 +122,8 @@ float metric_handler::rr(metric_info metric_i, float current_t, int f)
 float metric_handler::pf(metric_info metric_i, float current_t, int f)
 {
     if(metric_i.avrg_tp!=0)
-        return priority*metric_i.current_tp/pow(metric_i.avrg_tp, beta);// + (1 - beta)*metric_i.current_tp));
-    else return priority*metric_i.current_tp;
+        return metric_i.current_tp/pow(metric_i.avrg_tp, beta);// + (1 - beta)*metric_i.current_tp));
+    else return metric_i.current_tp;
 }
 
 bool metric_handler::is_rr()
@@ -132,7 +131,7 @@ bool metric_handler::is_rr()
     return metric_t == METRIC_RR; 
 }
 
-float metric_handler::get_rr_metric(int f,int id, int n_ues)
+float metric_handler::get_rr_metric(int f, int rank, int n_ues)
 {
     if(prev_f != f)
     {
@@ -140,7 +139,7 @@ float metric_handler::get_rr_metric(int f,int id, int n_ues)
         if(rr_index >= n_ues) rr_index = 0; 
         prev_f = f; 
     }
-    if(rr_index == id) return 1.0;
+    if(rr_index == rank) return 1.0;
     else return 0.0;
 }
 

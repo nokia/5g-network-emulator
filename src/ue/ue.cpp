@@ -182,7 +182,7 @@ const pdcp_layer& ue::pdcp(int tx_dir) const
 
 float ue::get_metric(int tx_dir, int f_index, int n_ues)
 {
-    return phy(tx_dir).get_metric(f_index, n_ues);
+    return phy(tx_dir).get_metric(f_index, n_ues, ctl.priority);
 }
 
 float ue::get_tp(int tx_dir, int f_index)
@@ -256,7 +256,7 @@ schedule_candidate ue::get_schedule_candidate(int tx_dir, int f_index, int n_ues
     candidate.ue_index = ue_index;
     candidate.ue_id = id;
     candidate.bits_per_symbol = phy(tx_dir).get_tp(f_index);
-    candidate.metric = phy(tx_dir).get_metric(f_index, n_ues);
+    candidate.metric = phy(tx_dir).get_metric(f_index, n_ues, ctl.priority);
     candidate.has_data = pdcp(tx_dir).has_pkts() && candidate.bits_per_symbol > 0;
     return candidate;
 }

@@ -105,6 +105,8 @@ ue::ue(int _id,
         phy_s(_id, ue_c, _scenario_c, _phy_enb_config)
 {
     id = _id;
+    // The knob is absolute: it starts at the .ini value and replaces it from then on.
+    ctl.priority = ue_c.priority;
     delta_metric = ue_c.delta_metric;
     delay_t_metric = ue_c.delay_t_metric;
     beta_metric = ue_c.beta_metric;

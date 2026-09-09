@@ -22,6 +22,7 @@
 // Logging
 #include "utils/logging/mean_handler.h"
 #include <ue/ue_config.h>
+#include <utils/control/ue_overrides.h>
 
 struct schedule_candidate
 {
@@ -147,6 +148,10 @@ public:
     void step();
     void add_current_t(double _current_t){current_t = _current_t; }
 
+    // Runtime control state. Only control_manager::tick() writes through this accessor.
+    ue_overrides& overrides() { return ctl; }
+    const ue_overrides& overrides() const { return ctl; }
+
 private: 
     void init_logger(); 
     void emit_pdcp_monitoring();
@@ -178,6 +183,7 @@ public:
 
 protected: 
     int id; 
+    ue_overrides ctl;
 
 protected: 
     MapHandler map;

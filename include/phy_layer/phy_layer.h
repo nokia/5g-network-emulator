@@ -275,9 +275,14 @@ private:
 private:
     pos2d prev_pos;
     float a_oxygen;
-    float d_in;
-    float plin;
-    float pltw;
+    // compute_losses() adds pltw + plin, and estimate_noise_interference() calls it during
+    // init(), before estimate_channel_state() has had a chance to compute them. Without an
+    // initializer the noise floor of the very first run depended on whatever was left in
+    // that memory, which made runs irreproducible and occasionally produced an infinite
+    // noise_interf, and with it SINR = -inf for the whole UE.
+    float d_in = 0.0f;
+    float plin = 0.0f;
+    float pltw = 0.0f;
 
 private:
     float freq;

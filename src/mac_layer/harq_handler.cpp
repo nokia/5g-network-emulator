@@ -8,8 +8,8 @@
 
 harq_handler::harq_handler(int _max_rtx, float _air_delay, 
                  float _rtx_period, float _rtx_period_var, 
-                 float _rtx_p_delay, float _rtx_p_delay_var, int _verbosity)
-            :generator(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count())
+                 float _rtx_p_delay, float _rtx_p_delay_var, unsigned int _seed, int _verbosity)
+            :generator(_seed)
 {
     max_rtx = _max_rtx; 
     air_delay = _air_delay;

@@ -16,8 +16,8 @@
 class captured_packet_handler : public packet_handler
 {
 public:
-    captured_packet_handler(int queue_num, std::chrono::microseconds *init_t, pdcp_config pdcp_c, int verbosity = 0);
-    captured_packet_handler(std::unique_ptr<pkt_capture> capture, std::chrono::microseconds *init_t, pdcp_config pdcp_c, int verbosity = 0);
+    captured_packet_handler(int queue_num, std::chrono::microseconds *init_t, pdcp_config pdcp_c, unsigned int seed, int verbosity = 0);
+    captured_packet_handler(std::unique_ptr<pkt_capture> capture, std::chrono::microseconds *init_t, pdcp_config pdcp_c, unsigned int seed, int verbosity = 0);
     ~captured_packet_handler() override;
 
     void init() override;

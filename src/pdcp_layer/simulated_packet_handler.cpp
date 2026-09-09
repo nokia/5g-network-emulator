@@ -8,8 +8,8 @@
 
 #include <pdcp_layer/simulated_packet_handler.h>
 
-simulated_packet_handler::simulated_packet_handler(int ue_id, traffic_config traffic_c, pdcp_config pdcp_c, int verbosity)
-    : packet_handler(pdcp_c, verbosity),
+simulated_packet_handler::simulated_packet_handler(int ue_id, traffic_config traffic_c, pdcp_config pdcp_c, unsigned int seed, int verbosity)
+    : packet_handler(pdcp_c, seed, verbosity),
       traffic_m(new traffic_model(ue_id, traffic_c))
 {
 }

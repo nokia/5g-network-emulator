@@ -56,7 +56,7 @@ public:
     int get_generated_packets(bool partial = true);
     float get_error(bool partial = true);
     bool add_pkt(ip_pkt pkt);
-    void configure_l4s(dualpi2_config cfg);
+    void configure_l4s(dualpi2_config cfg, unsigned int seed);
     bool using_dualpi2() const { return l4s_cfg.enabled; }
     dualpi2_stats get_l4s_stats() const;
     dualpi2_stats get_l4s_interval_stats();

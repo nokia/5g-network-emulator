@@ -389,7 +389,7 @@ void test_dualpi2_classification_and_ce_marking()
     l4s.enabled = true;
     l4s.classic_guard_s = 1.0f;
     ip_buffer buffer(1);
-    buffer.configure_l4s(l4s);
+    buffer.configure_l4s(l4s, 1);
     buffer.step(0.0f);
 
     ip_pkt classic(0.0f, 1000.0f, 1000.0f, 1, 0.0f, 0.0f);
@@ -422,7 +422,7 @@ void test_dualpi2_classic_drop_notification()
     l4s.target_s = 0.001f;
     l4s.rtt_max_s = 0.003f;
     ip_buffer buffer(1);
-    buffer.configure_l4s(l4s);
+    buffer.configure_l4s(l4s, 1);
     buffer.step(0.0f);
 
     ip_pkt classic(0.0f, 1000.0f, 1000.0f, 3, 0.0f, 0.0f);

@@ -18,6 +18,7 @@ public:
     explicit dualpi2_queue(dualpi2_config cfg = dualpi2_config());
 
     void configure(dualpi2_config cfg);
+    void seed_rng(unsigned int seed) { rng.seed(seed); }
     bool enqueue(ip_pkt pkt);
     bool has_pkts() const;
     bool pop_next(ip_pkt& pkt);

@@ -1,10 +1,11 @@
 #include <phy_shared/phy_shared.h>
 #include <phy_layer/phy_l_definitions.h>
 #include <utils/conversions.h>
+#include <utils/rng_seed.h>
 #include <utils/terminal_logging.h>
 
 phy_shared::phy_shared(int _ue_id, ue_config ue_c, scenario_config _scenario_c, phy_enb_config _phy_enb_config)
-    : gen(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count())
+    : gen(rng_seed(ue_c.mobility_c.random_v, _ue_id + 1))
 {
     scenario = _scenario_c.type;
     eNB_h = _scenario_c.eNB_h;

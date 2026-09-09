@@ -191,10 +191,11 @@ const ip_pkt* ip_buffer::peek_oldest_pkt() const
     return backend_peek_oldest();
 }
 
-void ip_buffer::configure_l4s(dualpi2_config cfg)
+void ip_buffer::configure_l4s(dualpi2_config cfg, unsigned int seed)
 {
     l4s_cfg = cfg;
     l4s_queue.configure(cfg);
+    l4s_queue.seed_rng(seed);
 }
 
 dualpi2_stats ip_buffer::get_l4s_stats() const

@@ -10,12 +10,12 @@
 #include <pdcp_layer/captured_packet_handler.h>
 #include <pdcp_layer/packet_handler.h>
 #include <pdcp_layer/simulated_packet_handler.h>
+#include <utils/rng_seed.h>
 #include <simulator/configuration_loader.h>
 #include <utils/conversions.h>
 
-packet_handler::packet_handler(pdcp_config pdcp_c, int _verbosity)
-    : gauss_dist_gen(std::chrono::duration_cast<std::chrono::milliseconds>(
-          std::chrono::system_clock::now().time_since_epoch()).count())
+packet_handler::packet_handler(pdcp_config pdcp_c, unsigned int seed, int _verbosity)
+    : gauss_dist_gen(seed)
 {
     bh_d = pdcp_c.bh_d;
     bh_d_var = pdcp_c.bh_d_var;
@@ -181,13 +181,15 @@ void packet_handler::verdict(const ip_pkt&, final_packet_verdict verdict_value)
 
 std::unique_ptr<packet_handler> make_packet_handler(packet_handler_config cfg)
 {
+    const unsigned int seed = pdcp_rng_seed(cfg.traffic_c.random_v, cfg.ue_id, cfg.tx_dir, PDCP_STREAM_PACKET_HANDLER);
+
     if(cfg.ue_type == SIM_UE)
     {
-        std::unique_ptr<packet_handler> handler(new simulated_packet_handler(cfg.ue_id, cfg.traffic_c, cfg.pdcp_c, cfg.log_traffic));
+        std::unique_ptr<packet_handler> handler(new simulated_packet_handler(cfg.ue_id, cfg.traffic_c, cfg.pdcp_c, seed, cfg.log_traffic));
         return handler;
     }
 
     assert(cfg.queue_num >= 0);
-    std::unique_ptr<packet_handler> handler(new captured_packet_handler(cfg.queue_num, cfg.init_t, cfg.pdcp_c, cfg.log_quality));
+    std::unique_ptr<packet_handler> handler(new captured_packet_handler(cfg.queue_num, cfg.init_t, cfg.pdcp_c, seed, cfg.log_quality));
     return handler;
 }

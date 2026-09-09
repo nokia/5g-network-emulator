@@ -15,7 +15,7 @@
 class simulated_packet_handler : public packet_handler
 {
 public:
-    simulated_packet_handler(int ue_id, traffic_config traffic_c, pdcp_config pdcp_c, int verbosity = 0);
+    simulated_packet_handler(int ue_id, traffic_config traffic_c, pdcp_config pdcp_c, unsigned int seed, int verbosity = 0);
 
     float ingest(int tx_dir, float current_t) override;
     void drop(harq_pkt pkt) override;

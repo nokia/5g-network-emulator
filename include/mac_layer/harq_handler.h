@@ -37,7 +37,7 @@ class harq_handler
 public: 
     harq_handler(int _max_rtx, float _air_delay, 
                  float _rtx_period, float _rtx_period_var, 
-                 float _rtx_p_delay, float _rtx_p_delay_var, int _verbosity = 0);
+                 float _rtx_p_delay, float _rtx_p_delay_var, unsigned int _seed, int _verbosity = 0);
 private: 
     int max_rtx; 
     float air_delay; 

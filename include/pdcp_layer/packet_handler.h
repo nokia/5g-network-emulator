@@ -27,7 +27,7 @@ enum class final_packet_verdict
 class packet_handler
 {
 public:
-    explicit packet_handler(pdcp_config pdcp_c, int verbosity = 0);
+    packet_handler(pdcp_config pdcp_c, unsigned int seed, int verbosity = 0);
     virtual ~packet_handler();
 
     virtual void init();

@@ -7,12 +7,15 @@
 #include <utility>
 
 #include <pdcp_layer/pdcp_layer.h>
+#include <utils/rng_seed.h>
 #include <utils/terminal_logging.h>
 
 pdcp_layer::pdcp_layer(packet_handler_config handler_cfg, int _verbosity)
     : _harq_buffer(handler_cfg.pdcp_c.max_rtx, handler_cfg.pdcp_c.air_delay_var,
                    handler_cfg.pdcp_c.rtx_period, handler_cfg.pdcp_c.rtx_period_var,
                    handler_cfg.pdcp_c.rtx_proc_delay, handler_cfg.pdcp_c.rtx_proc_delay_var,
+                   pdcp_rng_seed(handler_cfg.traffic_c.random_v, handler_cfg.ue_id,
+                                 handler_cfg.tx_dir, PDCP_STREAM_HARQ),
                    _verbosity),
       _ip_buffer(_verbosity),
       _packet_h(make_packet_handler(handler_cfg)),
@@ -20,7 +23,9 @@ pdcp_layer::pdcp_layer(packet_handler_config handler_cfg, int _verbosity)
       tx_dir(handler_cfg.tx_dir)
 {
     _ip_buffer.debug_queue_num = handler_cfg.queue_num;
-    _ip_buffer.configure_l4s(handler_cfg.l4s_c);
+    _ip_buffer.configure_l4s(handler_cfg.l4s_c,
+                             pdcp_rng_seed(handler_cfg.traffic_c.random_v, handler_cfg.ue_id,
+                                           handler_cfg.tx_dir, PDCP_STREAM_L4S));
     bh_d = handler_cfg.pdcp_c.bh_d;
     bh_d_var = handler_cfg.pdcp_c.bh_d_var;
 }

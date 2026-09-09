@@ -5,13 +5,13 @@
 
 #include <pdcp_layer/captured_packet_handler.h>
 
-captured_packet_handler::captured_packet_handler(int queue_num, std::chrono::microseconds *_init_t, pdcp_config pdcp_c, int verbosity)
-    : captured_packet_handler(std::unique_ptr<pkt_capture>(new pkt_capture(queue_num)), _init_t, pdcp_c, verbosity)
+captured_packet_handler::captured_packet_handler(int queue_num, std::chrono::microseconds *_init_t, pdcp_config pdcp_c, unsigned int seed, int verbosity)
+    : captured_packet_handler(std::unique_ptr<pkt_capture>(new pkt_capture(queue_num)), _init_t, pdcp_c, seed, verbosity)
 {
 }
 
-captured_packet_handler::captured_packet_handler(std::unique_ptr<pkt_capture> capture, std::chrono::microseconds *_init_t, pdcp_config pdcp_c, int verbosity)
-    : packet_handler(pdcp_c, verbosity),
+captured_packet_handler::captured_packet_handler(std::unique_ptr<pkt_capture> capture, std::chrono::microseconds *_init_t, pdcp_config pdcp_c, unsigned int seed, int verbosity)
+    : packet_handler(pdcp_c, seed, verbosity),
       init_t(_init_t),
       pkt_cptr(std::move(capture))
 {

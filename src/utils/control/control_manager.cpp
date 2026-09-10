@@ -14,6 +14,7 @@
 #include <utils/control/control_manager.h>
 #include <utils/control/param_registry.h>
 #include <utils/control/transport_file.h>
+#include <utils/control/transport_socket.h>
 #include <utils/terminal_logging.h>
 
 namespace
@@ -59,9 +60,19 @@ void control_manager::init(const control_config &cfg, std::vector<ue> *ue_list, 
         }
         transport_.reset(t.release());
     }
+    else if (cfg.transport == "unix" || cfg.transport == "tcp")
+    {
+        std::unique_ptr<transport_socket> t(new transport_socket(cfg));
+        if (!t->ok())
+        {
+            enabled_ = false;
+            return;
+        }
+        transport_.reset(t.release());
+    }
     else
     {
-        LOG_ERROR_I("control_manager::init") << " transport not available yet: " << cfg.transport << END();
+        LOG_ERROR_I("control_manager::init") << " unknown transport: " << cfg.transport << END();
         enabled_ = false;
         return;
     }

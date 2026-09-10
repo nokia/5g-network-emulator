@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <cstdint>
+#include <functional>
 #include <vector>
 
 #include <utils/control/command.h>
@@ -30,4 +32,19 @@ public:
     virtual void reply(const ack &a) = 0;
 
     virtual void stop() {}
+
+    // A grant cannot wait in the inbox: in barrier mode the simulation thread is blocked
+    // and cannot drain it, so the transport applies it in place through this sink. It is
+    // safe because a grant only touches the manager's own counter, never simulation
+    // state.
+    using grant_sink = std::function<void(const command &, ack &)>;
+    void set_grant_sink(grant_sink sink) { grant_sink_ = sink; }
+
+    // The barrier only fails open once a peer that had connected goes away; a transport
+    // with no notion of a peer never blocks.
+    virtual bool peer_alive() const { return false; }
+    virtual bool peer_ever_connected() const { return false; }
+
+protected:
+    grant_sink grant_sink_;
 };

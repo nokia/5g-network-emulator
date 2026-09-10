@@ -45,6 +45,7 @@ public:
 
     // For tests: the UE list is final after the constructor returns.
     std::vector<ue>* ue_list() { return ue_h.get_ue_list(); }
+    control_manager& control_plane() { return control; }
 
 private: 
 

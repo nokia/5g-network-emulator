@@ -251,6 +251,7 @@ void transport_socket::serve()
                 else
                 {
                     buffer.clear();
+                    peer_ever_connected_.store(true);
                     client_fd_.store(fd);
                     LOG_INFO_I("transport_socket") << " client connected, proto " << FIKORE_CONTROL_PROTO << END();
                 }
@@ -299,11 +300,39 @@ void transport_socket::handle_lines(int fd, std::string &buffer)
             continue;
         }
 
-        // The simulation thread picks these up at the next quiescent point; nothing is
-        // applied from here.
+        std::vector<command> queued;
+        for (size_t i = 0; i < parsed.size(); i++)
+        {
+            // Grants are the one exception to "apply only from the simulation thread":
+            // in barrier mode that thread is blocked waiting for exactly this, so it
+            // cannot drain the inbox. A grant touches only the manager's credit counter.
+            if (parsed[i].op == command_op::grant && grant_sink_)
+            {
+                ack a;
+                a.id = parsed[i].id;
+                grant_sink_(parsed[i], a);
+                send_line(fd, ndjson::serialize_ack(a));
+                continue;
+            }
+            queued.push_back(parsed[i]);
+        }
+
+        if (queued.empty()) continue;
+
+        // The rest is picked up by the simulation thread at the next quiescent point.
         std::lock_guard<std::mutex> lk(inbox_mtx_);
-        inbox_.insert(inbox_.end(), parsed.begin(), parsed.end());
+        inbox_.insert(inbox_.end(), queued.begin(), queued.end());
     }
+}
+
+bool transport_socket::peer_alive() const
+{
+    return client_fd_.load() >= 0;
+}
+
+bool transport_socket::peer_ever_connected() const
+{
+    return peer_ever_connected_.load();
 }
 
 bool transport_socket::poll(std::vector<command> &out)

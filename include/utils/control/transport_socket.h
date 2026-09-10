@@ -38,8 +38,8 @@ public:
 
     bool ok() const { return listen_fd_ >= 0; }
 
-    // True once a client completed the handshake and is still connected.
-    bool peer_alive() const { return client_fd_.load() >= 0; }
+    bool peer_alive() const override;
+    bool peer_ever_connected() const override;
 
 private:
     void serve();
@@ -59,6 +59,7 @@ private:
     std::vector<command> inbox_;
     std::uint64_t line_no_ = 0;
 
+    std::atomic<bool> peer_ever_connected_{false};
     std::atomic<bool> stopping_{false};
     std::thread thread_;
 };

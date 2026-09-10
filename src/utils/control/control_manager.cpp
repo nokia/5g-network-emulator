@@ -12,6 +12,7 @@
 #include <ue/ue_handler.h>
 #include <nlohmann/json.hpp>
 #include <utils/control/control_manager.h>
+#include <utils/control/ndjson.h>
 #include <utils/control/param_registry.h>
 #include <utils/control/transport_file.h>
 #include <utils/control/transport_socket.h>
@@ -88,13 +89,41 @@ void control_manager::init(const control_config &cfg, std::vector<ue> *ue_list, 
         ue_index_[id] = &u;
     }
 
+    transport_->set_grant_sink([this](const command &c, ack &a) { apply_grant(c, a); });
+
+    // Barrier in real time would mean blocking the wall clock, which defeats the mode.
+    mode_ = (cfg.sync_mode == "barrier") ? mode_t::barrier : mode_t::async;
+    if (mode_ == mode_t::barrier && period_ms > 0)
+    {
+        mode_ = mode_t::async;
+        LOG_WARNING_I("control_manager::init")
+            << " sync_mode: barrier is not available with period > 0; degrading to async" << END();
+    }
+    // A file has no peer to grant credit, so a barrier over it would never advance.
+    if (mode_ == mode_t::barrier && cfg.transport == "file")
+    {
+        mode_ = mode_t::async;
+        LOG_WARNING_I("control_manager::init")
+            << " sync_mode: barrier needs a socket transport; degrading to async" << END();
+    }
+
+    on_timeout_ = (cfg.on_timeout == "abort") ? on_timeout_t::abort : on_timeout_t::cont;
+    timeout_ = std::chrono::milliseconds(cfg.credit_timeout_ms);
+
+    if (cfg.journal_file != "none" && !cfg.journal_file.empty())
+    {
+        journal_.open(cfg.journal_file, std::ios::out | std::ios::trunc);
+        if (!journal_.is_open())
+            LOG_ERROR_I("control_manager::init") << " cannot open journal_file: " << cfg.journal_file << END();
+    }
+
     transport_open_ = true;
     enabled_ = true;
 
     LOG_INFO_I("control_manager::init")
         << "Runtime control enabled"
         << " transport=" << cfg.transport
-        << " sync_mode=" << cfg.sync_mode
+        << " sync_mode=" << (mode_ == mode_t::barrier ? "barrier" : "async")
         << " ues=" << ue_list_->size()
         << " realtime=" << (period_ms > 0 ? "yes" : "no")
         << END();
@@ -102,13 +131,79 @@ void control_manager::init(const control_config &cfg, std::vector<ue> *ue_list, 
 
 void control_manager::stop()
 {
+    {
+        std::lock_guard<std::mutex> lk(mtx_);
+        stopping_ = true;
+    }
+    cv_.notify_all();
     if (transport_) transport_->stop();
     transport_open_ = false;
+    if (journal_.is_open()) journal_.close();
+}
+
+// Absolute and monotonic: until_tti is the last TTI the emulator may run. Credit never
+// moves backwards, so a grant into the past is a no-op answered with ok and the credit in
+// force, which is exactly what a client retrying after a timeout needs.
+void control_manager::apply_grant(const command &c, ack &a)
+{
+    {
+        std::lock_guard<std::mutex> lk(mtx_);
+        if (c.until_tti > credit_until_tti_) credit_until_tti_ = c.until_tti;
+        a.credit_until_tti = credit_until_tti_;
+    }
+    a.ok = true;
+    cv_.notify_all();
+}
+
+void control_manager::wait_for_credit(std::int64_t tti)
+{
+    if (mode_ != mode_t::barrier) return;
+
+    std::unique_lock<std::mutex> lk(mtx_);
+    const bool granted = cv_.wait_for(lk, timeout_, [&] {
+        return tti <= credit_until_tti_ || stopping_
+            || (transport_->peer_ever_connected() && !transport_->peer_alive());
+    });
+
+    if (stopping_) return;
+
+    if (transport_->peer_ever_connected() && !transport_->peer_alive())
+    {
+        // Fail-open, and irreversible for the rest of the run: an unattended run that
+        // loses its controller finishes instead of hanging, and does not pretend to be
+        // synchronised again if someone reconnects.
+        mode_ = mode_t::async;
+        LOG_WARNING_I("control_manager")
+            << " control peer lost at tti " << tti << "; degrading to async for the rest of the run" << END();
+        return;
+    }
+
+    if (!granted && on_timeout_ == on_timeout_t::abort)
+    {
+        stopping_ = true;
+        LOG_ERROR_I("control_manager")
+            << " no credit for tti " << tti << " after " << timeout_.count() << " ms; aborting" << END();
+    }
+}
+
+void control_manager::write_journal(const command &c, double sim_t, std::int64_t tti)
+{
+    if (!journal_.is_open()) return;
+
+    const std::int64_t wall_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+
+    // A journal line is a valid script line: replaying it by at_tti reproduces the
+    // session step by step, with no conversion in between.
+    journal_ << ndjson::serialize_journal_entry(c, sim_t, tti, wall_ns);
+    journal_.flush();
 }
 
 void control_manager::tick(double sim_t, std::int64_t tti)
 {
     if (!enabled_) return;
+
+    wait_for_credit(tti);
 
     drain_transport();
     apply_due(sim_t, tti);
@@ -147,6 +242,7 @@ void control_manager::apply_due(double sim_t, std::int64_t tti)
         command c = sched_.top().cmd;
         sched_.pop();
         apply(c, sim_t, tti);
+        write_journal(c, sim_t, tti);
         applied++;
     }
 }

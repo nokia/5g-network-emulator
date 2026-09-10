@@ -32,4 +32,10 @@ bool parse_line(const std::string &line, std::uint64_t fallback_id,
 
 // Serializes an ack as one line, newline included.
 std::string serialize_ack(const ack &a);
+
+// One journal line, newline included. at_tti is the canonical instant, so a journal is
+// itself a valid script and an interactive session becomes a repeatable experiment
+// without any conversion.
+std::string serialize_journal_entry(const command &c, double sim_t, std::int64_t tti,
+                                    std::int64_t wall_ns);
 }

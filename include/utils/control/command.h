@@ -21,7 +21,11 @@ enum class command_op
     set,
     get,
     describe,
-    ping
+    ping,
+    // Time credit for the barrier mode. Absolute and monotonic: until_tti is the last TTI
+    // the emulator is allowed to run. Handled apart from the rest because it is the only
+    // command the transport thread applies by itself; see 03-credit-protocol.
+    grant
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -42,6 +46,9 @@ struct command
     double at_t = -1.0;
     std::int64_t at_tti = -1;
     std::uint64_t id = 0;
+
+    // Only meaningful for grant.
+    std::int64_t until_tti = -1;
 };
 
 struct ack_error
@@ -57,6 +64,9 @@ struct ack
     std::int64_t tti = 0;
     double t = 0.0;
     std::vector<ack_error> errors;
+    // Credit in force after applying the message; lets a client notice that it granted
+    // into the past without needing an error code.
+    std::int64_t credit_until_tti = -1;
     // Free-form payload for get/describe, already serialized as JSON by the manager.
     std::string payload;
 };

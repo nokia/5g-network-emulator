@@ -76,6 +76,13 @@ public:
         }
     }
 
+    // Asks the loop to finish without joining, so that it can be called from inside the
+    // ticker thread itself, which is where simulator::step runs.
+    void request_stop()
+    {
+        run = false;
+    }
+
     std::chrono::microseconds * get_init_t()
     {
         return &init_t; 

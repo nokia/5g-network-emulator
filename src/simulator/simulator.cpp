@@ -193,6 +193,9 @@ void simulator::step(unsigned int _ts)
 
     // Only point where control state is written: both thread pools are parked here.
     control.tick(ts, (std::int64_t)total_steps - 1);
+    // The control plane can ask for the run to end, e.g. when a credit times out with
+    // on_timeout: abort. request_stop does not join, so it is safe from this thread.
+    if (control.stop_requested()) ticker.request_stop();
 
     std::chrono::steady_clock::time_point t = std::chrono::steady_clock::now();
     mac_l.step(ts);

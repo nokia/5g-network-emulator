@@ -6,9 +6,13 @@
 
 #pragma once
 
+#include <chrono>
+#include <condition_variable>
 #include <cstdint>
 #include <deque>
+#include <fstream>
 #include <memory>
+#include <mutex>
 #include <queue>
 #include <string>
 #include <vector>
@@ -47,8 +51,17 @@ public:
     void stop();
 
     bool is_enabled() const { return enabled_; }
+    bool stop_requested() const { return stopping_; }
+    std::int64_t credit_until_tti() const { return credit_until_tti_; }
+    bool barrier_mode() const { return mode_ == mode_t::barrier; }
 
 private:
+    enum class mode_t { async, barrier };
+    enum class on_timeout_t { cont, abort };
+
+    void wait_for_credit(std::int64_t tti);
+    void apply_grant(const command &c, ack &a);
+    void write_journal(const command &c, double sim_t, std::int64_t tti);
     void drain_transport();
     void apply_due(double sim_t, std::int64_t tti);
     void apply(const command &c, double sim_t, std::int64_t tti);
@@ -91,6 +104,16 @@ private:
     // not pay for the refill walk.
     bool any_rate_cap_ = false;
     bool ranks_dirty_ = false;
+
+    mode_t mode_ = mode_t::async;
+    on_timeout_t on_timeout_ = on_timeout_t::cont;
+    std::chrono::milliseconds timeout_{30000};
+    std::int64_t credit_until_tti_ = -1;
+    bool stopping_ = false;
+    std::mutex mtx_;
+    std::condition_variable cv_;
+
+    std::ofstream journal_;
 
     int max_cmds_per_tick_ = 256;
     bool warned_rr_priority_ = false;

@@ -18,6 +18,7 @@ command_op parse_op(const std::string &s)
     if (s == "get") return command_op::get;
     if (s == "describe") return command_op::describe;
     if (s == "ping") return command_op::ping;
+    if (s == "grant") return command_op::grant;
     return command_op::set;
 }
 }
@@ -83,6 +84,17 @@ bool parse_line(const std::string &line, std::uint64_t fallback_id,
             c.at_tti = at_tti;
             c.op = parse_op(item.contains("op") ? item["op"].get<std::string>() : std::string("set"));
             if (item.contains("target")) c.target = item["target"].get<std::string>();
+            if (c.op == command_op::grant)
+            {
+                if (item.contains("until_tti")) c.until_tti = item["until_tti"].get<std::int64_t>();
+                else if (item.contains("until_t")) c.until_tti = (std::int64_t)llround(item["until_t"].get<double>() * 1000.0);
+                else
+                {
+                    error = "grant needs until_tti";
+                    return false;
+                }
+                c.target = "cell";
+            }
 
             if (item.contains("set"))
             {
@@ -112,7 +124,7 @@ bool parse_line(const std::string &line, std::uint64_t fallback_id,
                 error = "set command without values";
                 return false;
             }
-            if (c.op != command_op::describe && c.target.empty())
+            if (c.op != command_op::describe && c.op != command_op::grant && c.target.empty())
             {
                 error = "missing target";
                 return false;
@@ -128,6 +140,41 @@ bool parse_line(const std::string &line, std::uint64_t fallback_id,
     }
 
     return true;
+}
+
+std::string serialize_journal_entry(const command &c, double sim_t, std::int64_t tti,
+                                    std::int64_t wall_ns)
+{
+    json cmd;
+    cmd["target"] = c.target;
+    switch (c.op)
+    {
+    case command_op::get: cmd["op"] = "get"; break;
+    case command_op::describe: cmd["op"] = "describe"; break;
+    case command_op::ping: cmd["op"] = "ping"; break;
+    case command_op::grant: cmd["op"] = "grant"; break;
+    default: cmd["op"] = "set"; break;
+    }
+
+    if (!c.sets.empty())
+    {
+        json sets = json::object();
+        for (size_t i = 0; i < c.sets.size(); i++)
+        {
+            if (const bool *b = std::get_if<bool>(&c.sets[i].second)) sets[c.sets[i].first] = *b;
+            else if (const std::string *str = std::get_if<std::string>(&c.sets[i].second)) sets[c.sets[i].first] = *str;
+            else sets[c.sets[i].first] = std::get<double>(c.sets[i].second);
+        }
+        cmd["set"] = sets;
+    }
+
+    json j;
+    j["id"] = c.id;
+    j["at_tti"] = tti;
+    j["at_t"] = sim_t;
+    j["wall_ns"] = wall_ns;
+    j["cmds"] = json::array({cmd});
+    return j.dump() + "\n";
 }
 
 std::string serialize_ack(const ack &a)
@@ -150,6 +197,8 @@ std::string serialize_ack(const ack &a)
         }
         j["errors"] = errs;
     }
+
+    if (a.credit_until_tti >= 0) j["credit_until_tti"] = a.credit_until_tti;
 
     if (!a.payload.empty())
     {

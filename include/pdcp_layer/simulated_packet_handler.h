@@ -20,6 +20,8 @@ public:
     float ingest(int tx_dir, float current_t) override;
     void drop(harq_pkt pkt) override;
     float release() override;
+    bool set_traffic_target(int tx_dir, float bps) override;
+    bool get_traffic_target(int tx_dir, float &bps) const override;
 
 private:
     struct pending_packet_result

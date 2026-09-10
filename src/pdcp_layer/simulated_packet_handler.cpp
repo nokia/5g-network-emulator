@@ -14,6 +14,18 @@ simulated_packet_handler::simulated_packet_handler(int ue_id, traffic_config tra
 {
 }
 
+bool simulated_packet_handler::set_traffic_target(int tx_dir, float bps)
+{
+    traffic_m->set_target(tx_dir, bps);
+    return true;
+}
+
+bool simulated_packet_handler::get_traffic_target(int tx_dir, float &bps) const
+{
+    bps = traffic_m->get_target(tx_dir);
+    return true;
+}
+
 float simulated_packet_handler::ingest(int tx_dir, float current_t)
 {
     float bits = traffic_m->generate(tx_dir, current_t);

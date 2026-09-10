@@ -157,6 +157,12 @@ public:
     void set_enabled(bool on);
     bool is_enabled() const { return ctl.enabled; }
 
+    // Handles used by the parameter registry. Mobility and traffic are input state, so
+    // they are assigned through setters instead of overridden at the point of reading.
+    mobility_model& mobility() { return mobility_m; }
+    bool set_traffic_target(int tx_dir, float bps) { return pdcp(tx_dir).set_traffic_target(bps); }
+    bool get_traffic_target(int tx_dir, float &bps) { return pdcp(tx_dir).get_traffic_target(bps); }
+
 private: 
     void init_logger(); 
     void emit_pdcp_monitoring();

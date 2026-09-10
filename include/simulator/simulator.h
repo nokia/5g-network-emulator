@@ -43,6 +43,9 @@ public:
     // time base as the fast mode of the ticker (1 ms per step).
     void run_steps(unsigned int n);
 
+    // For tests: the UE list is final after the constructor returns.
+    std::vector<ue>* ue_list() { return ue_h.get_ue_list(); }
+
 private: 
 
     void handle_time_log(double sim_time_s);

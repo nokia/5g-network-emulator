@@ -58,6 +58,8 @@ private:
     // one bad value does not leave the system half applied.
     bool validate(const command &c, std::vector<ue *> &targets, ack &a);
     bool resolve_target(const std::string &target, std::vector<ue *> &out, ack &a);
+    std::string read_state(const std::vector<ue *> &targets) const;
+    void warn_priority_under_rr();
 
 private:
     struct scheduled

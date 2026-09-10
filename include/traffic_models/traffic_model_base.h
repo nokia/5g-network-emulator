@@ -81,6 +81,20 @@ public:
     {
         return pkt_size;
     }
+
+    // Runtime control setter. Target rate in bits per second, the internal unit; the Mbps
+    // of the .ini and of the control channel are converted by the caller.
+    virtual void set_target(int tx, float bps)
+    {
+        assert(tx == T_DL || tx == T_UL);
+        if(tx == T_DL) dl_target = bps;
+        else ul_target = bps;
+    }
+
+    virtual float get_target(int tx) const
+    {
+        return tx == T_DL ? dl_target : ul_target;
+    }
 protected: 
     float ul_target; 
     float dl_target; 

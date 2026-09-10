@@ -49,6 +49,11 @@ public:
     float get_tp(bool elapsed = true);
     void record_error(float bits);
 
+    // Runtime control hooks. Only a simulated source has a target rate to change; a
+    // captured one answers false and the registry turns that into an explicit error.
+    virtual bool set_traffic_target(int tx_dir, float bps) { (void)tx_dir; (void)bps; return false; }
+    virtual bool get_traffic_target(int tx_dir, float &bps) const { (void)tx_dir; (void)bps; return false; }
+
 protected:
     void push_ingress_pkt(ip_pkt pkt);
     virtual void verdict(const ip_pkt& pkt, final_packet_verdict verdict);

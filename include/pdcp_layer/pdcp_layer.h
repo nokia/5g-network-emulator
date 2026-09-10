@@ -43,6 +43,8 @@ public:
     // logically detached: for a real UE the drop path is what issues the netfilter
     // verdict, so packets must not be discarded silently or the kernel queue stalls.
     void drop_all();
+    bool set_traffic_target(float bps) { return _packet_h->set_traffic_target(tx_dir, bps); }
+    bool get_traffic_target(float &bps) const { return _packet_h->get_traffic_target(tx_dir, bps); }
 
 private:
     void release_pkts(harq_pkt pkt);

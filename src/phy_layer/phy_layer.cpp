@@ -478,8 +478,17 @@ float phy_layer::calculateOxygenLoss()
 }
 float phy_layer::compute_d_in(float _d)
 {
+    // The indoor penetration distance is drawn until it fits inside the UE distance. With
+    // _d <= 0 no draw can ever fit and the loop never ends, which is reachable in
+    // practice: a UE placed at the origin, or any scenario whose fading map fails to load,
+    // where MapHandler leaves the apothem at 0 and every position collapses to (0,0).
+    // Now that positions are a runtime knob, a single command could hang the emulator.
+    if (_d <= 0.0f) return 0.0f;
 
-    do
+    // 100 attempts is far beyond what the geometry needs: the draw is bounded by 25 m
+    // (urban) or 10 m (rural), so for any usual cell distance the first one already fits
+    // and the number of random draws is the same as before.
+    for (int attempt = 0; attempt < 100; attempt++)
     {
         float urban_distance1 = uniform_stochastics(gen) * 25.0f;
         float urban_distance2 = uniform_stochastics(gen) * 25.0f;
@@ -500,8 +509,12 @@ float phy_layer::compute_d_in(float _d)
         default:
             return 0.0f;
         }
-    } while (d_in >= _d);
-    return d_in;
+
+        if (d_in < _d) return d_in;
+    }
+
+    // Very close to the gNB: the penetration distance cannot exceed the distance itself.
+    return std::min(d_in, _d);
 }
 
 float phy_layer::compute_losses(float distance)

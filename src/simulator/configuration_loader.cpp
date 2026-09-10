@@ -457,6 +457,11 @@ void configuration_loader::load(std::string cfg_file)
                                     if (value == "true" || value == "1") monitoring_c.emit_emulator_runtime = true;
                                     if (value == "false" || value == "0") monitoring_c.emit_emulator_runtime = false;
                                 }
+                                if (key == "emit_control")
+                                {
+                                    if (value == "true" || value == "1") monitoring_c.emit_control = true;
+                                    if (value == "false" || value == "0") monitoring_c.emit_control = false;
+                                }
                                 if (key == "emit_runtime_debug_logs")
                                 {
                                     if (value == "true" || value == "1") monitoring_c.emit_runtime_debug_logs = true;

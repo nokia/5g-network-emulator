@@ -8,6 +8,7 @@
 #include <cstdlib>
 
 #include <mac_layer/mac_definitions.h>
+#include <utils/monitoring/monitoring_manager.h>
 #include <ue/ue.h>
 #include <ue/ue_handler.h>
 #include <nlohmann/json.hpp>
@@ -159,11 +160,20 @@ void control_manager::wait_for_credit(std::int64_t tti)
 {
     if (mode_ != mode_t::barrier) return;
 
+    const std::chrono::steady_clock::time_point wait_start = std::chrono::steady_clock::now();
     std::unique_lock<std::mutex> lk(mtx_);
     const bool granted = cv_.wait_for(lk, timeout_, [&] {
         return tti <= credit_until_tti_ || stopping_
             || (transport_->peer_ever_connected() && !transport_->peer_alive());
     });
+
+    const double waited_ms = std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(
+        std::chrono::steady_clock::now() - wait_start).count();
+    if (waited_ms > 0.0)
+    {
+        blocked_ttis_++;
+        blocked_ms_ += waited_ms;
+    }
 
     if (stopping_) return;
 
@@ -215,6 +225,44 @@ void control_manager::tick(double sim_t, std::int64_t tti)
     }
 
     refill_rate_buckets();
+    publish_metrics(tti);
+}
+
+void control_manager::publish_metrics(std::int64_t tti)
+{
+    // Only when something happened: a point per TTI would put the aggregator's mutex on
+    // the path of every step for no information at all.
+    if (applied_in_tick_ == 0 && rejected_in_tick_ == 0 && blocked_ttis_ == 0) return;
+
+    monitoring_manager &monitoring = monitoring_manager::instance();
+    if (monitoring.is_enabled() && monitoring.get_config().emit_control)
+    {
+        metric_point point;
+        point.measurement = "control";
+        point.ts_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+
+        metric_field applied;   applied.value = applied_in_tick_;      applied.aggregation = field_aggregation::sum;
+        metric_field rejected;  rejected.value = rejected_in_tick_;    rejected.aggregation = field_aggregation::sum;
+        metric_field blocked;   blocked.value = blocked_ttis_;         blocked.aggregation = field_aggregation::sum;
+        metric_field blocked_t; blocked_t.value = blocked_ms_;         blocked_t.aggregation = field_aggregation::sum;
+        metric_field last_tti;  last_tti.value = (double)last_applied_tti_; last_tti.aggregation = field_aggregation::last;
+        metric_field credit;    credit.value = (double)credit_until_tti_;   credit.aggregation = field_aggregation::last;
+
+        point.fields["applied_sum"] = applied;
+        point.fields["rejected_sum"] = rejected;
+        point.fields["blocked_ttis_sum"] = blocked;
+        point.fields["blocked_ms_sum"] = blocked_t;
+        point.fields["last_applied_tti_last"] = last_tti;
+        point.fields["credit_until_tti_last"] = credit;
+        monitoring.publish(point);
+    }
+
+    (void)tti;
+    applied_in_tick_ = 0;
+    rejected_in_tick_ = 0;
+    blocked_ttis_ = 0;
+    blocked_ms_ = 0.0;
 }
 
 void control_manager::drain_transport()
@@ -243,6 +291,7 @@ void control_manager::apply_due(double sim_t, std::int64_t tti)
         sched_.pop();
         apply(c, sim_t, tti);
         write_journal(c, sim_t, tti);
+        last_applied_tti_ = tti;
         applied++;
     }
 }
@@ -342,6 +391,7 @@ void control_manager::apply(const command &c, double sim_t, std::int64_t tti)
     if (!validate(c, targets, a))
     {
         a.ok = false;
+        rejected_in_tick_++;
         transport_->reply(a);
         return;
     }
@@ -368,6 +418,8 @@ void control_manager::apply(const command &c, double sim_t, std::int64_t tti)
     }
 
     a.ok = a.errors.empty();
+    if (a.ok) applied_in_tick_++;
+    else rejected_in_tick_++;
     transport_->reply(a);
 }
 

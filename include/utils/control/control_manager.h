@@ -62,6 +62,7 @@ private:
     void wait_for_credit(std::int64_t tti);
     void apply_grant(const command &c, ack &a);
     void write_journal(const command &c, double sim_t, std::int64_t tti);
+    void publish_metrics(std::int64_t tti);
     void drain_transport();
     void apply_due(double sim_t, std::int64_t tti);
     void apply(const command &c, double sim_t, std::int64_t tti);
@@ -114,6 +115,14 @@ private:
     std::condition_variable cv_;
 
     std::ofstream journal_;
+
+    // Per-window counters of the control plane itself, so that "what changed" and "what
+    // happened" can be correlated in the same data.
+    int applied_in_tick_ = 0;
+    int rejected_in_tick_ = 0;
+    int blocked_ttis_ = 0;
+    double blocked_ms_ = 0.0;
+    std::int64_t last_applied_tti_ = -1;
 
     int max_cmds_per_tick_ = 256;
     bool warned_rr_priority_ = false;

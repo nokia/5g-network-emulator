@@ -1,0 +1,20 @@
+# Guion de ejemplo del plano de control. Una linea NDJSON por mensaje.
+# Se usa con transport: file y timeline_file en la seccion [Control].
+#
+# at_tti es el instante canonico (1 TTI = 1 ms). at_t en segundos tambien vale
+# y se convierte al cargar; at_tti gana si estan los dos.
+
+# t=5 s: el UE 0 pasa a prioridad 8. Con metric_type: 6 se ve al momento.
+{"id":1,"at_t":5.0,"cmds":[{"target":"ue/0","set":{"priority":8.0}}]}
+
+# t=10 s: se capa el UE 0 a 25 Mbps de bajada y se le mete un desvanecimiento de 6 dB.
+{"id":2,"at_t":10.0,"cmds":[{"target":"ue/0","set":{"dl.rmax_mbps":25.0,"dl.sinr_offset_db":-6.0}}]}
+
+# t=15 s: baja logica del UE 1. Desaparece de la telemetria y tira sus buffers.
+{"id":3,"at_t":15.0,"cmds":[{"target":"ue/1","set":{"enabled":false}}]}
+
+# t=20 s: vuelve, con los buffers vacios y en su ultima posicion conocida.
+{"id":4,"at_t":20.0,"cmds":[{"target":"ue/1","set":{"enabled":true}}]}
+
+# t=25 s: se mueve el UE 0 y se le pone a 36 km/h. La unidad es la del .ini.
+{"id":5,"at_t":25.0,"cmds":[{"target":"ue/0","set":{"mobility.pos_x_m":800.0,"mobility.speed_kmh":36.0}}]}

@@ -58,6 +58,41 @@ run_scripts/run_emulated.sh config/emulated_rural_n78_single_with_background.ini
 
 For emulation mode, `sudo` is required because namespaces, iptables rules, and packet queue access require elevated privileges.
 
+### Changing parameters while it runs
+
+FikoRE can be steered at runtime: UE priority, rate cap, SINR offset, position, speed,
+traffic target, and logical attach or detach. It works both in fast mode and in real
+time, and the full description is in [wiki/Runtime-Control.md](wiki/Runtime-Control.md).
+
+The quickest way to see it is the demo config, which opens a control socket and feeds
+telemetry to the API:
+
+```bash
+./bin/fikore config/control_demo.ini &
+./run_scripts/run_api.sh &
+
+curl localhost:8100/schema                       # the knob catalogue
+curl -X POST localhost:8100/control/ue/0 \
+     -H 'content-type: application/json' \
+     -d '{"priority": 8, "dl.rmax_mbps": 25}'
+curl localhost:8100/ue/0/state                   # asked to the emulator, not cached
+```
+
+Without the API, the same over the raw socket:
+
+```bash
+nc -U /tmp/fikore-control.sock
+{"proto":"fikore-control-1"}
+{"id":1,"cmds":[{"target":"ue/0","set":{"priority":8.0}}]}
+```
+
+A scenario can also be scripted with no network at all, through `timeline_file` in the
+`[Control]` section, and any session can be journaled and replayed exactly.
+
+> Beware: under Round Robin (`metric_type: 5`) the scheduler ignores priority, so that
+> particular knob will appear to do nothing. Use `metric_type: 6` for priority
+> experiments.
+
 ## Execution Warnings and Troubleshooting
 When running FikoRE in emulator mode, you must press Ctrl+C twice:
 

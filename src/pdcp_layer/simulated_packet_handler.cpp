@@ -26,26 +26,49 @@ bool simulated_packet_handler::get_traffic_target(int tx_dir, float &bps) const
     return true;
 }
 
-float simulated_packet_handler::ingest(int tx_dir, float current_t)
+bool simulated_packet_handler::inject_bits(float bits)
 {
-    float bits = traffic_m->generate(tx_dir, current_t);
-    if(bits <= 0) return 0.0f;
+    if(bits <= 0.0f) return true;
+    pending_injected_bits_ += bits;
+    injected_bits_total_ += bits;
+    return true;
+}
 
-    float pkt_size = traffic_m->get_pkt_size(tx_dir);
-    int pkts = (int)ceil(bits / pkt_size);
+void simulated_packet_handler::packetize(float bits, float current_t)
+{
+    const float pkt_size = traffic_m->get_pkt_size(0);
+    const int pkts = (int)ceil(bits / pkt_size);
     for(int i = 0; i < pkts - 1; i++)
     {
         push_ingress_pkt(ip_pkt(current_t, pkt_size, pkt_size, current_id, bh_d, bh_d_var));
         current_id++;
     }
 
-    float bits_left = bits - (pkts - 1) * pkt_size;
+    const float bits_left = bits - (pkts - 1) * pkt_size;
     if(bits_left > 0)
     {
         push_ingress_pkt(ip_pkt(current_t, bits_left, bits_left, current_id, bh_d, bh_d_var));
         current_id++;
     }
-    return bits;
+}
+
+float simulated_packet_handler::ingest(int tx_dir, float current_t)
+{
+    const float generated = traffic_m->generate(tx_dir, current_t);
+    if(generated > 0) packetize(generated, current_t);
+
+    // Injected bits are packetized on their own, so that an injection of N bytes always
+    // yields the same packets regardless of what the generator produced in the same
+    // step. Injection adds to the configured traffic, it does not replace it.
+    float injected = 0.0f;
+    if(pending_injected_bits_ > 0.0f)
+    {
+        injected = pending_injected_bits_;
+        pending_injected_bits_ = 0.0f;
+        packetize(injected, current_t);
+    }
+
+    return generated + injected;
 }
 
 void simulated_packet_handler::drop(harq_pkt pkt)
@@ -86,6 +109,7 @@ float simulated_packet_handler::release()
         ipl_mean.step();
     }
     tp_mean.add(bits);
+    delivered_bits_total_ += bits;
     return bits;
 }
 

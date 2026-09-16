@@ -433,6 +433,30 @@ void control_manager::warn_priority_under_rr()
         << END();
 }
 
+namespace
+{
+// Everything a client driving its own injection needs in order to pace: what is still
+// queued, what came out, and what was lost and why. Cumulative where it makes sense, so
+// two reads can be diffed and a lost read costs nothing.
+nlohmann::json direction_state(ue &u, int tx_dir)
+{
+    pdcp_layer &p = u.pdcp_state(tx_dir);
+    const pdcp_queue_status q = p.get_queue_status();
+
+    nlohmann::json j;
+    j["injected_bytes_total"] = p.injected_bits_total() / 8.0;
+    j["delivered_bytes_total"] = p.delivered_bits_total() / 8.0;
+    j["expired_bytes_total"] = p.expired_bits_total() / 8.0;
+    j["dropped_bytes_total"] = p.dropped_bits_total() / 8.0;
+    j["ce_packets_total"] = p.ce_packets_total();
+    j["pending_packets"] = q.ip_buffer_size;
+    j["pending_bytes"] = p.pending_bits() / 8.0;
+    j["oldest_age_s"] = q.ip_oldest_age;
+    j["latency_s"] = p.get_latency(false);
+    return j;
+}
+}
+
 std::string control_manager::read_state(const std::vector<ue *> &targets) const
 {
     const param_registry &reg = param_registry::instance();
@@ -448,6 +472,13 @@ std::string control_manager::read_state(const std::vector<ue *> &targets) const
             if (entries[i].type == param_type::boolean) j[entries[i].name] = entries[i].read(*targets[t]) != 0.0;
             else j[entries[i].name] = entries[i].read(*targets[t]);
         }
+
+        nlohmann::json state;
+        state["dl"] = direction_state(*targets[t], TX_DL);
+        state["ul"] = direction_state(*targets[t], TX_UL);
+        state["pkt_size_bits"] = targets[t]->get_pkt_size(TX_DL);
+        j["state"] = state;
+
         out.push_back(j);
     }
     return out.dump();

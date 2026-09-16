@@ -162,6 +162,18 @@ public:
     mobility_model& mobility() { return mobility_m; }
     bool set_traffic_target(int tx_dir, float bps) { return pdcp(tx_dir).set_traffic_target(bps); }
     bool get_traffic_target(int tx_dir, float &bps) { return pdcp(tx_dir).get_traffic_target(bps); }
+    bool inject_bits(int tx_dir, float bits) { return pdcp(tx_dir).inject_bits(bits); }
+    void set_pkt_delay_budget(float budget_s)
+    {
+        pdcp_dl.set_pkt_delay_budget(budget_s);
+        pdcp_ul.set_pkt_delay_budget(budget_s);
+    }
+    float get_pkt_delay_budget() const { return pdcp_dl.get_pkt_delay_budget(); }
+
+    // Read only view for the control channel's get: what the client needs to pace its
+    // own injection. Bits and seconds here; the conversion to bytes happens at the edge.
+    pdcp_layer& pdcp_state(int tx_dir) { return pdcp(tx_dir); }
+    int get_pkt_size(int tx_dir) { return pdcp(tx_dir).get_pkt_size(); }
 
 private: 
     void init_logger(); 

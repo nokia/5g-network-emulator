@@ -152,9 +152,11 @@ float packet_handler::get_tp(bool elapsed)
     else return BIT2MBIT*tp_mean.get()*S2MS;
 }
 
-void packet_handler::record_error(float bits)
+void packet_handler::record_error(float bits, bool expired)
 {
     if(verbosity > 0) e_mean.add(bits);
+    if(expired) expired_bits_total_ += bits;
+    else dropped_bits_total_ += bits;
 }
 
 void packet_handler::push_ingress_pkt(ip_pkt pkt)
@@ -172,6 +174,7 @@ void packet_handler::verdict(const ip_pkt&, final_packet_verdict verdict_value)
         break;
     case final_packet_verdict::ACCEPT_CE:
         final_accept_ce_packets_interval++;
+        ce_packets_total_++;
         break;
     case final_packet_verdict::DROP:
         final_drop_packets_interval++;

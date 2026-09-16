@@ -89,9 +89,15 @@ def test_healthz_reports_the_link(client):
 def test_schema_matches_describe(client):
     body = client.get("/schema").json()
     names = {param["name"] for param in body["params"]}
-    assert len(names) == 11
+    assert len(names) == 14
     assert "mobility.speed_kmh" in names
     assert next(p for p in body["params"] if p["name"] == "mobility.speed_kmh")["unit"] == "km/h"
+
+    # Injection is the only incremental knob and the schema has to say so, because
+    # retrying it is not free.
+    inject = next(p for p in body["params"] if p["name"] == "dl.inject_bytes")
+    assert inject["unit"] == "bytes"
+    assert inject.get("incremental") is True
 
 
 def test_set_is_reflected_by_asking_the_emulator(client):
@@ -135,3 +141,29 @@ def test_disable_removes_the_ue_from_telemetry(client):
     state = client.get("/ue/1/state").json()
     assert state["control"]["enabled"] is False
     client.post("/control/ue/1", json={"enabled": True})
+
+
+def test_injection_and_state_block(client):
+    before = client.get("/ue/0/state").json()["control"]["dl.inject_bytes"]
+
+    assert client.post("/control/ue/0", json={"dl.inject_bytes": 50000}).status_code == 200
+    assert client.post("/control/ue/0", json={"dl.inject_bytes": 50000}).status_code == 200
+
+    body = client.get("/ue/0/state").json()
+    # Incremental: two injections of 50 kB add up, and the read is the cumulative total.
+    assert body["control"]["dl.inject_bytes"] == pytest.approx(before + 100000.0)
+
+    dl = body["state"]["dl"]
+    for field in ("injected_bytes_total", "delivered_bytes_total", "expired_bytes_total",
+                  "dropped_bytes_total", "pending_bytes", "pending_packets",
+                  "oldest_age_s", "latency_s", "ce_packets_total"):
+        assert field in dl
+    assert dl["injected_bytes_total"] == pytest.approx(before + 100000.0)
+    assert body["state"]["pkt_size_bits"] > 0
+
+
+def test_delay_budget_is_a_knob(client):
+    assert client.post("/control/ue/0", json={"pkt_delay_budget_s": 2.0}).status_code == 200
+    assert client.get("/ue/0/state").json()["control"]["pkt_delay_budget_s"] == pytest.approx(2.0)
+    # Out of range is refused, like any other knob.
+    assert client.post("/control/ue/0", json={"pkt_delay_budget_s": 120.0}).status_code == 400

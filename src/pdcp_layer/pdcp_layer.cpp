@@ -71,7 +71,7 @@ void pdcp_layer::drain_ingress_pkts()
     harq_pkt dropped;
     while(_ip_buffer.pop_aqm_dropped_pkt(dropped))
     {
-        _packet_h->record_error(dropped.bits);
+        _packet_h->record_error(dropped.bits, false);
         _packet_h->drop(std::move(dropped));
     }
 }
@@ -113,13 +113,13 @@ float pdcp_layer::handle_pkt(float bits, int mcs, float sinr, float distance)
                 harq_pkt dropped;
                 while(_ip_buffer.pop_aqm_dropped_pkt(dropped))
                 {
-                    _packet_h->record_error(dropped.bits);
+                    _packet_h->record_error(dropped.bits, false);
                     _packet_h->drop(std::move(dropped));
                 }
                 if(pkt.bits <= 0.0f) continue;
                 if(is_expired(pkt))
                 {
-                    drop_harq_pkt(std::move(pkt));
+                    drop_harq_pkt(std::move(pkt), true);
                     continue;
                 }
                 if(_harq_buffer.get_rtx(mcs, sinr, 0))
@@ -146,7 +146,8 @@ float pdcp_layer::handle_pkt(float bits, int mcs, float sinr, float distance)
             if(pkt.n_tx < 4) _harq_buffer.queue(std::move(pkt), distance);
             else
             {
-                drop_harq_pkt(std::move(pkt));
+                // Retransmissions exhausted: a radio failure, not an overfed client.
+                drop_harq_pkt(std::move(pkt), false);
             }
             return 0;
         }
@@ -159,10 +160,10 @@ float pdcp_layer::handle_pkt(float bits, int mcs, float sinr, float distance)
     }
 }
 
-void pdcp_layer::drop_harq_pkt(harq_pkt pkt)
+void pdcp_layer::drop_harq_pkt(harq_pkt pkt, bool expired)
 {
     _ip_buffer.drop_pkt(pkt.bits);
-    _packet_h->record_error(pkt.bits);
+    _packet_h->record_error(pkt.bits, expired);
     _packet_h->drop(std::move(pkt));
 }
 
@@ -228,13 +229,13 @@ void pdcp_layer::drop_all()
         harq_pkt pkt(current_id, _ip_buffer.get_oldest_timestamp(), current_t, 0, 0, 0, bh_d, bh_d_var);
         current_id++;
         if(!_ip_buffer.pop_oldest_pkt(pkt)) break;
-        drop_harq_pkt(std::move(pkt));
+        drop_harq_pkt(std::move(pkt), false);
     }
 
     harq_pkt rtx_pkt;
     while(_harq_buffer.pop_pkt_older_than(std::numeric_limits<float>::max(), rtx_pkt))
     {
-        drop_harq_pkt(std::move(rtx_pkt));
+        drop_harq_pkt(std::move(rtx_pkt), false);
     }
 }
 
@@ -255,7 +256,7 @@ void pdcp_layer::cleanup_expired_ip_pkts()
         current_id++;
 
         if(!_ip_buffer.pop_oldest_pkt(pkt)) break;
-        drop_harq_pkt(std::move(pkt));
+        drop_harq_pkt(std::move(pkt), true);
     }
 }
 
@@ -264,7 +265,7 @@ void pdcp_layer::cleanup_expired_harq_pkts()
     harq_pkt pkt;
     while(_harq_buffer.pop_pkt_older_than(oldest_allowed_ip_t(), pkt))
     {
-        drop_harq_pkt(std::move(pkt));
+        drop_harq_pkt(std::move(pkt), true);
     }
 }
 

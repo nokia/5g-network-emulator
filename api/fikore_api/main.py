@@ -93,9 +93,16 @@ async def ue_state(ue_id: int) -> Dict[str, Any]:
     if not result:
         raise HTTPException(status_code=404, detail=f"unknown ue {ue_id}")
 
+    control_state = dict(result[0])
+    # The state block is read back from the emulator too: buffer occupancy, delivered and
+    # lost bytes, and the rules in force. It is what a client pacing its own injection
+    # needs, and unlike the telemetry cache it is exact and in simulated time.
+    state = control_state.pop("state", {})
+
     return {
         "ue_id": ue_id,
-        "control": result[0],
+        "control": control_state,
+        "state": state,
         "telemetry": collector.cache.for_ue(ue_id),
         "tti": reply.get("tti"),
         "t": reply.get("t"),

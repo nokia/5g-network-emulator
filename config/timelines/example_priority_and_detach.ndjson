@@ -18,3 +18,9 @@
 
 # t=25 s: se mueve el UE 0 y se le pone a 36 km/h. La unidad es la del .ini.
 {"id":5,"at_t":25.0,"cmds":[{"target":"ue/0","set":{"mobility.pos_x_m":800.0,"mobility.speed_kmh":36.0}}]}
+
+# t=30 s: transferencia dirigida por el cliente. Primero se sube el presupuesto de
+# retardo, porque con los 0.35 s por defecto casi todo el objeto expiraria antes de
+# salir al aire, y despues se inyectan 2 MB de golpe.
+{"id":6,"at_t":30.0,"cmds":[{"target":"ue/0","set":{"pkt_delay_budget_s":10.0}}]}
+{"id":7,"at_t":30.001,"cmds":[{"target":"ue/0","set":{"dl.inject_bytes":2000000}}]}

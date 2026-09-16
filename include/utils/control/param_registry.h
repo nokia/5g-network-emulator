@@ -43,6 +43,10 @@ struct param_entry
     double min = 0.0;
     double max = 0.0;
     bool bounded = true;
+    // Adds to the current value instead of replacing it. The only one is inject_bytes,
+    // and it is flagged here so that describe can warn a client that retrying is not
+    // free.
+    bool incremental = false;
     std::string description;
 
     // Returns false with a reason when the value cannot be applied to this particular UE,

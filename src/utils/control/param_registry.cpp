@@ -90,6 +90,30 @@ void add_directional(std::vector<param_entry> &out, int tx_dir)
         },
         [tx_dir](ue &u) { return (double)u.overrides().rmax_bps[tx_dir] / MBIT2BIT; }));
 
+    // Client driven injection. The only incremental knob of the catalogue: it adds to
+    // what is pending instead of replacing it, which is why its read returns the
+    // cumulative total, so that a client retrying after a timeout can tell whether its
+    // injection arrived.
+    {
+        param_entry e = number(p + "inject_bytes", "bytes", 0.0, UNBOUNDED,
+            "Hands N bytes over to the UE now. Adds to the configured traffic instead of "
+            "replacing it, and the pacing is the client's: the emulator packetizes and "
+            "queues them on the next step. Incremental; the read returns the total "
+            "injected so far. Mind pkt_delay_budget_s: anything that does not make it "
+            "out in time is discarded as expired.",
+            [tx_dir](ue &u, double bytes, std::string &reason) {
+                if (!u.inject_bits(tx_dir, (float)(bytes * 8.0)))
+                {
+                    reason = "this UE has no simulated traffic source";
+                    return false;
+                }
+                return true;
+            },
+            [tx_dir](ue &u) { return (double)u.pdcp_state(tx_dir).injected_bits_total() / 8.0; });
+        e.incremental = true;
+        out.push_back(e);
+    }
+
     out.push_back(number(p + "sinr_offset_db", "dB", -50.0, 50.0,
         "Additive offset on the derived SINR. Moves the reported RSRP by the same amount.",
         [tx_dir](ue &u, double db, std::string &) {
@@ -150,6 +174,13 @@ param_registry::param_registry()
         },
         [](ue &u) { return (double)u.mobility().y(); }));
 
+    entries_.push_back(number("pkt_delay_budget_s", "s", 0.001, 60.0,
+        "Delay budget of the PDCP buffers, both directions. A packet older than this is "
+        "discarded before reaching the air. Raise it to study bulk transfers, where the "
+        "default would evaporate most of an injected object.",
+        [](ue &u, double s, std::string &) { u.set_pkt_delay_budget((float)s); return true; },
+        [](ue &u) { return (double)u.get_pkt_delay_budget(); }));
+
     entries_.push_back(number("mobility.speed_kmh", "km/h", 0.0, UNBOUNDED,
         "Target speed, in the same unit as the .ini. Converted to m/s with TOMS.",
         [](ue &u, double kmh, std::string &) {
@@ -203,6 +234,7 @@ std::string param_registry::describe_json() const
         j["type"] = (e.type == param_type::boolean) ? "boolean" : "number";
         j["unit"] = e.unit;
         j["description"] = e.description;
+        if (e.incremental) j["incremental"] = true;
         if (e.type == param_type::number && e.bounded)
         {
             if (e.min == -UNBOUNDED) j["min"] = nullptr; else j["min"] = e.min;

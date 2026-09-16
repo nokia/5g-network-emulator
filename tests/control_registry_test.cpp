@@ -66,14 +66,15 @@ void test_catalogue_shape()
     const param_registry &reg = param_registry::instance();
 
     // The catalogue is deliberately small: eleven knobs, no more, until the plan says so.
-    assert(reg.entries().size() == 11);
+    assert(reg.entries().size() == 14);
 
     const char *expected[] = {
         "priority", "enabled",
         "dl.rmax_mbps", "ul.rmax_mbps",
         "dl.sinr_offset_db", "ul.sinr_offset_db",
         "traffic.dl_target_mbps", "traffic.ul_target_mbps",
-        "mobility.pos_x_m", "mobility.pos_y_m", "mobility.speed_kmh"
+        "mobility.pos_x_m", "mobility.pos_y_m", "mobility.speed_kmh",
+        "dl.inject_bytes", "ul.inject_bytes", "pkt_delay_budget_s"
     };
     for (size_t i = 0; i < sizeof(expected) / sizeof(expected[0]); i++)
         assert(reg.find(expected[i]) != nullptr);
@@ -81,6 +82,10 @@ void test_catalogue_shape()
     assert(reg.find("rmax_mbps") == nullptr);      // no unprefixed directional form
     assert(reg.find("speed") == nullptr);          // no name without its unit suffix
     assert(reg.find("does_not_exist") == nullptr);
+
+    // inject_bytes is the only incremental knob, and describe has to say so.
+    assert(reg.find("dl.inject_bytes")->incremental);
+    assert(!reg.find("priority")->incremental);
 
     // Every name either carries a unit suffix or is dimensionless by construction.
     for (size_t i = 0; i < reg.entries().size(); i++)
@@ -150,6 +155,16 @@ void test_apply_and_units()
     assert(near(u.mobility().x(), -250.0));
     assert(near(u.mobility().y(), 0.0));
 
+    // Injection is incremental and its read is the cumulative total, which is what lets
+    // a client tell whether a retried injection actually landed.
+    assert(reg.find("dl.inject_bytes")->apply(u, param_value(1500.0), reason));
+    assert(reg.find("dl.inject_bytes")->apply(u, param_value(3000.0), reason));
+    assert(near(reg.find("dl.inject_bytes")->read(u), 4500.0));
+    assert(near(reg.find("ul.inject_bytes")->read(u), 0.0));
+
+    assert(reg.find("pkt_delay_budget_s")->apply(u, param_value(2.0), reason));
+    assert(near(reg.find("pkt_delay_budget_s")->read(u), 2.0));
+
     assert(reg.find("enabled")->apply(u, param_value(false), reason));
     assert(!u.is_enabled());
     assert(reg.find("enabled")->apply(u, param_value(true), reason));
@@ -186,7 +201,7 @@ void test_describe_is_valid_json()
     const std::string text = param_registry::instance().describe_json();
     nlohmann::json j = nlohmann::json::parse(text);
     assert(j.is_array());
-    assert(j.size() == 11);
+    assert(j.size() == 14);
 
     bool found_speed = false;
     for (size_t i = 0; i < j.size(); i++)

@@ -22,6 +22,9 @@ public:
     float release() override;
     bool set_traffic_target(int tx_dir, float bps) override;
     bool get_traffic_target(int tx_dir, float &bps) const override;
+    bool inject_bits(float bits) override;
+    float injected_bits_total() const override { return injected_bits_total_; }
+    int get_pkt_size() const override { return traffic_m->get_pkt_size(0); }
 
 private:
     struct pending_packet_result
@@ -33,9 +36,14 @@ private:
     };
 
     void update_pending_packet(const ip_pkt& pkt, bool dropped);
+    void packetize(float bits, float current_t);
 
 private:
     std::unique_ptr<traffic_model> traffic_m;
+    // Bits handed over by the client and not yet turned into IP packets. They go out on
+    // the next ingest, in full: the pacing is the client's job, not the emulator's.
+    float pending_injected_bits_ = 0.0f;
+    float injected_bits_total_ = 0.0f;
     int current_id = 0;
     std::unordered_map<uint32_t, pending_packet_result> pending_results;
 };

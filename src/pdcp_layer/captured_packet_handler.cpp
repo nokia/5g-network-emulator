@@ -146,6 +146,7 @@ float captured_packet_handler::release()
         else break;
     }
     tp_mean.add(bits);
+    delivered_bits_total_ += bits;
     if(count > 0)
     {
         l_mean.add(latency/count);

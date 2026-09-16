@@ -47,12 +47,29 @@ public:
     float get_ip_latency(bool elapsed = true);
     float get_latency(bool elapsed = true);
     float get_tp(bool elapsed = true);
-    void record_error(float bits);
 
     // Runtime control hooks. Only a simulated source has a target rate to change; a
     // captured one answers false and the registry turns that into an explicit error.
     virtual bool set_traffic_target(int tx_dir, float bps) { (void)tx_dir; (void)bps; return false; }
     virtual bool get_traffic_target(int tx_dir, float &bps) const { (void)tx_dir; (void)bps; return false; }
+
+    // Client driven injection: the runtime twin of the file driven traffic_generator.
+    // The caller decides when and how much; the emulator only packetizes and queues.
+    virtual bool inject_bits(float bits) { (void)bits; return false; }
+    virtual float injected_bits_total() const { return 0.0f; }
+    virtual int get_pkt_size() const { return 0; }
+
+    // Cumulative, monotonic counters. The client diffs two reads, so a lost read loses
+    // nothing and the emulator keeps no "since last time" state.
+    float delivered_bits_total() const { return delivered_bits_total_; }
+    float expired_bits_total() const { return expired_bits_total_; }
+    float dropped_bits_total() const { return dropped_bits_total_; }
+    int ce_packets_total() const { return ce_packets_total_; }
+
+    // Expiry by delay budget means the client is overfeeding; an AQM drop or an
+    // exhausted HARQ means the radio is struggling. Merging them would make the reading
+    // useless, so the caller states which one it is.
+    void record_error(float bits, bool expired);
 
 protected:
     void push_ingress_pkt(ip_pkt pkt);
@@ -71,6 +88,10 @@ protected:
     mean_handler<float> ipl_mean;
     mean_handler<float> g_mean;
     mean_handler<float> e_mean;
+    float delivered_bits_total_ = 0.0f;
+    float expired_bits_total_ = 0.0f;
+    float dropped_bits_total_ = 0.0f;
+    int ce_packets_total_ = 0;
     int final_accept_packets_interval = 0;
     int final_accept_ce_packets_interval = 0;
     int final_drop_packets_interval = 0;

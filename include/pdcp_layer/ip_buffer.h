@@ -52,6 +52,8 @@ public:
     bool pop_oldest_pkt(harq_pkt& pkt);
     const ip_pkt* peek_oldest_pkt() const;
     int size() const { return backend_size(); }
+    // Bits still queued, which is what a client pacing its own injection needs to see.
+    float bits() const { return current_size; }
     float get_generated(bool partial = true);
     int get_generated_packets(bool partial = true);
     float get_error(bool partial = true);

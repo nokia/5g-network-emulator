@@ -45,6 +45,17 @@ public:
     void drop_all();
     bool set_traffic_target(float bps) { return _packet_h->set_traffic_target(tx_dir, bps); }
     bool get_traffic_target(float &bps) const { return _packet_h->get_traffic_target(tx_dir, bps); }
+    bool inject_bits(float bits) { return _packet_h->inject_bits(bits); }
+
+    // Everything the client needs to pace its own injection, cumulative where it makes
+    // sense so that two reads can be diffed. Bits here; the control channel converts.
+    float injected_bits_total() const { return _packet_h->injected_bits_total(); }
+    float delivered_bits_total() const { return _packet_h->delivered_bits_total(); }
+    float expired_bits_total() const { return _packet_h->expired_bits_total(); }
+    float dropped_bits_total() const { return _packet_h->dropped_bits_total(); }
+    int ce_packets_total() const { return _packet_h->ce_packets_total(); }
+    float pending_bits() const { return _ip_buffer.bits(); }
+    int get_pkt_size() const { return _packet_h->get_pkt_size(); }
 
 private:
     void release_pkts(harq_pkt pkt);
@@ -52,7 +63,7 @@ private:
     void cleanup_expired_pkts();
     void cleanup_expired_ip_pkts();
     void cleanup_expired_harq_pkts();
-    void drop_harq_pkt(harq_pkt pkt);
+    void drop_harq_pkt(harq_pkt pkt, bool expired);
     bool is_expired(float ip_t) const;
     bool is_expired(const harq_pkt& pkt) const;
     float oldest_allowed_ip_t() const;

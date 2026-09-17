@@ -87,6 +87,7 @@
   <span class="stat">UEs <b id="s-ues">–</b></span>
   <span class="stat">metric <b id="s-metric">–</b></span>
   <span class="stat">telemetry <span id="s-tlm" class="pill">…</span></span>
+  <span class="stat" id="s-err-wrap" style="display:none">error <span id="s-err" class="pill bad"></span></span>
   <span class="stat" style="margin-left:auto">
     window
     <select id="c-window">
@@ -143,6 +144,18 @@
 <script>
 "use strict";
 (function () {
+  // A debugging tool that hides its own failures is worse than useless: any uncaught
+  // error surfaces in the header instead of leaving stale panels on screen.
+  function showError(text) {
+    var wrap = document.getElementById("s-err-wrap");
+    var pill = document.getElementById("s-err");
+    if (!wrap || !pill) return;
+    wrap.style.display = "";
+    pill.textContent = String(text).slice(0, 160);
+  }
+  window.addEventListener("error", function (e) { showError(e.message); });
+  window.addEventListener("unhandledrejection", function (e) { showError(e.reason); });
+
   var D = window.FikoDash;
   var store = new D.Store(30);
   var bus = new D.CursorBus();
@@ -239,6 +252,17 @@
 
     var u = new uPlot(opts, [[]], body);
     charts[panel.key] = { u: u, keys: [], host: host, body: body, note: note, panel: panel };
+
+    // The grid has not laid out when the chart is constructed, so clientWidth is 0 and
+    // uPlot would keep a stale size: its axis ticks are computed from the width, and a
+    // wrong one drew overlapping labels. An observer keeps them in step for good, and
+    // covers window resizes and the sidebar growing as knobs appear.
+    if (typeof ResizeObserver !== "undefined") {
+      new ResizeObserver(function () {
+        var w = body.clientWidth;
+        if (w > 40) u.setSize({ width: w, height: 150 });
+      }).observe(body);
+    }
   }
 
   function seriesFor(panel) {
@@ -261,6 +285,15 @@
   }
 
   function redrawCharts() {
+    try {
+      redrawChartsInner();
+    } catch (e) {
+      showError("redraw: " + e.message);
+      throw e;
+    }
+  }
+
+  function redrawChartsInner() {
     PANELS.forEach(function (panel) {
       var chart = charts[panel.key];
       var keys = seriesFor(panel);
@@ -269,7 +302,10 @@
       var data = store.panelData(panel.key, keys);
       // Relative time, as in the old dashboard: 0 is now, the window extends left.
       var xs = data[0].map(function (t) { return t - store.latestT; });
-      chart.u.setData([xs].concat(data.slice(1)), true);
+      // resetScales must be false: the x range is the window we choose, not whatever the
+      // data happens to span. Letting uPlot autoscale here and then overriding it left
+      // the two fighting, with overlapping tick labels on a panel holding one point.
+      chart.u.setData([xs].concat(data.slice(1)), false);
       chart.u.setScale("x", { min: -store.windowS, max: 0 });
 
       var src = PANEL_SOURCE[panel.key];
@@ -719,6 +755,7 @@
       renderChips();
       renderTarget();
       refreshKnobValues();
+      redrawCharts();
       drawMap();
     }).catch(function () { /* health covers the link state */ });
   }
@@ -776,6 +813,26 @@
     });
     lastTelemetry = Date.now();
     store.pruneAll();
+
+    // Repaint as soon as data lands, instead of waiting for the timer: a batch arrives
+    // every 200 ms, and the timer below exists only to keep the relative time axis
+    // sliding while nothing arrives.
+    if (Object.keys(store.ues).length && !document.getElementById("ue-chips").dataset.ready) {
+      document.getElementById("ue-chips").dataset.ready = "1";
+      store.ueIds().forEach(function (id) { if (selected[id] === undefined) selected[id] = true; });
+      renderChips();
+      renderTarget();
+    }
+    redrawCharts();
+    drawMap();
+  }
+
+  // First paint from REST, so the page shows the window it missed instead of waiting for
+  // the stream. The WebSocket takes over from there.
+  function loadSnapshot() {
+    fetch("/telemetry/snapshot").then(function (r) { return r.json(); }).then(function (body) {
+      ingestBatch(body.points || []);
+    }).catch(function () { /* the stream will fill it in */ });
   }
 
   function connect() {
@@ -816,14 +873,15 @@
   loadSchema();
   refreshUeState();
   refreshHealth();
+  loadSnapshot();
   connect();
 
-  setInterval(function () { if (!paused) redrawCharts(); }, 500);
-  setInterval(function () { if (!paused) drawMap(); }, 500);
+  // Safety net: keeps the relative time axis moving when no telemetry arrives.
+  setInterval(function () { if (!paused) { redrawCharts(); drawMap(); } }, 1000);
   setInterval(refreshUeState, 2000);
   setInterval(refreshHealth, 3000);
   setInterval(loadScenario, 10000);
-  setTimeout(resizeCharts, 50);
+  resizeCharts();
 })();
 </script>
 </body>

@@ -167,3 +167,68 @@ def test_delay_budget_is_a_knob(client):
     assert client.get("/ue/0/state").json()["control"]["pkt_delay_budget_s"] == pytest.approx(2.0)
     # Out of range is refused, like any other knob.
     assert client.post("/control/ue/0", json={"pkt_delay_budget_s": 120.0}).status_code == 400
+
+
+def test_dashboard_page_and_statics_are_served(client):
+    page = client.get("/")
+    assert page.status_code == 200
+    assert "FikoRE dashboard" in page.text
+    # The page must not reach out to a CDN: the emulator runs without internet.
+    assert "cdn." not in page.text
+    assert client.get("/static/uplot.min.js").status_code == 200
+    assert client.get("/static/uplot.min.css").status_code == 200
+    assert client.get("/static/dash.js").status_code == 200
+
+    # And the vendored library keeps its licence notice.
+    assert "MIT" in client.get("/static/uplot.min.js").text
+
+
+def test_scenario_describes_the_run(client):
+    body = client.get("/scenario").json()
+    assert body["proto"]
+    assert body["apothem_m"] > 0
+    assert body["n_ues"] >= 2
+    assert body["n_ues_enabled"] <= body["n_ues"]
+    assert body["metric_type"] == 6          # control_demo.ini uses proportional fair
+    assert body["realtime"] is True
+    assert body["map_file"].endswith(".json")
+
+
+def test_telemetry_snapshot_has_the_cache_shape(client):
+    body = client.get("/telemetry/snapshot").json()
+    assert "points" in body and "series" in body
+    assert body["series"] == len(body["points"])
+    for point in body["points"]:
+        assert "measurement" in point and "fields" in point
+
+
+def test_stream_sends_a_snapshot_then_batches(client):
+    with client.websocket_connect("/stream") as ws:
+        first = ws.receive_json()
+        assert first["type"] == "snapshot"
+        assert isinstance(first["points"], list)
+
+        # Then coalesced batches, not one message per point. The demo config aggregates
+        # every second, so a window plus the flush interval is enough.
+        batch = ws.receive_json()
+        assert batch["type"] == "telemetry"
+        assert isinstance(batch["points"], list) and batch["points"]
+        measurements = {point["measurement"] for point in batch["points"]}
+        assert "ue_pdcp" in measurements
+
+
+def test_fading_map_is_served_as_metadata_and_floats(client):
+    meta = client.get("/scenario/map")
+    if meta.status_code == 404:
+        pytest.skip("this scenario has no fading map on disk")
+
+    info = meta.json()
+    assert info["cell_number"] > 0
+    assert info["cell_size"] > 0
+    # Percentile clipping is the point: the tails must be outside p1..p99.
+    assert info["min"] <= info["p1"] <= info["p50"] <= info["p99"] <= info["max"]
+
+    raw = client.get("/scenario/map.bin")
+    assert raw.status_code == 200
+    assert raw.headers["content-type"] == "application/octet-stream"
+    assert len(raw.content) == 4 * info["cell_number"] ** 2

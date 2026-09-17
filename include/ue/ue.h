@@ -174,6 +174,7 @@ public:
     // own injection. Bits and seconds here; the conversion to bytes happens at the edge.
     pdcp_layer& pdcp_state(int tx_dir) { return pdcp(tx_dir); }
     int get_pkt_size(int tx_dir) { return pdcp(tx_dir).get_pkt_size(); }
+    float get_apothem() { return mobility_m.get_apothem(); }
 
 private: 
     void init_logger(); 

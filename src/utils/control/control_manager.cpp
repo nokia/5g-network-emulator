@@ -34,11 +34,12 @@ control_manager::~control_manager()
     stop();
 }
 
-void control_manager::init(const control_config &cfg, std::vector<ue> *ue_list, float period_ms, int metric_type)
+void control_manager::init(const control_config &cfg, std::vector<ue> *ue_list, const cell_info &cell)
 {
     ue_list_ = ue_list;
     max_cmds_per_tick_ = cfg.max_cmds_per_tick;
-    metric_type_ = metric_type;
+    cell_ = cell;
+    const float period_ms = cell.period_ms;
 
     if (!cfg.enabled || cfg.transport == "none")
     {
@@ -374,6 +375,14 @@ void control_manager::apply(const command &c, double sim_t, std::int64_t tti)
 
     if (c.op == command_op::get)
     {
+        if (c.target == "cell")
+        {
+            a.payload = read_cell_state();
+            a.ok = true;
+            transport_->reply(a);
+            return;
+        }
+
         std::vector<ue *> targets;
         if (!resolve_target(c.target, targets, a))
         {
@@ -425,7 +434,7 @@ void control_manager::apply(const command &c, double sim_t, std::int64_t tti)
 
 void control_manager::warn_priority_under_rr()
 {
-    if (warned_rr_priority_ || metric_type_ != METRIC_RR) return;
+    if (warned_rr_priority_ || cell_.metric_type != METRIC_RR) return;
     warned_rr_priority_ = true;
     LOG_WARNING_I("control_manager")
         << " priority was set while metric_type is round robin: get_metric derives to the"
@@ -455,6 +464,32 @@ nlohmann::json direction_state(ue &u, int tx_dir)
     j["latency_s"] = p.get_latency(false);
     return j;
 }
+}
+
+std::string control_manager::read_cell_state() const
+{
+    nlohmann::json j;
+    j["scenario_type"] = cell_.scenario_type;
+    j["frequency_hz"] = cell_.frequency_hz;
+    j["bandwidth_hz"] = cell_.bandwidth_hz;
+    j["numerology"] = cell_.numerology;
+    j["n_freq_rbg"] = cell_.n_freq_rbg;
+    j["metric_type"] = cell_.metric_type;
+    j["period_ms"] = cell_.period_ms;
+    j["duration_s"] = cell_.duration_s;
+    j["map_file"] = cell_.map_file;
+    j["realtime"] = cell_.period_ms > 0.0f;
+
+    // Read live rather than stored: UEs come and go with the enabled knob.
+    j["n_ues"] = (int)(ue_list_ != nullptr ? ue_list_->size() : 0);
+    int enabled = 0;
+    for (size_t i = 0; ue_list_ != nullptr && i < ue_list_->size(); i++)
+        if ((*ue_list_)[i].is_enabled()) enabled++;
+    j["n_ues_enabled"] = enabled;
+    // The apothem is a property of the scenario map, held by every UE's MapHandler.
+    j["apothem_m"] = (ue_list_ != nullptr && !ue_list_->empty()) ? (*ue_list_)[0].get_apothem() : 0.0f;
+
+    return j.dump();
 }
 
 std::string control_manager::read_state(const std::vector<ue *> &targets) const

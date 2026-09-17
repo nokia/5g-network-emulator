@@ -40,8 +40,17 @@ simulator::simulator(std::string config_file)
     ue_h.init();
     // After ue_h.init(): the ue_list is final from here on, which is what makes the
     // addresses the control plane keeps valid for the whole run.
-    control.init(config_loader.get_control_config(), ue_h.get_ue_list(),
-                 config_loader.get_period(), config_loader.get_mac_config().metric_type);
+    cell_info cell;
+    cell.scenario_type = scenario_c.type;
+    cell.frequency_hz = phy_c.frequency;
+    cell.bandwidth_hz = phy_c.bandwidth;
+    cell.numerology = config_loader.get_mac_config().numerology;
+    cell.n_freq_rbg = mac_l.get_n_freq_rbg();
+    cell.metric_type = config_loader.get_mac_config().metric_type;
+    cell.period_ms = config_loader.get_period();
+    cell.duration_s = duration;
+    cell.map_file = scenario_c.map_file;
+    control.init(config_loader.get_control_config(), ue_h.get_ue_list(), cell);
 }
 
 void simulator::override_duration(float _duration)

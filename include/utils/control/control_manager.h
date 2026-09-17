@@ -17,6 +17,7 @@
 #include <string>
 #include <vector>
 
+#include <utils/control/cell_info.h>
 #include <utils/control/command.h>
 #include <utils/control/control_config.h>
 #include <utils/control/control_transport.h>
@@ -42,9 +43,10 @@ public:
     control_manager();
     ~control_manager();
 
-    // period_ms is the .ini value: > 0 means real time. metric_type is only used to warn
+    // cell describes the run and is answered verbatim by a get on the cell target; its
+    // period_ms decides whether the barrier is available and its metric_type is used to warn
     // that priority does nothing under round robin.
-    void init(const control_config &cfg, std::vector<ue> *ue_list, float period_ms, int metric_type);
+    void init(const control_config &cfg, std::vector<ue> *ue_list, const cell_info &cell);
 
     void tick(double sim_t, std::int64_t tti);
 
@@ -73,6 +75,7 @@ private:
     bool validate(const command &c, std::vector<ue *> &targets, ack &a);
     bool resolve_target(const std::string &target, std::vector<ue *> &out, ack &a);
     std::string read_state(const std::vector<ue *> &targets) const;
+    std::string read_cell_state() const;
     void warn_priority_under_rr();
 
 private:
@@ -126,5 +129,5 @@ private:
 
     int max_cmds_per_tick_ = 256;
     bool warned_rr_priority_ = false;
-    int metric_type_ = -1;
+    cell_info cell_;
 };

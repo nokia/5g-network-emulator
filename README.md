@@ -52,7 +52,7 @@ For real-traffic emulation with Linux namespaces and `NFQUEUE`, use the lab work
 
 ```bash
 sudo BACKEND=host UE_COUNT=2 run_scripts/run_fikore_nfqueue_lab.sh up
-bash run_scripts/run_dashboard.sh --host 0.0.0.0 --port 8096
+bash run_scripts/run_api.sh      # dashboard and control API on http://localhost:8100/
 run_scripts/run_emulated.sh config/emulated_rural_n78_single_with_background.ini
 ```
 

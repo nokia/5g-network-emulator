@@ -14,7 +14,7 @@ The lab and the emulator config are separate concerns:
 - [run_docker.sh](run_docker.sh): builds or launches the helper container for Docker backends.
 - [run_offline.sh](run_offline.sh): runs an offline simulation from a positional config file and then generates plots from the latest logs. By default it keeps only the general offline plots; pass `-a` to also generate DualQ/L4S/NFQUEUE-specific plots.
 - [run_emulated.sh](run_emulated.sh): runs the NFQUEUE lab workflow with a positional emulation config file.
-- [run_dashboard.sh](run_dashboard.sh): activates the repository Python environment and starts the live dashboard.
+- [run_api.sh](run_api.sh): starts the control API, which serves the web dashboard on `http://localhost:8100/` and collects telemetry over UDP.
 - [python_env.sh](python_env.sh): shared Python environment helper used by the other run scripts.
 - [fikorens](fikorens): direct wrapper that opens a namespace shell without requiring `source`.
 - [fikorens-open](fikorens-open): direct wrapper that opens a namespace shell and returns when it exits.
@@ -71,7 +71,7 @@ host <----> FikoRE container
 172.30.0.1      172.30.0.2
 ```
 
-It is only a management link. If your `.ini` emits dashboard UDP traffic from inside the container, that `.ini` must already point to a reachable host address such as `172.30.0.1:8096`.
+It is only a management link. If your `.ini` emits telemetry UDP traffic from inside the container, that `.ini` must already point to a reachable host address such as `172.30.0.1:8098`.
 
 ## Requirements
 
@@ -89,13 +89,13 @@ Why this file is the best default example:
 - it matches the lab queue plan directly with `UE1 -> 100/101`;
 - it keeps `l4s_dual_queue: true`, so it exercises the L4S / DualQ path;
 - it adds simulated background users to create load around the captured UE;
-- it already enables UDP dashboard output on `127.0.0.1:8096`.
+- it already enables UDP telemetry output on `127.0.0.1:8098`, which is where the API collector listens.
 
 Important:
 
 - `run_fikore_nfqueue_lab.sh` does not rewrite monitoring keys anymore.
-- For `host` and `docker-host`, a dashboard on `127.0.0.1:8096` is usually fine if the `.ini` already says that.
-- For `docker-none`, the `.ini` should explicitly target the host-side management IP, typically `172.30.0.1:8096`.
+- For `host` and `docker-host`, a collector on `127.0.0.1:8098` is usually fine if the `.ini` already says that.
+- For `docker-none`, the `.ini` should explicitly target the host-side management IP, typically `172.30.0.1:8098`.
 - Adding namespaces with `ue-add` does not modify the `.ini`; FikoRE only uses UEs actually defined in the config file.
 
 ## Quick Workflow
@@ -152,7 +152,7 @@ When sourced, `fikorens ue1` keeps its original "replace the current shell" beha
 Typical host-side dashboard command:
 
 ```bash
-run_scripts/run_dashboard.sh --host 0.0.0.0 --port 8096
+run_scripts/run_api.sh
 ```
 
 Make sure the `.ini` already points to the correct address for your backend.

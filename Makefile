@@ -73,6 +73,13 @@ test: $(TEST_BINS)
 		echo "[TEST] $$test_bin"; \
 		$$test_bin; \
 	done
+	@node_bin=$$(command -v nodejs || command -v node || true); \
+	if [ -n "$$node_bin" ]; then \
+		echo "[TEST] api/tests/dash_logic_test.js"; \
+		$$node_bin api/tests/dash_logic_test.js > /dev/null; \
+	else \
+		echo "[SKIP] api/tests/dash_logic_test.js (no node interpreter)"; \
+	fi
 
 smoke: all
 	./$(TARGET) tests/smoke_sim.ini

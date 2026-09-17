@@ -71,6 +71,9 @@ telemetry to the API:
 ./bin/fikore config/control_demo.ini &
 ./run_scripts/run_api.sh &
 
+# A dashboard with the telemetry panels, the UE trajectory and a control panel:
+#   http://localhost:8100/        (over SSH: ssh -L 8100:localhost:8100 <host>)
+
 curl localhost:8100/schema                       # the knob catalogue
 curl -X POST localhost:8100/control/ue/0 \
      -H 'content-type: application/json' \

@@ -33,18 +33,42 @@ Configuration comes from the environment:
 The emulator side needs a `[Control]` section and an extra UDP output in `[Monitoring]`
 pointing at the collector. `config/control_demo.ini` has both.
 
+## The dashboard
+
+`http://localhost:8100/` serves a web dashboard: the telemetry panels, the UE
+trajectory, and a control panel generated from `/schema`. It replaces the old
+matplotlib tool and needs no display on the machine running the emulator, so SSH with
+port forwarding is enough. See `wiki/Web-Dashboard.md`.
+
 ## Endpoints
 
 | Method | Path | What it does |
 |---|---|---|
+| `GET` | `/` | the dashboard page |
 | `POST` | `/control/ue/{id}` | body `{"priority": 4, ...}` |
 | `POST` | `/control/batch` | body `{"cmds": [{"target": "ue/0", "set": {...}}]}` |
-| `GET` | `/ue/{id}/state` | control state from the emulator, metrics from the cache |
+| `GET` | `/ue/{id}/state` | control state and counters from the emulator, metrics from the cache |
 | `GET` | `/ues` | every UE and its control state |
 | `GET` | `/schema` | the knob catalogue, proxied from `describe` |
+| `GET` | `/scenario` | scenario and cell description, proxied from `get cell` |
+| `GET` | `/scenario/map` | fading map metadata: cell size, count and percentiles |
+| `GET` | `/scenario/map.bin` | the fading grid as raw `float32` little-endian |
+| `GET` | `/telemetry/snapshot` | the whole telemetry cache |
 | `POST` | `/sync/grant` | `{"until_tti": 1500}` or `{"until_t": 1.5}` |
 | `WS` | `/stream` | telemetry as it arrives |
 | `GET` | `/healthz` | link with the emulator and protocol version |
+
+### `/stream`
+
+One message per flush, every 200 ms, with the points coalesced:
+
+```json
+{"type": "telemetry", "points": [{"measurement": "ue_pdcp", "tags": {...}, "fields": {...}}]}
+```
+
+A client gets `{"type": "snapshot", "points": [...]}` first, so a page that joins
+mid-run draws immediately instead of waiting a whole aggregation window. A viewer that
+cannot keep up loses points rather than stalling the others.
 
 ```bash
 curl -X POST localhost:8100/control/ue/0 -H 'content-type: application/json' \
@@ -70,3 +94,12 @@ api/.venv/bin/python -m pytest api/tests -q
 
 `test_integration.py` starts the emulator with `config/control_demo.ini` and drives it
 through the API; it skips itself if `bin/fikore` has not been built.
+
+The dashboard logic that has no DOM lives in `fikore_api/static/dash.js` and is tested
+headlessly with node:
+
+```bash
+node api/tests/dash_logic_test.js
+```
+
+`make test` runs it too when a node interpreter is available.

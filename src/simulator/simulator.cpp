@@ -87,8 +87,12 @@ void simulator::print_traffic()
 
 void simulator::run_steps(unsigned int n)
 {
+    // The timestamp carries on across calls: forty calls of run_steps(25) have to be the
+    // same run as one call of run_steps(1000). Restarting it at zero on every call sent
+    // simulated time backwards, which left packets waiting for a release time that never
+    // came again and took their bytes out of the account.
     for(unsigned int i = 0; i < n; i++)
-        step(i * 1000);
+        step((unsigned int)(total_steps * 1000ULL));
 }
 
 void simulator::log_runtime_start()

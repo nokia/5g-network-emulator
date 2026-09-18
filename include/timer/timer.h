@@ -42,11 +42,7 @@ public:
 
     ~timer()
     {
-        if(run)
-        {
-            run = false; 
-            tickthread.join(); 
-        }
+        stop();
     }
 
 public: 
@@ -67,13 +63,14 @@ public:
         }
     }
 
+    // Safe to call more than once, and after request_stop: what decides whether there is
+    // a thread to join is the thread, not the run flag. Joining on the flag left a
+    // finished thread unjoined when the loop had ended on its own, and destroying a
+    // joinable thread terminates the process.
     void stop()
     {
-        if(run == true)
-        {
-            run = false; 
-            tickthread.join(); 
-        }
+        run = false;
+        if(tickthread.joinable()) tickthread.join();
     }
 
     // Asks the loop to finish without joining, so that it can be called from inside the

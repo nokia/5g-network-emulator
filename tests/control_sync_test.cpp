@@ -29,7 +29,7 @@ double ms_since(const std::chrono::steady_clock::time_point &t0)
 }
 
 void write_config(const std::string &sync_mode, int period_ms, int timeout_ms,
-                  const std::string &on_timeout)
+                  const std::string &on_timeout, const std::string &on_peer_loss = "continue")
 {
     std::ifstream base("tests/control_smoke.ini");
     assert(base.is_open());
@@ -43,7 +43,8 @@ void write_config(const std::string &sync_mode, int period_ms, int timeout_ms,
             line = std::string("address: ") + SOCKET_PATH
                  + "\nsync_mode: " + sync_mode
                  + "\ncredit_timeout_ms: " + std::to_string(timeout_ms)
-                 + "\non_timeout: " + on_timeout;
+                 + "\non_timeout: " + on_timeout
+                 + "\non_peer_loss: " + on_peer_loss;
         text += line + "\n";
     }
 
@@ -157,10 +158,10 @@ void test_credit_gates_simulated_time()
     c.disconnect();
 }
 
-// Losing the peer releases the emulator, for good.
-void test_lost_peer_fails_open()
+// With on_peer_loss: continue, losing the peer releases the emulator, for good.
+void test_lost_peer_can_fail_open()
 {
-    write_config("barrier", -1, 5000, "continue");
+    write_config("barrier", -1, 5000, "continue", "continue");
     simulator sim(CONFIG);
 
     client c;
@@ -178,6 +179,29 @@ void test_lost_peer_fails_open()
     sim.run_steps(50);
     assert(ms_since(t0) < 3000.0);
     assert(!sim.control_plane().barrier_mode());   // degraded, and it stays degraded
+}
+
+// By default, losing the peer ends the run instead of finishing it unsynchronised.
+void test_lost_peer_aborts_by_default()
+{
+    write_config("barrier", -1, 5000, "continue", "abort");
+    simulator sim(CONFIG);
+
+    client c;
+    assert(c.connect_and_handshake());
+    c.grant(3);
+    c.read_line();
+    sim.run_steps(4);
+    assert(!sim.control_plane().stop_requested());
+
+    c.disconnect();
+    std::this_thread::sleep_for(std::chrono::milliseconds(400));
+
+    const std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
+    sim.run_steps(1);
+    assert(ms_since(t0) < 3000.0);                 // released, not waiting for the timeout
+    assert(sim.control_plane().stop_requested());
+    assert(sim.control_plane().barrier_mode());    // still in barrier: it stops, it does not degrade
 }
 
 // Barrier plus real time is refused at init: blocking the wall clock defeats the mode.
@@ -216,7 +240,8 @@ void test_timeout_abort_requests_stop()
 int main()
 {
     test_credit_gates_simulated_time();
-    test_lost_peer_fails_open();
+    test_lost_peer_can_fail_open();
+    test_lost_peer_aborts_by_default();
     test_barrier_is_refused_in_real_time();
     test_timeout_abort_requests_stop();
     std::remove(CONFIG);

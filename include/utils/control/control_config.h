@@ -28,6 +28,12 @@ struct control_config
     int credit_timeout_ms = 30000;
     std::string on_timeout = "continue"; // continue | abort
 
+    // What to do in barrier mode when a controller that had connected goes away.
+    // abort ends the run; continue carries on free running for the rest of it. An
+    // unattended run that keeps going unsynchronised writes out simulation nobody asked
+    // for, which is why the default is to stop.
+    std::string on_peer_loss = "abort"; // abort | continue
+
     // NDJSON script applied by simulated time, and journal of everything applied.
     std::string timeline_file = "none";
     std::string journal_file = "none";

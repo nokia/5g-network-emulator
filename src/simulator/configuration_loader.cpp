@@ -411,6 +411,7 @@ void configuration_loader::load(std::string cfg_file)
                                 if (key == "sync_mode") control_c.sync_mode = value;
                                 if (key == "credit_timeout_ms") control_c.credit_timeout_ms = std::stoi(value);
                                 if (key == "on_timeout") control_c.on_timeout = value;
+                                if (key == "on_peer_loss") control_c.on_peer_loss = value;
                                 if (key == "timeline_file") control_c.timeline_file = value;
                                 if (key == "journal_file") control_c.journal_file = value;
                                 if (key == "max_cmds_per_tick") control_c.max_cmds_per_tick = std::stoi(value);

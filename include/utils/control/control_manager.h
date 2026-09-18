@@ -60,6 +60,7 @@ public:
 private:
     enum class mode_t { async, barrier };
     enum class on_timeout_t { cont, abort };
+    enum class on_peer_loss_t { cont, abort };
 
     void wait_for_credit(std::int64_t tti);
     void apply_grant(const command &c, ack &a);
@@ -111,6 +112,7 @@ private:
 
     mode_t mode_ = mode_t::async;
     on_timeout_t on_timeout_ = on_timeout_t::cont;
+    on_peer_loss_t on_peer_loss_ = on_peer_loss_t::abort;
     std::chrono::milliseconds timeout_{30000};
     std::int64_t credit_until_tti_ = -1;
     bool stopping_ = false;

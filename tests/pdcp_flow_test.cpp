@@ -316,7 +316,7 @@ void test_captured_packet_handler_timeout_drop()
     assert(handler.has_ingress_pkts());
     pkt.pkts.push_back(handler.pop_ingress_pkt());
     pkt.bits = pkt.pkts.front().size;
-    handler.drop(std::move(pkt));
+    handler.drop(std::move(pkt), false);
     handler.step(0.01f);
     handler.release();
 
@@ -376,7 +376,7 @@ void test_simulated_packet_handler_final_verdicts()
 
     harq_pkt dropped(23, 0.0f, 0.001f, 0, 0, frag_d.size, 0.0f, 0.0f);
     dropped.pkts.push_back(frag_d);
-    handler.drop(std::move(dropped));
+    handler.drop(std::move(dropped), false);
     handler.fill_queue_status(status, 0.001f);
     assert(status.final_accept_packets == 0);
     assert(status.final_accept_ce_packets == 0);

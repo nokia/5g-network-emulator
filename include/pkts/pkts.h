@@ -69,6 +69,7 @@ struct ip_pkt
         original_ecn = cpy_pkt.original_ecn;
         ce_marked = cpy_pkt.ce_marked;
         aqm_dropped = cpy_pkt.aqm_dropped;
+        tag = cpy_pkt.tag;
     };
 
     bool is_ready()
@@ -94,6 +95,10 @@ struct ip_pkt
     uint8_t original_ecn = ECN_NOT_ECT;
     bool ce_marked = false;
     bool aqm_dropped = false;
+    // Object this packet belongs to, chosen by whoever injected it. 0 is traffic from
+    // the generator. The emulator never interprets it: it only reports what happened to
+    // the bits carrying each value. Fragments inherit it through the copy constructor.
+    uint32_t tag = 0;
 };
 
 

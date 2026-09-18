@@ -45,7 +45,9 @@ public:
     void drop_all();
     bool set_traffic_target(float bps) { return _packet_h->set_traffic_target(tx_dir, bps); }
     bool get_traffic_target(float &bps) const { return _packet_h->get_traffic_target(tx_dir, bps); }
-    bool inject_bits(float bits) { return _packet_h->inject_bits(bits); }
+    bool inject_bits(float bits, std::uint32_t tag) { return _packet_h->inject_bits(bits, tag); }
+    const std::unordered_map<std::uint32_t, object_counters> &objects() const { return _packet_h->objects(); }
+    bool forget_object(std::uint32_t tag) { return _packet_h->forget_object(tag); }
 
     // Everything the client needs to pace its own injection, cumulative where it makes
     // sense so that two reads can be diffed. Bits here; the control channel converts.

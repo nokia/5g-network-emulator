@@ -72,7 +72,7 @@ void pdcp_layer::drain_ingress_pkts()
     while(_ip_buffer.pop_aqm_dropped_pkt(dropped))
     {
         _packet_h->record_error(dropped.bits, false);
-        _packet_h->drop(std::move(dropped));
+        _packet_h->drop(std::move(dropped), false);
     }
 }
 
@@ -114,7 +114,7 @@ float pdcp_layer::handle_pkt(float bits, int mcs, float sinr, float distance)
                 while(_ip_buffer.pop_aqm_dropped_pkt(dropped))
                 {
                     _packet_h->record_error(dropped.bits, false);
-                    _packet_h->drop(std::move(dropped));
+                    _packet_h->drop(std::move(dropped), false);
                 }
                 if(pkt.bits <= 0.0f) continue;
                 if(is_expired(pkt))
@@ -164,7 +164,7 @@ void pdcp_layer::drop_harq_pkt(harq_pkt pkt, bool expired)
 {
     _ip_buffer.drop_pkt(pkt.bits);
     _packet_h->record_error(pkt.bits, expired);
-    _packet_h->drop(std::move(pkt));
+    _packet_h->drop(std::move(pkt), expired);
 }
 
 bool pdcp_layer::is_expired(float ip_t) const

@@ -405,6 +405,31 @@ void control_manager::apply(const command &c, double sim_t, std::int64_t tti)
         return;
     }
 
+    if (c.op == command_op::inject || c.op == command_op::forget)
+    {
+        for (size_t t = 0; t < targets.size(); t++)
+        {
+            const bool done = c.op == command_op::inject
+                ? targets[t]->inject_bits(c.tx_dir, (float)(c.bytes * 8.0), c.tag)
+                : targets[t]->forget_object(c.tag);
+            if (!done)
+            {
+                ack_error err;
+                err.key = c.op == command_op::inject ? "inject" : "forget";
+                err.reason = c.op == command_op::inject
+                    ? "this UE has no simulated traffic source"
+                    : "unknown tag";
+                a.errors.push_back(err);
+            }
+        }
+
+        a.ok = a.errors.empty();
+        if (a.ok) applied_in_tick_++;
+        else rejected_in_tick_++;
+        transport_->reply(a);
+        return;
+    }
+
     const param_registry &reg = param_registry::instance();
     for (size_t t = 0; t < targets.size(); t++)
     {
@@ -462,6 +487,25 @@ nlohmann::json direction_state(ue &u, int tx_dir)
     j["pending_bytes"] = p.pending_bits() / 8.0;
     j["oldest_age_s"] = q.ip_oldest_age;
     j["latency_s"] = p.get_latency(false);
+
+    // Per object counters, for as long as the client keeps the tag alive. Terminal
+    // states only: what is neither delivered nor lost is still in flight, which the
+    // client knows because it knows how much it injected.
+    const std::unordered_map<std::uint32_t, object_counters> &objects = p.objects();
+    if (!objects.empty())
+    {
+        nlohmann::json o = nlohmann::json::object();
+        for (std::unordered_map<std::uint32_t, object_counters>::const_iterator it = objects.begin();
+             it != objects.end(); ++it)
+        {
+            nlohmann::json c;
+            c["delivered_bytes"] = it->second.delivered_bits / 8.0;
+            c["dropped_bytes"] = it->second.dropped_bits / 8.0;
+            c["expired_bytes"] = it->second.expired_bits / 8.0;
+            o[std::to_string(it->first)] = c;
+        }
+        j["objects"] = o;
+    }
     return j;
 }
 }

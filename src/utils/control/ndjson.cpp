@@ -7,6 +7,7 @@
 #include <cmath>
 
 #include <nlohmann/json.hpp>
+#include <common/direction.h>
 #include <utils/control/ndjson.h>
 
 using json = nlohmann::json;
@@ -19,6 +20,8 @@ command_op parse_op(const std::string &s)
     if (s == "describe") return command_op::describe;
     if (s == "ping") return command_op::ping;
     if (s == "grant") return command_op::grant;
+    if (s == "inject") return command_op::inject;
+    if (s == "forget") return command_op::forget;
     return command_op::set;
 }
 }
@@ -96,6 +99,38 @@ bool parse_line(const std::string &line, std::uint64_t fallback_id,
                 c.target = "cell";
             }
 
+            if (c.op == command_op::inject || c.op == command_op::forget)
+            {
+                if (!item.contains("tag"))
+                {
+                    error = "inject and forget need a tag";
+                    return false;
+                }
+                const std::int64_t tag = item["tag"].get<std::int64_t>();
+                if (tag <= 0 || tag > 0xFFFFFFFFLL)
+                {
+                    error = "tag must be in 1..2^32-1; 0 is the generator's traffic";
+                    return false;
+                }
+                c.tag = (std::uint32_t)tag;
+            }
+
+            if (c.op == command_op::inject)
+            {
+                if (item.contains("dl.bytes")) { c.tx_dir = TX_DL; c.bytes = item["dl.bytes"].get<double>(); }
+                else if (item.contains("ul.bytes")) { c.tx_dir = TX_UL; c.bytes = item["ul.bytes"].get<double>(); }
+                else
+                {
+                    error = "inject needs dl.bytes or ul.bytes";
+                    return false;
+                }
+                if (c.bytes <= 0.0)
+                {
+                    error = "inject needs a positive size";
+                    return false;
+                }
+            }
+
             if (item.contains("set"))
             {
                 if (!item["set"].is_object())
@@ -153,6 +188,15 @@ std::string serialize_journal_entry(const command &c, double sim_t, std::int64_t
     case command_op::describe: cmd["op"] = "describe"; break;
     case command_op::ping: cmd["op"] = "ping"; break;
     case command_op::grant: cmd["op"] = "grant"; break;
+    case command_op::inject:
+        cmd["op"] = "inject";
+        cmd["tag"] = c.tag;
+        cmd[c.tx_dir == TX_UL ? "ul.bytes" : "dl.bytes"] = c.bytes;
+        break;
+    case command_op::forget:
+        cmd["op"] = "forget";
+        cmd["tag"] = c.tag;
+        break;
     default: cmd["op"] = "set"; break;
     }
 

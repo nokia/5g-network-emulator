@@ -68,9 +68,10 @@ void packet_handler::push(harq_pkt pkt)
     pkt_list.push_back(std::move(pkt));
 }
 
-void packet_handler::drop(harq_pkt pkt)
+void packet_handler::drop(harq_pkt pkt, bool expired)
 {
     (void)pkt;
+    (void)expired;
 }
 
 float packet_handler::release()

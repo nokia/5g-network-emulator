@@ -25,7 +25,13 @@ enum class command_op
     // Time credit for the barrier mode. Absolute and monotonic: until_tti is the last TTI
     // the emulator is allowed to run. Handled apart from the rest because it is the only
     // command the transport thread applies by itself; see 03-credit-protocol.
-    grant
+    grant,
+    // Injection of bytes belonging to one object. Apart from set because it carries a
+    // tag, which is not a knob: it does not describe the UE, it labels the bits.
+    inject,
+    // Releases an object's counters. The emulator cannot know that an object is
+    // finished, because it does not know its size; whoever injected it does.
+    forget
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -49,6 +55,12 @@ struct command
 
     // Only meaningful for grant.
     std::int64_t until_tti = -1;
+
+    // Only meaningful for inject and forget. 0 is the generator's traffic.
+    std::uint32_t tag = 0;
+    // Only meaningful for inject: which direction, and how many bytes.
+    int tx_dir = -1;
+    double bytes = 0.0;
 };
 
 struct ack_error

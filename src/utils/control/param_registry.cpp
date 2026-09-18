@@ -102,7 +102,7 @@ void add_directional(std::vector<param_entry> &out, int tx_dir)
             "injected so far. Mind pkt_delay_budget_s: anything that does not make it "
             "out in time is discarded as expired.",
             [tx_dir](ue &u, double bytes, std::string &reason) {
-                if (!u.inject_bits(tx_dir, (float)(bytes * 8.0)))
+                if (!u.inject_bits(tx_dir, (float)(bytes * 8.0), 0))
                 {
                     reason = "this UE has no simulated traffic source";
                     return false;

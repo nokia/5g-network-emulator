@@ -7,9 +7,11 @@
 #pragma once
 
 #include <chrono>
+#include <cstdint>
 #include <deque>
 #include <memory>
 #include <random>
+#include <unordered_map>
 
 #include <pdcp_layer/pdcp_config.h>
 #include <pdcp_layer/pdcp_queue_status.h>
@@ -22,6 +24,26 @@ enum class final_packet_verdict
     ACCEPT,
     ACCEPT_CE,
     DROP
+};
+
+// Terminal state of a packet's bits, from the point of view of whoever handed them over.
+enum class bit_fate
+{
+    delivered,
+    // Discarded against the delay budget: the client is overfeeding.
+    expired,
+    // Discarded by the AQM, by an exhausted HARQ or by a full buffer: the radio is
+    // struggling, or the queue is.
+    dropped
+};
+
+// What happened to the bits of one object. Cumulative and monotonic, like the per UE
+// counters, so that two reads can be diffed.
+struct object_counters
+{
+    float delivered_bits = 0.0f;
+    float dropped_bits = 0.0f;
+    float expired_bits = 0.0f;
 };
 
 class packet_handler
@@ -38,7 +60,7 @@ public:
     ip_pkt pop_ingress_pkt();
     virtual void drop_ingress_pkt(ip_pkt pkt);
     virtual void push(harq_pkt pkt);
-    virtual void drop(harq_pkt pkt);
+    virtual void drop(harq_pkt pkt, bool expired);
     virtual float release();
     virtual void fill_queue_status(pdcp_queue_status& status, float current_t) const;
 
@@ -55,8 +77,16 @@ public:
 
     // Client driven injection: the runtime twin of the file driven traffic_generator.
     // The caller decides when and how much; the emulator only packetizes and queues.
-    virtual bool inject_bits(float bits) { (void)bits; return false; }
+    virtual bool inject_bits(float bits, std::uint32_t tag) { (void)bits; (void)tag; return false; }
     virtual float injected_bits_total() const { return 0.0f; }
+
+    // Per object accounting. A source that cannot be injected into has no objects.
+    virtual const std::unordered_map<std::uint32_t, object_counters> &objects() const
+    {
+        static const std::unordered_map<std::uint32_t, object_counters> none;
+        return none;
+    }
+    virtual bool forget_object(std::uint32_t tag) { (void)tag; return false; }
     virtual int get_pkt_size() const { return 0; }
 
     // Cumulative, monotonic counters. The client diffs two reads, so a lost read loses

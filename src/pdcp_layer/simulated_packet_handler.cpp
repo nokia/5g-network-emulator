@@ -26,28 +26,42 @@ bool simulated_packet_handler::get_traffic_target(int tx_dir, float &bps) const
     return true;
 }
 
-bool simulated_packet_handler::inject_bits(float bits)
+bool simulated_packet_handler::inject_bits(float bits, std::uint32_t tag)
 {
     if(bits <= 0.0f) return true;
-    pending_injected_bits_ += bits;
+    for(size_t i = 0; i < pending_injections_.size(); i++)
+    {
+        if(pending_injections_[i].first == tag)
+        {
+            pending_injections_[i].second += bits;
+            injected_bits_total_ += bits;
+            return true;
+        }
+    }
+    pending_injections_.push_back(std::make_pair(tag, bits));
     injected_bits_total_ += bits;
+    if(tag != 0) objects_[tag];
     return true;
 }
 
-void simulated_packet_handler::packetize(float bits, float current_t)
+void simulated_packet_handler::packetize(float bits, float current_t, std::uint32_t tag)
 {
     const float pkt_size = traffic_m->get_pkt_size(0);
     const int pkts = (int)ceil(bits / pkt_size);
     for(int i = 0; i < pkts - 1; i++)
     {
-        push_ingress_pkt(ip_pkt(current_t, pkt_size, pkt_size, current_id, bh_d, bh_d_var));
+        ip_pkt pkt(current_t, pkt_size, pkt_size, current_id, bh_d, bh_d_var);
+        pkt.tag = tag;
+        push_ingress_pkt(std::move(pkt));
         current_id++;
     }
 
     const float bits_left = bits - (pkts - 1) * pkt_size;
     if(bits_left > 0)
     {
-        push_ingress_pkt(ip_pkt(current_t, bits_left, bits_left, current_id, bh_d, bh_d_var));
+        ip_pkt pkt(current_t, bits_left, bits_left, current_id, bh_d, bh_d_var);
+        pkt.tag = tag;
+        push_ingress_pkt(std::move(pkt));
         current_id++;
     }
 }
@@ -55,28 +69,34 @@ void simulated_packet_handler::packetize(float bits, float current_t)
 float simulated_packet_handler::ingest(int tx_dir, float current_t)
 {
     const float generated = traffic_m->generate(tx_dir, current_t);
-    if(generated > 0) packetize(generated, current_t);
+    if(generated > 0) packetize(generated, current_t, 0);
 
-    // Injected bits are packetized on their own, so that an injection of N bytes always
-    // yields the same packets regardless of what the generator produced in the same
-    // step. Injection adds to the configured traffic, it does not replace it.
+    // Injected bits are packetized on their own, one object at a time, so that an
+    // injection of N bytes always yields the same packets regardless of what the
+    // generator produced in the same step and of what the other objects injected.
+    // Injection adds to the configured traffic, it does not replace it.
     float injected = 0.0f;
-    if(pending_injected_bits_ > 0.0f)
+    for(size_t i = 0; i < pending_injections_.size(); i++)
     {
-        injected = pending_injected_bits_;
-        pending_injected_bits_ = 0.0f;
-        packetize(injected, current_t);
+        injected += pending_injections_[i].second;
+        packetize(pending_injections_[i].second, current_t, pending_injections_[i].first);
     }
+    pending_injections_.clear();
 
     return generated + injected;
 }
 
-void simulated_packet_handler::drop(harq_pkt pkt)
+void simulated_packet_handler::drop(harq_pkt pkt, bool expired)
 {
     for(std::deque<ip_pkt>::const_iterator it = pkt.pkts.begin(); it != pkt.pkts.end(); ++it)
     {
-        update_pending_packet(*it, true);
+        update_pending_packet(*it, expired ? bit_fate::expired : bit_fate::dropped);
     }
+}
+
+void simulated_packet_handler::drop_ingress_pkt(ip_pkt pkt)
+{
+    update_pending_packet(pkt, bit_fate::dropped);
 }
 
 float simulated_packet_handler::release()
@@ -95,7 +115,7 @@ float simulated_packet_handler::release()
             count++;
             for(std::deque<ip_pkt>::const_iterator pkt_it = it->pkts.begin(); pkt_it != it->pkts.end(); ++pkt_it)
             {
-                update_pending_packet(*pkt_it, false);
+                update_pending_packet(*pkt_it, bit_fate::delivered);
             }
             it = pkt_list.erase(it);
         }
@@ -113,8 +133,20 @@ float simulated_packet_handler::release()
     return bits;
 }
 
-void simulated_packet_handler::update_pending_packet(const ip_pkt& pkt, bool dropped)
+void simulated_packet_handler::update_pending_packet(const ip_pkt& pkt, bit_fate fate)
 {
+    // Per object accounting is per fragment: a packet half delivered and half dropped
+    // contributes to both counters, and the three add up to what was injected. It does
+    // not wait for the packet to be whole again, which is what the verdict below needs.
+    if(pkt.tag != 0)
+    {
+        object_counters& o = objects_[pkt.tag];
+        if(fate == bit_fate::delivered) o.delivered_bits += pkt.size;
+        else if(fate == bit_fate::expired) o.expired_bits += pkt.size;
+        else o.dropped_bits += pkt.size;
+    }
+
+    const bool dropped = fate != bit_fate::delivered;
     pending_packet_result& state = pending_results[pkt.uid];
     if(state.original_size <= 0.0f) state.original_size = pkt.original_size;
     state.accounted_bits += pkt.size;

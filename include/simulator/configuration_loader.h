@@ -11,6 +11,7 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <cstdint>
 
 #include <mac_layer/mac_definitions.h>
 #include <phy_layer/phy_l_definitions.h>
@@ -202,6 +203,7 @@ public:
 
     float get_period();
     float get_duration();
+    std::uint64_t get_seed();
     float get_progress_log_period_s();
     std::list<ue_full_config> get_ue_c_list();
     phy_enb_config get_phy_enb_config();
@@ -230,6 +232,9 @@ public:
 private:
     float duration = DURATION_DEFAULT;
     float period = PERIOD_DEFAULT;
+    // Run seed. 0 means "not set": random_v then decides between the wall clock and a
+    // reproducible run. See utils/rng_seed.h.
+    std::uint64_t seed = 0;
     float progress_log_period_s = PROGRESS_LOG_PERIOD_S_DEFAULT;
     // UE CONFIG
     std::list<ue_full_config> ue_c_list;

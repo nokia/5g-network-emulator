@@ -9,7 +9,7 @@
 mobility_model_base::mobility_model_base(int id, pos2d _init_pos, bool _random_init, float _speed, float _speed_var,
                                          float _max_distance, float _time_target, float maxApothem,
                                          float _time_target_var, bool _random_v)
-    : uniform_gen(time(NULL) * _random_v + id)
+    : uniform_gen(rng_seed(_random_v, RNG_MOBILITY, (std::uint64_t)id))
 {
     max_distance = _max_distance;
     max_apothem = maxApothem;
@@ -37,7 +37,7 @@ mobility_model_base::mobility_model_base(int id, pos2d _init_pos, bool _random_i
 }
 
 mobility_model_base::mobility_model_base(int id, mobility_config mobility_c, float maxApothem)
-    : uniform_gen(time(NULL) * mobility_c.random_v + id)
+    : uniform_gen(rng_seed(mobility_c.random_v, RNG_MOBILITY, (std::uint64_t)id))
 {
     if (!mobility_c.random_init)
     {

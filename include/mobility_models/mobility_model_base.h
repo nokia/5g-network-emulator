@@ -10,6 +10,7 @@
 #include <math.h>
 #include <random>
 #include <memory>
+#include <utils/rng_seed.h>
 #include <chrono>
 #include <iostream>
 #include <functional>

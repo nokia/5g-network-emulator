@@ -1,4 +1,5 @@
 #include <simulator/simulator.h>
+#include <utils/rng_seed.h>
 #include <utils/monitoring/monitoring_manager.h>
 
 namespace
@@ -18,6 +19,8 @@ simulator::simulator(std::string config_file)
       mac_l(config_loader.get_threading(), ue_h.get_ue_list(), config_loader.get_mac_config(), config_loader.get_tdd_config(), config_loader.get_log_config()),
       ticker(config_loader.get_period(), config_loader.get_duration())
 {
+    // Before any UE is built: every generator derives its stream from this.
+    set_rng_run_seed(config_loader.get_seed());
     verbosity = config_loader.get_log_config().verbosity;
     duration = config_loader.get_duration();
     progress_log_period_s = config_loader.get_progress_log_period_s();
@@ -101,6 +104,7 @@ void simulator::log_runtime_start()
         << " mode=" << (realtime ? "realtime" : "fast")
         << " duration_s=" << duration
         << " period_ms=" << config_loader.get_period()
+        << " seed=" << rng_run_seed()
         << " progress_log_period_s=" << progress_log_period_s
         << " ues=" << ue_h.get_ue_list()->size()
         << " monitoring=" << (monitoring_cfg.enabled ? "on" : "off")

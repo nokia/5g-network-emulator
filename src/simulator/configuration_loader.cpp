@@ -165,7 +165,7 @@ void configuration_loader::load(std::string cfg_file)
                             if (key == "delay")
                                 ue_c_list.back().ue_c.traffic_c.delay = std::stof(value);
                             if (key == "var_perc")
-                                ue_c_list.back().ue_c.traffic_c.var_perc = random_v ? std::stof(value) : 0;
+                                ue_c_list.back().ue_c.traffic_c.var_perc = std::stof(value);
                             if (key == "pkt_size")
                                 ue_c_list.back().ue_c.traffic_c.pkt_size = std::stoi(value);
                             if (key == "traffic_type")
@@ -267,6 +267,8 @@ void configuration_loader::load(std::string cfg_file)
                                     duration = std::stof(value);
                                 if (key == "period")
                                     period = std::stof(value);
+                                if (key == "seed")
+                                    seed = (std::uint64_t)std::stoull(value);
                                 if (key == "progress_log_period_s")
                                     progress_log_period_s = std::stof(value);
                                 if (key == "multithreading")
@@ -333,7 +335,7 @@ void configuration_loader::load(std::string cfg_file)
                                 if (key == "backhaul_d")
                                     backhaul_d = std::stof(value);
                                 if (key == "backhaul_d_var")
-                                    backhaul_d_var = random_v ? std::stof(value) : 0;
+                                    backhaul_d_var = std::stof(value);
                                 if (key == "order_pkts")
                                 {
                                     if (value == "true" || value == "1")
@@ -544,25 +546,25 @@ void configuration_loader::load(std::string cfg_file)
                                 if (key == "ut_noise_figure")
                                     ut_noise_figure = std::stoi(value);
                                 if (key == "air_delay_var_ul")
-                                    air_delay_var_ul = random_v ? std::stof(value) : 0;
+                                    air_delay_var_ul = std::stof(value);
                                 if (key == "rtx_period_ul")
                                     rtx_period_ul = std::stof(value);
                                 if (key == "rtx_period_var_ul")
-                                    rtx_period_var_ul = random_v ? std::stof(value) : 0;
+                                    rtx_period_var_ul = std::stof(value);
                                 if (key == "rtx_proc_delay_ul")
                                     rtx_proc_delay_ul = std::stof(value);
                                 if (key == "rtx_proc_delay_var_ul")
-                                    rtx_proc_delay_var_ul = random_v ? std::stof(value) : 0;
+                                    rtx_proc_delay_var_ul = std::stof(value);
                                 if (key == "air_delay_var_dl")
-                                    air_delay_var_dl = random_v ? std::stof(value) : 0;
+                                    air_delay_var_dl = std::stof(value);
                                 if (key == "rtx_period_dl")
                                     rtx_period_dl = std::stof(value);
                                 if (key == "rtx_period_var_dl")
-                                    rtx_period_var_dl = random_v ? std::stof(value) : 0;
+                                    rtx_period_var_dl = std::stof(value);
                                 if (key == "rtx_proc_delay_dl")
                                     rtx_proc_delay_dl = std::stof(value);
                                 if (key == "rtx_proc_delay_var_dl")
-                                    rtx_proc_delay_var_dl = random_v ? std::stof(value) : 0;
+                                    rtx_proc_delay_var_dl = std::stof(value);
                             }
                             LOG_INFO_I("configuration_loader::load") << " Configuration - " << key << " = " << value << " added." << END();
                         }
@@ -589,6 +591,11 @@ void configuration_loader::load(std::string cfg_file)
 float configuration_loader::get_period()
 {
     return period;
+}
+
+std::uint64_t configuration_loader::get_seed()
+{
+    return seed;
 }
 
 float configuration_loader::get_duration()

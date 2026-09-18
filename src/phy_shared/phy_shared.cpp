@@ -5,7 +5,7 @@
 #include <utils/terminal_logging.h>
 
 phy_shared::phy_shared(int _ue_id, ue_config ue_c, scenario_config _scenario_c, phy_enb_config _phy_enb_config)
-    : gen(rng_seed(ue_c.mobility_c.random_v, _ue_id + 1))
+    : gen(rng_seed(ue_c.mobility_c.random_v, RNG_PHY_SHARED, (std::uint64_t)_ue_id))
 {
     scenario = _scenario_c.type;
     eNB_h = _scenario_c.eNB_h;

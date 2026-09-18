@@ -11,6 +11,7 @@
 
 #include <random>
 #include <assert.h>
+#include <utils/rng_seed.h>
 #include <memory>
 #include <common/direction.h>
 #include <utils/conversions.h>
@@ -34,7 +35,7 @@ public:
                         float _var_perc,
                         int _pkt_size, 
                         bool _random_v)
-    :uniform_gen(time(NULL)*_random_v + id)
+    :uniform_gen(rng_seed(_random_v, RNG_TRAFFIC, (std::uint64_t)id))
     {
         ul_target = _ul_target; 
         dl_target = _dl_target; 

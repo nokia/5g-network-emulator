@@ -110,6 +110,7 @@ void control_manager::init(const control_config &cfg, std::vector<ue> *ue_list, 
     }
 
     on_timeout_ = (cfg.on_timeout == "abort") ? on_timeout_t::abort : on_timeout_t::cont;
+    on_peer_loss_ = (cfg.on_peer_loss == "continue") ? on_peer_loss_t::cont : on_peer_loss_t::abort;
     timeout_ = std::chrono::milliseconds(cfg.credit_timeout_ms);
 
     if (cfg.journal_file != "none" && !cfg.journal_file.empty())
@@ -126,6 +127,7 @@ void control_manager::init(const control_config &cfg, std::vector<ue> *ue_list, 
         << "Runtime control enabled"
         << " transport=" << cfg.transport
         << " sync_mode=" << (mode_ == mode_t::barrier ? "barrier" : "async")
+        << " on_peer_loss=" << (on_peer_loss_ == on_peer_loss_t::abort ? "abort" : "continue")
         << " ues=" << ue_list_->size()
         << " realtime=" << (period_ms > 0 ? "yes" : "no")
         << END();
@@ -180,9 +182,19 @@ void control_manager::wait_for_credit(std::int64_t tti)
 
     if (transport_->peer_ever_connected() && !transport_->peer_alive())
     {
-        // Fail-open, and irreversible for the rest of the run: an unattended run that
-        // loses its controller finishes instead of hanging, and does not pretend to be
-        // synchronised again if someone reconnects.
+        if (on_peer_loss_ == on_peer_loss_t::abort)
+        {
+            // A run without its controller is not the experiment that was asked for:
+            // nothing would drive it and the rest of the output would be a silence
+            // recorded as if it were data.
+            stopping_ = true;
+            LOG_ERROR_I("control_manager")
+                << " control peer lost at tti " << tti << "; aborting the run" << END();
+            return;
+        }
+
+        // Carrying on free running, and irreversibly: the run finishes unattended, and
+        // does not pretend to be synchronised again if someone reconnects.
         mode_ = mode_t::async;
         LOG_WARNING_I("control_manager")
             << " control peer lost at tti " << tti << "; degrading to async for the rest of the run" << END();
@@ -487,6 +499,10 @@ nlohmann::json direction_state(ue &u, int tx_dir)
     j["pending_bytes"] = p.pending_bits() / 8.0;
     j["oldest_age_s"] = q.ip_oldest_age;
     j["latency_s"] = p.get_latency(false);
+    // Radio state, for a client that wants to know why the bytes are going slowly:
+    // the channel it is getting, and how much of the air went on second attempts.
+    j["sinr_db"] = u.get_mean_sinr(tx_dir);
+    j["retransmitted_bytes_total"] = p.retransmitted_bits_total() / 8.0;
 
     // Per object counters, for as long as the client keeps the tag alive. Terminal
     // states only: what is neither delivered nor lost is still in flight, which the

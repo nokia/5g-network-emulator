@@ -53,6 +53,9 @@ public:
     // sense so that two reads can be diffed. Bits here; the control channel converts.
     float injected_bits_total() const { return _packet_h->injected_bits_total(); }
     float delivered_bits_total() const { return _packet_h->delivered_bits_total(); }
+    // Bits that went over the air more than once. Counted here and not in the HARQ
+    // handler because what the client reads is the state of the flow, not of the buffer.
+    float retransmitted_bits_total() const { return rtx_bits_total_; }
     float expired_bits_total() const { return _packet_h->expired_bits_total(); }
     float dropped_bits_total() const { return _packet_h->dropped_bits_total(); }
     int ce_packets_total() const { return _packet_h->ce_packets_total(); }
@@ -89,6 +92,7 @@ public:
 
 protected:
     float pkt_delay_budget_s = 0.350f;
+    float rtx_bits_total_ = 0.0f;
 
 private:
 };

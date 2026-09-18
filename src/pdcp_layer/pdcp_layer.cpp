@@ -141,6 +141,8 @@ float pdcp_layer::handle_pkt(float bits, int mcs, float sinr, float distance)
     else
     {
         harq_pkt pkt = _harq_buffer.get_pkt();
+        // Leaving the HARQ buffer means going over the air again, whatever the outcome.
+        rtx_bits_total_ += pkt.bits;
         if(_harq_buffer.get_rtx(pkt.mcs_i, sinr, pkt.n_tx))
         {
             if(pkt.n_tx < 4) _harq_buffer.queue(std::move(pkt), distance);

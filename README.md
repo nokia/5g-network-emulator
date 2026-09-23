@@ -62,7 +62,8 @@ For emulation mode, `sudo` is required because namespaces, iptables rules, and p
 
 FikoRE can be steered at runtime: UE priority, rate cap, SINR offset, position, speed,
 traffic target, and logical attach or detach. It works both in fast mode and in real
-time, and the full description is in [wiki/Runtime-Control.md](wiki/Runtime-Control.md).
+time, and the full description is in the
+[Runtime Control](https://github.com/nokia/5g-network-emulator/wiki/Runtime-Control) wiki page.
 
 The quickest way to see it is the demo config, which opens a control socket and feeds
 telemetry to the API:

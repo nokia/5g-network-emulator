@@ -1,3 +1,7 @@
+# Copyright 2026 Nokia
+# Licensed under the BSD 3-Clause Clear License
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
 """NDJSON client for the emulator's control channel.
 
 Deliberately dumb: it forwards, it does not remember. The emulator is the source of

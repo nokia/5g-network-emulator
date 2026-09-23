@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
-# Arranca el emulador y, por defecto, la API de control junto a el.
+# Copyright 2026 Nokia
+# Licensed under the BSD 3-Clause Clear License
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 #
-#   docker run ... <config.ini>          emulador + API
-#   docker run ... --no-api <config.ini> solo el emulador
-#   docker run ... --api-only            solo la API (emulador en otro contenedor)
+# Starts the emulator and, by default, the control API next to it.
+#
+#   docker run ... <config.ini>          emulator + API
+#   docker run ... --no-api <config.ini> emulator only
+#   docker run ... --api-only            API only (emulator in another container)
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -28,7 +32,7 @@ trap cleanup EXIT INT TERM
 if [ "${WITH_API}" -eq 1 ]; then
   FIKORE_API_HOST="${FIKORE_API_HOST:-0.0.0.0}" "${ROOT_DIR}/run_scripts/run_api.sh" &
   API_PID=$!
-  echo "[entrypoint] API en ${FIKORE_API_HOST:-0.0.0.0}:${FIKORE_API_PORT:-8100} (pid ${API_PID})"
+  echo "[entrypoint] API on ${FIKORE_API_HOST:-0.0.0.0}:${FIKORE_API_PORT:-8100} (pid ${API_PID})"
 fi
 
 if [ "${API_ONLY}" -eq 1 ]; then

@@ -1,3 +1,7 @@
+# Copyright 2026 Nokia
+# Licensed under the BSD 3-Clause Clear License
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
 """The Python and C++ protocol constants must be the same string.
 
 There is no negotiation: the emulator and the API are built together, so a mismatch is a

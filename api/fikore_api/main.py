@@ -1,3 +1,7 @@
+# Copyright 2026 Nokia
+# Licensed under the BSD 3-Clause Clear License
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
 """REST and WebSocket front end for the FikoRE control plane.
 
 A stateless proxy plus a telemetry cache, and nothing else. No VQEG logic, no shadow

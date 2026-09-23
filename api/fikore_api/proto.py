@@ -1,3 +1,7 @@
+# Copyright 2026 Nokia
+# Licensed under the BSD 3-Clause Clear License
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
 """Control protocol version.
 
 Single source on the Python side. It must match FIKORE_CONTROL_PROTO in

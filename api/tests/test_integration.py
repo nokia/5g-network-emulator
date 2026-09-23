@@ -1,3 +1,7 @@
+# Copyright 2026 Nokia
+# Licensed under the BSD 3-Clause Clear License
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
 """End to end: the API in front of a real emulator.
 
 Starts the emulator with the demo config, drives it through the REST endpoints and

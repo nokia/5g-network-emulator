@@ -58,9 +58,12 @@ struct command
 
     // Only meaningful for inject and forget. 0 is the generator's traffic.
     std::uint32_t tag = 0;
-    // Only meaningful for inject: which direction, and how many bytes.
+    // Only meaningful for inject: which direction, how many bytes, and what the
+    // packets declare in the ECN field. Not-ECT by default, so a client that says
+    // nothing gets what it always got.
     int tx_dir = -1;
     double bytes = 0.0;
+    std::uint8_t ecn = 0;   // ECN_NOT_ECT
 };
 
 struct ack_error

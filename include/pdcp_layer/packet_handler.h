@@ -44,6 +44,10 @@ struct object_counters
     float delivered_bits = 0.0f;
     float dropped_bits = 0.0f;
     float expired_bits = 0.0f;
+    // Congestion marks, in bits of delivered payload. Per object rather than per UE
+    // because a scalable sender needs the marks of its own flow, and a UE can carry
+    // more than one.
+    float ce_bits = 0.0f;
 };
 
 class packet_handler
@@ -77,7 +81,9 @@ public:
 
     // Client driven injection: the runtime twin of the file driven traffic_generator.
     // The caller decides when and how much; the emulator only packetizes and queues.
-    virtual bool inject_bits(float bits, std::uint32_t tag) { (void)bits; (void)tag; return false; }
+    // ecn is what the packets declare, which is what the AQM classifies on.
+    virtual bool inject_bits(float bits, std::uint32_t tag, std::uint8_t ecn = ECN_NOT_ECT)
+    { (void)bits; (void)tag; (void)ecn; return false; }
     virtual float injected_bits_total() const { return 0.0f; }
 
     // Per object accounting. A source that cannot be injected into has no objects.

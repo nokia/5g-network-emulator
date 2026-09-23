@@ -422,7 +422,7 @@ void control_manager::apply(const command &c, double sim_t, std::int64_t tti)
         for (size_t t = 0; t < targets.size(); t++)
         {
             const bool done = c.op == command_op::inject
-                ? targets[t]->inject_bits(c.tx_dir, (float)(c.bytes * 8.0), c.tag)
+                ? targets[t]->inject_bits(c.tx_dir, (float)(c.bytes * 8.0), c.tag, c.ecn)
                 : targets[t]->forget_object(c.tag);
             if (!done)
             {
@@ -518,6 +518,7 @@ nlohmann::json direction_state(ue &u, int tx_dir)
             c["delivered_bytes"] = it->second.delivered_bits / 8.0;
             c["dropped_bytes"] = it->second.dropped_bits / 8.0;
             c["expired_bytes"] = it->second.expired_bits / 8.0;
+            c["ce_bytes"] = it->second.ce_bits / 8.0;
             o[std::to_string(it->first)] = c;
         }
         j["objects"] = o;

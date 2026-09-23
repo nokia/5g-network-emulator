@@ -162,7 +162,8 @@ public:
     mobility_model& mobility() { return mobility_m; }
     bool set_traffic_target(int tx_dir, float bps) { return pdcp(tx_dir).set_traffic_target(bps); }
     bool get_traffic_target(int tx_dir, float &bps) { return pdcp(tx_dir).get_traffic_target(bps); }
-    bool inject_bits(int tx_dir, float bits, std::uint32_t tag) { return pdcp(tx_dir).inject_bits(bits, tag); }
+    bool inject_bits(int tx_dir, float bits, std::uint32_t tag, std::uint8_t ecn = ECN_NOT_ECT)
+    { return pdcp(tx_dir).inject_bits(bits, tag, ecn); }
     // A tag is unique per UE, so forgetting it is not directional.
     bool forget_object(std::uint32_t tag)
     {

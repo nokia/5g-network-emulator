@@ -26,25 +26,32 @@ bool simulated_packet_handler::get_traffic_target(int tx_dir, float &bps) const
     return true;
 }
 
-bool simulated_packet_handler::inject_bits(float bits, std::uint32_t tag)
+bool simulated_packet_handler::inject_bits(float bits, std::uint32_t tag, std::uint8_t ecn)
 {
     if(bits <= 0.0f) return true;
     for(size_t i = 0; i < pending_injections_.size(); i++)
     {
-        if(pending_injections_[i].first == tag)
+        // Same object and same marking merge; a different marking does not, because
+        // the two would produce different packets.
+        if(pending_injections_[i].tag == tag && pending_injections_[i].ecn == ecn)
         {
-            pending_injections_[i].second += bits;
+            pending_injections_[i].bits += bits;
             injected_bits_total_ += bits;
             return true;
         }
     }
-    pending_injections_.push_back(std::make_pair(tag, bits));
+    pending_injection p;
+    p.tag = tag;
+    p.bits = bits;
+    p.ecn = ecn;
+    pending_injections_.push_back(p);
     injected_bits_total_ += bits;
     if(tag != 0) objects_[tag];
     return true;
 }
 
-void simulated_packet_handler::packetize(float bits, float current_t, std::uint32_t tag)
+void simulated_packet_handler::packetize(float bits, float current_t, std::uint32_t tag,
+                                         std::uint8_t ecn)
 {
     const float pkt_size = traffic_m->get_pkt_size(0);
     const int pkts = (int)ceil(bits / pkt_size);
@@ -52,6 +59,8 @@ void simulated_packet_handler::packetize(float bits, float current_t, std::uint3
     {
         ip_pkt pkt(current_t, pkt_size, pkt_size, current_id, bh_d, bh_d_var);
         pkt.tag = tag;
+        pkt.ecn = ecn;
+        pkt.original_ecn = ecn;
         push_ingress_pkt(std::move(pkt));
         current_id++;
     }
@@ -61,6 +70,8 @@ void simulated_packet_handler::packetize(float bits, float current_t, std::uint3
     {
         ip_pkt pkt(current_t, bits_left, bits_left, current_id, bh_d, bh_d_var);
         pkt.tag = tag;
+        pkt.ecn = ecn;
+        pkt.original_ecn = ecn;
         push_ingress_pkt(std::move(pkt));
         current_id++;
     }
@@ -69,7 +80,7 @@ void simulated_packet_handler::packetize(float bits, float current_t, std::uint3
 float simulated_packet_handler::ingest(int tx_dir, float current_t)
 {
     const float generated = traffic_m->generate(tx_dir, current_t);
-    if(generated > 0) packetize(generated, current_t, 0);
+    if(generated > 0) packetize(generated, current_t, 0, ECN_NOT_ECT);
 
     // Injected bits are packetized on their own, one object at a time, so that an
     // injection of N bytes always yields the same packets regardless of what the
@@ -78,8 +89,9 @@ float simulated_packet_handler::ingest(int tx_dir, float current_t)
     float injected = 0.0f;
     for(size_t i = 0; i < pending_injections_.size(); i++)
     {
-        injected += pending_injections_[i].second;
-        packetize(pending_injections_[i].second, current_t, pending_injections_[i].first);
+        injected += pending_injections_[i].bits;
+        packetize(pending_injections_[i].bits, current_t, pending_injections_[i].tag,
+                  pending_injections_[i].ecn);
     }
     pending_injections_.clear();
 
@@ -141,7 +153,14 @@ void simulated_packet_handler::update_pending_packet(const ip_pkt& pkt, bit_fate
     if(pkt.tag != 0)
     {
         object_counters& o = objects_[pkt.tag];
-        if(fate == bit_fate::delivered) o.delivered_bits += pkt.size;
+        if(fate == bit_fate::delivered)
+        {
+            o.delivered_bits += pkt.size;
+            // A mark only means anything on bits that arrived; a marked fragment that
+            // is then dropped is a loss, and counting it twice would tell the sender
+            // to back off twice for one event.
+            if(pkt.ce_marked) o.ce_bits += pkt.size;
+        }
         else if(fate == bit_fate::expired) o.expired_bits += pkt.size;
         else o.dropped_bits += pkt.size;
     }

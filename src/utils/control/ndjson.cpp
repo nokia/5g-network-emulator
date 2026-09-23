@@ -8,12 +8,36 @@
 
 #include <nlohmann/json.hpp>
 #include <common/direction.h>
+#include <pkts/pkts.h>
 #include <utils/control/ndjson.h>
 
 using json = nlohmann::json;
 
 namespace
 {
+// The names are the ones the ECN field is known by, not the numbers: a client
+// writing "ect1" is stating what the traffic is, and the mapping to 0b01 is the
+// emulator's business.
+bool parse_ecn(const std::string &s, std::uint8_t &out)
+{
+    if (s == "not-ect") { out = ECN_NOT_ECT; return true; }
+    if (s == "ect1" || s == "l4s") { out = ECN_ECT1; return true; }
+    if (s == "ect0") { out = ECN_ECT0; return true; }
+    if (s == "ce") { out = ECN_CE; return true; }
+    return false;
+}
+
+const char *ecn_name(std::uint8_t ecn)
+{
+    switch (ecn)
+    {
+    case ECN_ECT1: return "ect1";
+    case ECN_ECT0: return "ect0";
+    case ECN_CE: return "ce";
+    default: return "not-ect";
+    }
+}
+
 command_op parse_op(const std::string &s)
 {
     if (s == "get") return command_op::get;
@@ -129,6 +153,15 @@ bool parse_line(const std::string &line, std::uint64_t fallback_id,
                     error = "inject needs a positive size";
                     return false;
                 }
+                if (item.contains("ecn"))
+                {
+                    if (!item["ecn"].is_string() ||
+                        !parse_ecn(item["ecn"].get<std::string>(), c.ecn))
+                    {
+                        error = "ecn must be one of not-ect, ect0, ect1, ce";
+                        return false;
+                    }
+                }
             }
 
             if (item.contains("set"))
@@ -192,6 +225,7 @@ std::string serialize_journal_entry(const command &c, double sim_t, std::int64_t
         cmd["op"] = "inject";
         cmd["tag"] = c.tag;
         cmd[c.tx_dir == TX_UL ? "ul.bytes" : "dl.bytes"] = c.bytes;
+        if (c.ecn != ECN_NOT_ECT) cmd["ecn"] = ecn_name(c.ecn);
         break;
     case command_op::forget:
         cmd["op"] = "forget";

@@ -16,16 +16,26 @@
 
 std::string getBaseMapPath()
 {
+    const std::string map_dir = "include/maps_scenarios/";
+    const std::string prefix = "macroscopic_fading_map_";
+
     char exe_path[1024];
     ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
     if (len != -1)
     {
         exe_path[len] = '\0';
-        std::string path_str(dirname(exe_path));
-        return path_str + "/../include/maps_scenarios/macroscopic_fading_map_";
+        std::string beside_binary = std::string(dirname(exe_path)) + "/../" + map_dir;
+
+        // bin/fikore sits next to include/, which is what a copied or containerised
+        // deployment relies on. Binaries built elsewhere, such as the test ones under
+        // build/tests/, do not, so fall back to the working directory for them.
+        if (access(beside_binary.c_str(), F_OK) == 0)
+        {
+            return beside_binary + prefix;
+        }
     }
 
-    return "include/maps_scenarios/macroscopic_fading_map_";
+    return map_dir + prefix;
 }
 
 ue_full_config::ue_full_config()

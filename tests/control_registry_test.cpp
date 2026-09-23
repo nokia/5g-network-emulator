@@ -43,7 +43,7 @@ ue make_ue(int id)
     // Real map: without it MapHandler leaves the apothem at 0 and every position gets
     // clamped to the origin. make test runs from the repo root.
     scenario_config scenario_c(URBAN_MACROCELL, 20.0f, 10.0f, 25.0f,
-                               "include/maps_scenarios/macroscopic_fading_map_URBAN_MACROCELL_3.5.json", true);
+                               getBaseMapPath() + "URBAN_MACROCELL_3.5.json", true);
 
     phy_enb_config phy_c(46.0f /*tx_power*/, 1 /*modulation_m*/, 0.00005f /*target_ber*/,
                          1 /*cqi_mode*/, 3.5e9f /*frequency*/, 20000000 /*bandwidth*/,

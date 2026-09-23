@@ -125,12 +125,15 @@ void grid::init(std::vector<ue> *ue_list)
 void grid::step()
 {
     int syms = 0;
+    int n_enabled = 0;
     last_step_metrics = grid_step_metrics();
     last_step_metrics.grid_capacity_bits = max_capacity_bits;
     if (ue_list != nullptr)
     {
         for (std::vector<ue>::iterator it = ue_list->begin(); it != ue_list->end(); ++it)
         {
+            if (it->is_enabled())
+                n_enabled++;
             if (it->has_packets(tx))
                 last_step_metrics.active_ues_with_data++;
         }
@@ -144,7 +147,7 @@ void grid::step()
             syms = n_sym_rbg;
         for (int f = 0; f < n_freq_rbg; f++)
         {
-            rb_grid[t][f].estimate_params(syms, current_t);
+            rb_grid[t][f].estimate_params(syms, current_t, n_enabled);
             rb_grid[t][f].handle_packet(syms);
             if (rb_grid[t][f].was_scheduled())
             {

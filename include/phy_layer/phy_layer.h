@@ -93,10 +93,11 @@ public:
     float get_mean_mcs();
     float get_mean_eff();
     void set_logger(log_handler *_logger);
-    // priority, rr_rank and rr_n come by value from ue_overrides. priority is applied here
-    // and not inside metric_handler: metric_v[] is only rewritten on a CQI refresh, so
-    // folding it into the cached value would delay a priority change by up to cqi_period.
-    float get_metric(int f, int rr_n, int rr_rank, float priority);
+    // priority and rr_rank come by value from ue_overrides, n_enabled from the scheduler.
+    // priority is applied here and not inside metric_handler: metric_v[] is only rewritten
+    // on a CQI refresh, so folding it into the cached value would delay a priority change
+    // by up to cqi_period.
+    float get_metric(int f, int n_enabled, int rr_rank, float priority);
     float get_tp(int f);
     float assignRFBandwidth(float bandwidth);
 

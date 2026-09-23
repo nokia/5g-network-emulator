@@ -131,12 +131,12 @@ bool metric_handler::is_rr()
     return metric_t == METRIC_RR; 
 }
 
-float metric_handler::get_rr_metric(int f, int rank, int n_ues)
+float metric_handler::get_rr_metric(int f, int rank, int n_enabled)
 {
     if(prev_f != f)
     {
         rr_index++;
-        if(rr_index >= n_ues) rr_index = 0; 
+        if(rr_index >= n_enabled) rr_index = 0; 
         prev_f = f; 
     }
     if(rr_index == rank) return 1.0;

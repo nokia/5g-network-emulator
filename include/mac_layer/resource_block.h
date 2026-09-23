@@ -51,7 +51,9 @@ private:
     void reset_metric();
     bool check_ue_assignment();
 public: 
-    void estimate_params(int syms, float current_t);
+    // n_enabled: how many UEs are enabled this TTI. The round robin wraps on it, so it
+    // has to be the same number for every RBG and every UE of the step.
+    void estimate_params(int syms, float current_t, int n_enabled);
     // Handle Packets
     float handle_packet(int syms);
     bool was_scheduled() const { return last_scheduled; }

@@ -92,7 +92,7 @@ void simulator::run_steps(unsigned int n)
     // simulated time backwards, which left packets waiting for a release time that never
     // came again and took their bytes out of the account.
     for(unsigned int i = 0; i < n; i++)
-        step((unsigned int)(total_steps * 1000ULL));
+        step((unsigned int)(total_steps * TTI_US));
 }
 
 void simulator::log_runtime_start()

@@ -124,7 +124,7 @@ public:
 
 public: 
     void init(); 
-    float get_metric(int tx_dir, int f_index, int n_ues);
+    float get_metric(int tx_dir, int f_index, int n_enabled);
     float get_tp(int tx_dir, int f_index);
     int get_cqi(int tx_dir, int f_index);
     float get_eff(int tx_dir, int f_index);
@@ -141,7 +141,7 @@ public:
     float add_pkts(int tx, std::deque<ip_pkt> &pkts);
     int get_id(); 
     bool has_packets(int tx_dir);
-    schedule_candidate get_schedule_candidate(int tx_dir, int f_index, int n_ues, int ue_index);
+    schedule_candidate get_schedule_candidate(int tx_dir, int f_index, int n_enabled, int ue_index);
     float get_delay_t(); 
     float get_delta(); 
     float handle_pkt(float bits, int tx_dir, int f_index);

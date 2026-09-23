@@ -42,16 +42,15 @@ bool rb::check_ue_assignment()
     return false; 
 }
  
-void rb::estimate_params(int syms, float _current_t)
+void rb::estimate_params(int syms, float _current_t, int n_enabled)
 {
     int index = 0; 
     current_t = _current_t;
-    int n_ues = ue_list->size(); 
     if(syms > 0)
     {
         for(std::vector<ue>::iterator it = ue_list->begin(); it != ue_list->end(); ++it)
         {
-            schedule_candidate candidate = it->get_schedule_candidate(tx, f, n_ues, index);
+            schedule_candidate candidate = it->get_schedule_candidate(tx, f, n_enabled, index);
             if(candidate.has_data && max_metric.evaluate(candidate.metric)){
                 max_metric.assign(candidate.bits_per_symbol, candidate.metric, candidate.ue_index, candidate.ue_id);
             }

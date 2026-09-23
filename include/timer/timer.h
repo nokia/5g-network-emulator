@@ -11,6 +11,8 @@
 #include <thread>
 #include <iostream>
 
+#include <utils/conversions.h>
+
 #define S2US 1000000
 #define US2S 0.000001
 
@@ -120,14 +122,14 @@ private:
             }
             else
             {
-                func(count*1000);
-                previous_ts = count*1000; 
+                func(count*TTI_US);
+                previous_ts = count*TTI_US; 
                 count++;               
             }
         }
         std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - t);
         if(do_wait) LOG_INFO_I("timer::ticker") << "Simulation time: " << goal*US2S << " - actual time: " << time_span.count() << END(); 
-        else  LOG_INFO_I("timer::ticker") << "Simulation time: " << count*0.001 << " - actual time: " << time_span.count() << END(); 
+        else  LOG_INFO_I("timer::ticker") << "Simulation time: " << count*TTI_S << " - actual time: " << time_span.count() << END(); 
         LOG_INFO_I("timer::ticker")  << "Total iterations: " << count << " mean step time: " << time_span.count()/count << END(); 
         finished = true; 
    }
@@ -153,14 +155,14 @@ private:
             }
             else
             {
-                func(count*1000);
-                previous_ts = count*1000; 
+                func(count*TTI_US);
+                previous_ts = count*TTI_US; 
                 count++;                  
             }
         }
         std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - t);
         if(do_wait)  LOG_INFO_I("timer::ticker") << "Simulation time: " << goal*US2S << " - actual time: " << time_span.count() << END(); 
-         LOG_INFO_I("timer::ticker") << "Simulation time: " << count*0.001 << " - actual time: " << time_span.count() << END(); 
+         LOG_INFO_I("timer::ticker") << "Simulation time: " << count*TTI_S << " - actual time: " << time_span.count() << END(); 
          LOG_INFO_I("timer::ticker") << "Total iterations: " << count << " mean step time: " << time_span.count()/count << END(); 
         finished = true;
     }

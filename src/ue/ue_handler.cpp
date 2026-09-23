@@ -45,10 +45,6 @@ void ue_handler::refresh_enabled_ranks(std::vector<ue> &list)
         if(list[i].is_enabled()) list[i].overrides().rr_rank = rank++;
         else list[i].overrides().rr_rank = -1;
     }
-    for(size_t i = 0; i < list.size(); i++)
-    {
-        list[i].overrides().rr_n = rank;
-    }
 }
 
 void ue_handler::add_ue(std::chrono::microseconds * _init_t, ue_full_config ue_c, phy_enb_config _phy_enb_config, scenario_config _scenario_c, pdcp_config _pdcp_config_ul, pdcp_config _pdcp_config_dl, harq_config _harq_config, bool _stochastics)

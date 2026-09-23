@@ -17,15 +17,8 @@
 #include <utils/control/param_registry.h>
 #include <utils/control/transport_file.h>
 #include <utils/control/transport_socket.h>
+#include <utils/conversions.h>
 #include <utils/terminal_logging.h>
-
-namespace
-{
-// One TTI of simulated time. Deliberately the nominal value and not the wall clock, so
-// that a rate cap behaves identically in fast mode and in real time.
-const float TTI_S = 0.001f;
-
-}
 
 control_manager::control_manager() {}
 

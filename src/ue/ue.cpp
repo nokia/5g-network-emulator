@@ -180,10 +180,9 @@ const pdcp_layer& ue::pdcp(int tx_dir) const
     return tx_dir == TX_DL ? pdcp_dl : pdcp_ul;
 }
 
-float ue::get_metric(int tx_dir, int f_index, int n_ues)
+float ue::get_metric(int tx_dir, int f_index, int n_enabled)
 {
-    (void)n_ues;
-    return phy(tx_dir).get_metric(f_index, ctl.rr_n, ctl.rr_rank, ctl.priority);
+    return phy(tx_dir).get_metric(f_index, n_enabled, ctl.rr_rank, ctl.priority);
 }
 
 float ue::get_tp(int tx_dir, int f_index)
@@ -251,14 +250,17 @@ bool ue::has_packets(int tx_dir)
     return pdcp(tx_dir).has_pkts();
 }
 
-schedule_candidate ue::get_schedule_candidate(int tx_dir, int f_index, int n_ues, int ue_index)
+// Every UE is asked, including the disabled ones. Returning early on !ctl.enabled looks
+// free and is not: each UE keeps its own round robin cursor and they stay in step only
+// because all of them are asked for the same sequence of f. A skipped UE would fall out
+// of step and break the rotation, silently, when it is enabled again.
+schedule_candidate ue::get_schedule_candidate(int tx_dir, int f_index, int n_enabled, int ue_index)
 {
-    (void)n_ues;   // the rotation runs over the enabled UEs, not over the whole list
     schedule_candidate candidate;
     candidate.ue_index = ue_index;
     candidate.ue_id = id;
     candidate.bits_per_symbol = phy(tx_dir).get_tp(f_index);
-    candidate.metric = phy(tx_dir).get_metric(f_index, ctl.rr_n, ctl.rr_rank, ctl.priority);
+    candidate.metric = phy(tx_dir).get_metric(f_index, n_enabled, ctl.rr_rank, ctl.priority);
     candidate.has_data = ctl.enabled
                       && pdcp(tx_dir).has_pkts()
                       && candidate.bits_per_symbol > 0

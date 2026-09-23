@@ -70,9 +70,9 @@ public:
     void add_ue(std::string id);  
     void remove_ue(std::string id);
     float get_metric(metric_info metric_i, float current_t, int f);
-    // rank/n_ues are the dense position of the UE among the enabled ones and how many are
-    // enabled, not the UE id and the total count: a disabled UE must not take a turn.
-    float get_rr_metric(int f, int rank, int n_ues);
+    // rank/n_enabled are the dense position of the UE among the enabled ones and how many
+    // are enabled, not the UE id and the total count: a disabled UE must not take a turn.
+    float get_rr_metric(int f, int rank, int n_enabled);
     bool is_rr();
 private: 
     void assign_metric();

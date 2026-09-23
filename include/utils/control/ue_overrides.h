@@ -48,10 +48,10 @@ struct ue_overrides
     float rmax_bps[2] = {0.0f, 0.0f};
     float rmax_tokens[2] = {0.0f, 0.0f};
 
-    // Derived state, not a knob: dense position of this UE among the enabled ones, and
-    // how many are enabled. Recomputed by control_manager::tick whenever the enabled set
-    // changes. Round robin rotates over these instead of over the UE id and the total UE
-    // count, which is what makes a disabled UE stop taking a turn.
+    // Derived state, not a knob: dense position of this UE among the enabled ones.
+    // Recomputed by control_manager::tick whenever the enabled set changes. Round robin
+    // rotates over this instead of over the UE id, which is what makes a disabled UE
+    // stop taking a turn. How many are enabled is not stored here: it is one number for
+    // the whole cell, and the scheduler counts it once per TTI and passes it down.
     int rr_rank = -1;
-    int rr_n = 0;
 };

@@ -7,6 +7,7 @@
 #include <fstream>
 #include <string>
 
+#include <mac_layer/mac_definitions.h>
 #include <simulator/simulator.h>
 #include <ue/ue.h>
 
@@ -27,7 +28,7 @@ void write_file(const char *path, const std::string &text)
     out << text;
 }
 
-void write_config(const std::string &timeline)
+void write_config(const std::string &timeline, int metric_type = -1, int n_ues = -1)
 {
     std::ifstream base("tests/control_smoke.ini");
     assert(base.is_open());
@@ -37,6 +38,10 @@ void write_config(const std::string &timeline)
         // Same scenario as the smoke, with the timeline swapped and the duration cut:
         // run_steps drives the loop, so the .ini duration is irrelevant here.
         if (line.rfind("timeline_file:", 0) == 0) line = "timeline_file: " + timeline;
+        if (metric_type >= 0 && line.rfind("metric_type:", 0) == 0)
+            line = "metric_type: " + std::to_string(metric_type);
+        if (n_ues > 0 && line.rfind("n_ues:", 0) == 0)
+            line = "n_ues: " + std::to_string(n_ues);
         text += line + "\n";
     }
     write_file(CONFIG, text);
@@ -98,14 +103,12 @@ void test_disable_removes_the_ue()
     sim.run_steps(30);
     assert(u1.is_enabled());
     assert(u1.has_packets(TX_DL));                      // it had traffic queued
-    assert(u0.overrides().rr_n == 2);
     assert(u1.overrides().rr_rank == 1);
 
     sim.run_steps(1);
     assert(!u1.is_enabled());
     assert(!u1.has_packets(TX_DL));                     // buffers gone, not frozen
     assert(!u1.has_packets(TX_UL));
-    assert(u0.overrides().rr_n == 1);                   // rotation is over one UE now
     assert(u1.overrides().rr_rank == -1);
     assert(u0.overrides().rr_rank == 0);
 
@@ -128,18 +131,53 @@ void test_rate_cap_bucket()
     sim.run_steps(6);
     assert(near(u.overrides().rmax_bps[TX_DL], 10e6, 1.0));
 
-    // Depth is one TTI worth: 10 Mbps * 1 ms = 10000 bits, never more.
-    for (int i = 0; i < 20; i++)
-    {
-        sim.run_steps(1);
-        assert(u.overrides().rmax_tokens[TX_DL] <= 10000.0f + 1.0f);
-    }
+    // One refill is one TTI worth of the cap: 10 Mbps * 1 ms = 10000 bits. Three TTIs of
+    // debt take exactly three refills to clear, and while the bucket is empty the UE is
+    // not scheduled, so nothing is taken out of it in the meantime.
+    u.overrides().rmax_tokens[TX_DL] = -30000.0f;
+    sim.run_steps(1);
+    assert(near(u.overrides().rmax_tokens[TX_DL], -20000.0, 1.0));
+    sim.run_steps(1);
+    assert(near(u.overrides().rmax_tokens[TX_DL], -10000.0, 1.0));
+    sim.run_steps(1);
+    assert(near(u.overrides().rmax_tokens[TX_DL], 0.0, 1.0));
+
+    // Out of debt it is a candidate again, and the bits granted over the air come back
+    // out of the bucket: the tokens cannot sit at the brim while the UE is transmitting.
+    sim.run_steps(5);
+    assert(u.overrides().rmax_tokens[TX_DL] < 9999.0f);
 
     // In debt the UE is not a candidate at all, whatever it has queued.
     u.overrides().rmax_tokens[TX_DL] = -30000.0f;
     assert(u.has_packets(TX_DL));
     schedule_candidate c = u.get_schedule_candidate(TX_DL, 0, 2, 0);
     assert(!c.has_data);
+}
+
+// Round robin rotates over the enabled UEs, not over the whole list: a detached UE gives
+// up its turn, it does not leave a hole in the rotation. Three UEs, because with two the
+// one that is left wins every RBG whatever the rotation is long, and the test would not
+// be able to tell the difference.
+void test_round_robin_rotates_over_the_enabled_ues()
+{
+    write_file(TIMELINE,
+               "{\"id\":1,\"at_tti\":0,\"cmds\":[{\"target\":\"ue/2\",\"set\":{\"enabled\":false}}]}\n");
+    write_config(TIMELINE, METRIC_RR, 3);
+
+    simulator sim(CONFIG);
+    sim.run_steps(500);
+
+    const float tp0 = (*sim.ue_list())[0].get_avg_tp(TX_DL);
+    const float tp1 = (*sim.ue_list())[1].get_avg_tp(TX_DL);
+    const float tp2 = (*sim.ue_list())[2].get_avg_tp(TX_DL);
+
+    assert(tp2 < 0.001f);                               // detached, never scheduled
+    assert(tp0 > 0.0f && tp1 > 0.0f);
+
+    // Same position, both saturated, and a rotation two UEs long: they halve the grid.
+    // Rotating over all three would spend one turn in three on a UE that is not there,
+    // and these two would end up splitting it one third to two thirds instead.
+    assert(near(tp0, tp1, 0.2f * tp0));
 }
 
 // End to end: a capped UE converges to the cap, not to what the link would give it.
@@ -175,6 +213,7 @@ int main()
     test_command_lands_on_its_tti();
     test_priority_is_absolute();
     test_disable_removes_the_ue();
+    test_round_robin_rotates_over_the_enabled_ues();
     test_rate_cap_bucket();
     test_rate_cap_holds_the_rate();
     std::remove(TIMELINE);

@@ -850,10 +850,10 @@ void phy_layer::estimate_tp(int f)
     tp_v[f] = current_tp;
 }
 
-float phy_layer::get_metric(int f, int rr_n, int rr_rank, float priority)
+float phy_layer::get_metric(int f, int n_enabled, int rr_rank, float priority)
 {
     if (metric_h.is_rr())
-        return metric_h.get_rr_metric(f, rr_rank, rr_n);
+        return metric_h.get_rr_metric(f, rr_rank, n_enabled);
     return metric_v[f] * priority;
 }
 

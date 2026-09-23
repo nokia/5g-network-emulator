@@ -124,7 +124,6 @@ void configuration_loader::load(std::string cfg_file)
                                 LOG_INFO_I("configuration_loader::load") << "Adding UEs with config [" << value << "]: " << END();
                                 ue_full_config ue_c;
                                 ue_c.id = value;
-                                ue_c.ue_c.log_id = get_unique_id();
                                 ue_c_list.push_back(ue_c);
                                 ue_c_list.back().ue_c.mobility_c.random_v = random_v;
                                 ue_c_list.back().ue_c.traffic_c.random_v = random_v;
@@ -279,6 +278,8 @@ void configuration_loader::load(std::string cfg_file)
                                     period = std::stof(value);
                                 if (key == "seed")
                                     seed = (std::uint64_t)std::stoull(value);
+                                if (key == "run_id")
+                                    unique_id = value;
                                 if (key == "progress_log_period_s")
                                     progress_log_period_s = std::stof(value);
                                 if (key == "multithreading")
@@ -597,6 +598,11 @@ void configuration_loader::load(std::string cfg_file)
     {
         LOG_WARNING_I("configuration_loader::load") << "File doesn't exit...falling back to defaults" << END();
     }
+
+    // Once the whole file has been read, so that run_id decides the name no matter
+    // where it appears in it.
+    for (ue_full_config &ue_c : ue_c_list)
+        ue_c.ue_c.log_id = get_unique_id();
 }
 
 float configuration_loader::get_period()
@@ -681,13 +687,16 @@ tdd_config configuration_loader::get_tdd_config()
 
 std::string configuration_loader::get_unique_id()
 {
+    // Stored on first use: the UE logs and the MAC logs ask for it at different
+    // moments, and a fresh timestamp each time would split one run across two
+    // directories whenever the calls fall either side of a second.
     if (unique_id == "")
     {
         time_t now = std::time(0);
         tm *ltm = std::localtime(&now);
         std::ostringstream oss;
         oss << std::put_time(ltm, "%Y_%m_%d_%H_%M_%S");
-        return oss.str();
+        unique_id = oss.str();
     }
 
     return unique_id;

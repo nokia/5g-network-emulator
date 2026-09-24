@@ -17,6 +17,11 @@ from typing import Literal, Protocol
 Direction = Literal["dl", "ul"]
 Ecn = Literal["not-ect", "ect0", "ect1"]
 Fate = Literal["delivered", "dropped", "expired"]
+# Why a segment was lost, when the network knows. "queue" is a buffer or an AQM
+# asking the sender to slow down, "radio" is the link itself failing, "budget" is
+# the packet outliving its delay budget. A sender that wants to tell "send less"
+# from "the radio is bad" reads this; one that does not can ignore it.
+Cause = Literal["", "queue", "radio", "budget"]
 
 
 @dataclass(frozen=True)
@@ -48,6 +53,7 @@ class Arrival:
     delivered_bytes: int = 0  # below `size` when part of the segment was lost
     ts_us: int = 0
     kind: Literal["data", "ack"] = "data"
+    cause: Cause = ""         # empty when the segment was delivered
 
 
 class Link(Protocol):
@@ -115,7 +121,8 @@ class LoopbackLink:
         if self._queued_bytes[t.direction] + t.size > self.cfg.queue_bytes:
             self.dropped += 1
             self._in_flight.append(Arrival(tti, t.flow, t.seq, t.size, "dropped",
-                                           ts_us=t.ts_us, kind=t.kind))
+                                           ts_us=t.ts_us, kind=t.kind,
+                                           cause="queue"))
             return
         q.append((tti, t))
         self._queued_bytes[t.direction] += t.size
@@ -132,7 +139,8 @@ class LoopbackLink:
                 budget = self.cfg.delay_budget_ttis
                 if budget is not None and waited > budget:
                     self._in_flight.append(Arrival(tti, t.flow, t.seq, t.size, "expired",
-                                                   ts_us=t.ts_us, kind=t.kind))
+                                                   ts_us=t.ts_us, kind=t.kind,
+                                                   cause="budget"))
                     continue
                 ce = (self.cfg.ce_threshold_ttis is not None
                       and t.ecn == "ect1"

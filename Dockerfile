@@ -24,7 +24,7 @@ RUN make -j"$(nproc)" && make test
 # The control API ships with the emulator and is built here, in its own venv: it is
 # independent of the repo's .venv, which belongs to the analyzers and pulls in numpy and
 # matplotlib.
-RUN python3 -m venv api/.venv \
+RUN python3 -m venv --clear api/.venv \
   && api/.venv/bin/pip install --no-cache-dir --upgrade pip \
   && api/.venv/bin/pip install --no-cache-dir -r api/requirements.txt
 

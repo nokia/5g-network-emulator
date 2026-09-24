@@ -312,6 +312,11 @@ float ue::handle_pkt(float bits, int tx_dir, int f_index)
     return eff_tp;
 }
 
+void ue::finalize_ul_allocation(int allocated_prbs)
+{
+    phy_ul.finalize_ul_allocation(allocated_prbs);
+}
+
 float ue::get_delay_t()
 {
     return delay_t_metric;

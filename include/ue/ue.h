@@ -146,6 +146,9 @@ public:
     float get_delay_t(); 
     float get_delta(); 
     float handle_pkt(float bits, int tx_dir, int f_index);
+    void finalize_ul_allocation(int allocated_prbs);
+    float get_ul_tx_power_per_prb_dbm() const { return phy_ul.get_current_tx_power_per_prb_dbm(); }
+    int get_ul_scheduling_prbs() const { return phy_ul.get_ul_scheduling_prbs(); }
     void step();
     void add_current_t(double _current_t){current_t = _current_t; }
 

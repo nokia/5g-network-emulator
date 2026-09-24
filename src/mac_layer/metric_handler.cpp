@@ -31,32 +31,32 @@ bool max_metric_handler::evaluate(float metric)
     return metric >= value;
 }
 
-bool max_metric_handler::is_assigned()
+bool max_metric_handler::is_assigned() const
 {
     return assigned; 
 }
 
-bool max_metric_handler::has_data()
+bool max_metric_handler::has_data() const
 {
     return tp > 0; 
 }
 
-float max_metric_handler::get_tp()
+float max_metric_handler::get_tp() const
 {
     return tp; 
 }
 
-int max_metric_handler::get_index()
+int max_metric_handler::get_index() const
 {
     return index; 
 }
 
-int max_metric_handler::get_id()
+int max_metric_handler::get_id() const
 {
     return id; 
 }
 
-float max_metric_handler::get_value()
+float max_metric_handler::get_value() const
 {
     return value; 
 }

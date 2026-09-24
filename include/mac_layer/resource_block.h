@@ -57,6 +57,12 @@ public:
     // Handle Packets
     float handle_packet(int syms);
     bool was_scheduled() const { return last_scheduled; }
+    int planned_ue_index() const
+    {
+        return max_metric.is_assigned() && max_metric.has_data()
+                   ? max_metric.get_index()
+                   : -1;
+    }
     int last_ue_index() const { return last_ue_index_v; }
     float last_scheduled_bits() const { return last_scheduled_bits_v; }
     float last_effective_bits() const { return last_effective_bits_v; }

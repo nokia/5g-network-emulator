@@ -68,7 +68,7 @@ float rb::handle_packet(int syms)
     last_effective_bits_v = 0.0f;
     if(check_ue_assignment())
     {
-        float tp = max_metric.get_tp(); 
+        float tp = (*ue_list)[max_metric.get_index()].get_tp(tx, f);
         float eff_tp = (*ue_list)[max_metric.get_index()].handle_pkt(tp*syms, tx, f);
         last_scheduled = true;
         last_ue_index_v = max_metric.get_index();

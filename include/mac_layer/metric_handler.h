@@ -29,12 +29,12 @@ public:
     void reset();
     void assign(float _tp, float _value, int _index, int _id);
     bool evaluate(float metric);
-    bool is_assigned();
-    bool has_data();
-    float get_tp();
-    float get_value();
-    int get_index();
-    int get_id();
+    bool is_assigned() const;
+    bool has_data() const;
+    float get_tp() const;
+    float get_value() const;
+    int get_index() const;
+    int get_id() const;
 };
 
 // Stores the metric info

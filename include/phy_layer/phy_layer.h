@@ -100,6 +100,9 @@ public:
     float get_metric(int f, int n_enabled, int rr_rank, float priority);
     float get_tp(int f);
     float assignRFBandwidth(float bandwidth);
+    void finalize_ul_allocation(int allocated_prbs);
+    float get_current_tx_power_per_prb_dbm() const { return current_tx_power_per_prb_dbm; }
+    int get_ul_scheduling_prbs() const { return ul_scheduling_prbs; }
 
 public:
     // sinr_offset_db comes by value from ue_overrides and is added in sinr_power_model,
@@ -111,7 +114,7 @@ public:
 private:
     void init_metric(int _index);
     void init_scenario(int _type, float _eNB_h, float _w, float _antenna_h, float _ue_h, float _ue_speed); 
-    void init_phy(float _freq, float _ue_speed, float _target_ber, float _ue_h, int _tx, float _scaling_factor, int _mimo_l, int _numerology, int _n_sc_rbg, bool _mcs_tables, float _gain_tx, float _gain_rx, float _tx_power,float _alpha_ul,float _nominal_pusch_p0,bool _set_ul_pow, float _tx_power_ul, float _power_boost,float _NF_UT,float _NF_eNB,int  _num_interf_ues,int  _num_interf_eNBs,float _d_interference, float _interfered_ratio);
+    void init_phy(float _freq, float _ue_speed, float _target_ber, float _ue_h, int _tx, float _scaling_factor, int _mimo_l, int _numerology, int _n_sc_rbg, bool _mcs_tables, float _gain_tx, float _gain_rx, float _tx_power,float _alpha_ul,float _nominal_pusch_p0,bool _set_ul_pow, float _tx_power_ul, float _power_boost,float _thermal_noise_density,float _NF_UT,float _NF_eNB,int  _num_interf_ues,int  _num_interf_eNBs,float _d_interference, float _interfered_ratio);
     void estimate_noise_interference(float _tx_power, int _n_ues, float _d_interference, float _interfered_ratio, float _figure, float _gain_tx, float _gain_rx);
     void init_amc(int _modulation_m, int _cqi_m, int _cqi_p);
     void init_rank(int _period, int _n_antennas,int _mimo_layers);
@@ -129,6 +132,7 @@ private:
     void channel_q_efficiency(int f);
     void estimate_ri();
     float sinr_power_model(float _tx_power,float distance,float pathloss, float macro_fading);
+    float ul_power_per_prb_dbm(float distance, int allocated_prbs);
     void estimate_sinr(float distance, int f, float macro_fading);
     void estimate_attenuation(float distance, const pos2d &pos, phy_shared &phy_s);
     void average_cqi();
@@ -175,6 +179,7 @@ private:
 
 private:
     float noise_interf;
+    float thermal_noise_density;
     float antenna_gain_tx;
     float antenna_gain_rx;
     float noise_figure;
@@ -202,6 +207,9 @@ private:
     float nominal_pusch_p0;
     bool set_ul_pow;
     float tx_power_ul;
+    int ul_scheduling_prbs = 1;
+    float current_tx_power_per_prb_dbm = 0.0f;
+    float last_distance = 0.0f;
     float power_boost;
 
 private:

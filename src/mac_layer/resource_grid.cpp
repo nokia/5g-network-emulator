@@ -147,10 +147,9 @@ void grid::step()
             syms = tdd_h.get_syms();
         else
             syms = n_sym_rbg;
-        for (int f = 0; f < n_freq_rbg; f++)
+
+        auto record_rbg = [&](int f)
         {
-            rb_grid[t][f].estimate_params(syms, current_t, n_enabled);
-            rb_grid[t][f].handle_packet(syms);
             if (rb_grid[t][f].was_scheduled())
             {
                 last_step_metrics.scheduled_rbg_count++;
@@ -162,6 +161,40 @@ void grid::step()
                     scheduled_ues[ue_index] = true;
                     last_step_metrics.scheduled_ue_count++;
                 }
+            }
+        };
+
+        if (tx == TX_UL)
+        {
+            // UL power is a per-UE total-power budget. Plan the complete frequency
+            // allocation for this time group before deriving per-PRB power and MCS.
+            for (int f = 0; f < n_freq_rbg; f++)
+                rb_grid[t][f].estimate_params(syms, current_t, n_enabled);
+
+            std::vector<int> allocated_prbs(
+                ue_list != nullptr ? ue_list->size() : 0, 0);
+            for (int f = 0; f < n_freq_rbg; f++)
+            {
+                const int ue_index = rb_grid[t][f].planned_ue_index();
+                if (ue_index >= 0 && ue_index < (int)allocated_prbs.size())
+                    allocated_prbs[ue_index] += n_freq_rb_rbg;
+            }
+            for (size_t ue_index = 0; ue_index < allocated_prbs.size(); ue_index++)
+                (*ue_list)[ue_index].finalize_ul_allocation(allocated_prbs[ue_index]);
+
+            for (int f = 0; f < n_freq_rbg; f++)
+            {
+                rb_grid[t][f].handle_packet(syms);
+                record_rbg(f);
+            }
+        }
+        else
+        {
+            for (int f = 0; f < n_freq_rbg; f++)
+            {
+                rb_grid[t][f].estimate_params(syms, current_t, n_enabled);
+                rb_grid[t][f].handle_packet(syms);
+                record_rbg(f);
             }
         }
     }

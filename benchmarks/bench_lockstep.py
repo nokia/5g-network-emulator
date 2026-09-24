@@ -15,6 +15,8 @@ import time
 
 EMU = os.environ.get("FIKORE_DIR", os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "..", "5g-network-emulator"))
 PROTO = "fikore-control-1"
+# Out of the way of the per-slot ids, which start at 1 and would otherwise reach it.
+PRELOAD_ID = 10 ** 12
 
 
 def make_ini(path, sock, duration_s, n_ues=1):
@@ -86,10 +88,12 @@ def run(variant, duration_s=2.0, window=1, live_tags=1, read_state=True, n_ues=1
     ses = Session(sock, duration_s, n_ues)
 
     # Preload live tags so that the objects map in every reply has a realistic size.
+    preloaded = 0
     if live_tags > 1:
         cmds = [{"op": "inject", "target": f"ue/{u}", "tag": t, "dl.bytes": 1500}
                 for u in range(n_ues) for t in range(2, live_tags + 1)]
-        ses.send({"id": 999, "at_tti": 0, "cmds": cmds})
+        preloaded = len(cmds)
+        ses.send({"id": PRELOAD_ID, "at_tti": 0, "cmds": cmds})
 
     t0 = time.perf_counter()
     tti = 0
@@ -103,11 +107,20 @@ def run(variant, duration_s=2.0, window=1, live_tags=1, read_state=True, n_ues=1
         seq += 2
         ses.send({"id": a_id, "at_tti": last, "cmds": cmds})
         ses.send({"id": b_id, "op": "grant", "until_tti": last})
-        got = {}
-        while a_id not in got or b_id not in got:
+        # One acknowledgement per command, all carrying the message's id, so the
+        # batch is only complete after len(cmds) of them. Stopping at the first
+        # would leave the rest in the socket and measure the wrong thing: the
+        # backlog would be paid for by a later slot, and the reply that actually
+        # costs something, the state, would never be read at all.
+        # The preload is applied on the first granted TTI, so its acknowledgements
+        # are owed to the first round trip and to no other.
+        owed = {a_id: len(cmds), b_id: 1, PRELOAD_ID: preloaded}
+        preloaded = 0
+        while sum(owed.values()):
             ack = ses.read_ack()
-            got[ack["id"]] = ack
-        assert got[a_id]["status"] == "ok", got[a_id]
+            assert owed.get(ack["id"], 0) > 0, ack
+            assert ack["status"] == "ok", ack
+            owed[ack["id"]] -= 1
         tti += window
     wall = time.perf_counter() - t0
 

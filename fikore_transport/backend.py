@@ -1,10 +1,13 @@
-"""The pilot's `NetworkBackend`, implemented over the transport model.
+# Copyright 2026 Nokia
+# Licensed under the BSD 3-Clause Clear License
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+"""A request and delivery interface over the transport model.
 
-The harness submits opaque byte requests and reads timestamped delivery events.
-What it gets back here is the same interface it already has, with the difference
-that the bytes travel over a modelled TCP connection: the window bounds what is
-outstanding, losses are repaired by retransmission, and the round-trip time is
-measured rather than left empty.
+A caller submits opaque byte requests and reads timestamped delivery events. The
+difference from handing bytes straight to the network is that they travel over a
+modelled TCP connection: the window bounds what is outstanding, losses are
+repaired by retransmission, and the round-trip time is measured rather than left
+empty.
 
 Two clocks meet in `advance()`. The harness asks for one step of its own window,
 usually 10 ms, and the model runs that window one slot at a time underneath. The
@@ -108,7 +111,7 @@ class BackendConfig:
     # gets. Sharing one connection across an object queue is the other arrangement
     # worth studying, and it is a parameter rather than a design decision.
     cc_factory: type[CongestionControl] = Cubic
-    # "tcp" is the transport model; "ideal" is the pilot's injection rule, a fixed
+    # "tcp" is the transport model; "ideal" is bare injection, a fixed
     # window per UE and instant recovery of whatever the network reports as lost.
     # Everything else being equal, the two differ only in this.
     transport: str = "tcp"

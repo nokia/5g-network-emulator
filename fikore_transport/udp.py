@@ -1,3 +1,6 @@
+# Copyright 2026 Nokia
+# Licensed under the BSD 3-Clause Clear License
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Open-loop traffic: datagrams on a schedule, and a sink that measures what arrives.
 
 There is no window, no acknowledgement and no reaction, which is the point. A UDP

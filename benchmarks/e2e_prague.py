@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright 2026 Nokia
+# Licensed under the BSD 3-Clause Clear License
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Prague against the real emulator, over its dual queue.
 
 The experiment the whole library is for: the same saturating transfer over the same

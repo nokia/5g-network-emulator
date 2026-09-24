@@ -1,3 +1,6 @@
+# Copyright 2026 Nokia
+# Licensed under the BSD 3-Clause Clear License
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Congestion control, as a replaceable component of the sender.
 
 The interface is the contract the sender relies on. Reno and CUBIC follow ns.py's

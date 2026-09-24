@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""The pilot's backend interface, driven against a real FikoRE run.
+# Copyright 2026 Nokia
+# Licensed under the BSD 3-Clause Clear License
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+"""The request and delivery interface, driven against a real FikoRE run.
 
 Two UEs each fetch a queue of video-segment-sized objects, one after another, the
 way a player does. What is printed is what the harness would see: completions,

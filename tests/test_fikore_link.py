@@ -1,3 +1,6 @@
+# Copyright 2026 Nokia
+# Licensed under the BSD 3-Clause Clear License
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """The integration, exercised against a real FikoRE process.
 
 The loopback tests say whether the transport state machine is right. These say

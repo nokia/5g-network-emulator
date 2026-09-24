@@ -1,4 +1,7 @@
-"""Transfer with no transport protocol, as the pilot's injection backend defines it.
+# Copyright 2026 Nokia
+# Licensed under the BSD 3-Clause Clear License
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+"""Transfer with no transport protocol, for comparison against the modelled one.
 
 Bytes are handed to the network up to a fixed window per UE, shared across the
 objects in flight, and whatever the network loses is simply handed over again. No
@@ -23,9 +26,9 @@ from .tcp import SenderStats
 class SharedWindow:
     """Bytes in flight allowed per UE, shared by every object on it.
 
-    The pilot's rule is one window per UE rather than per object, so the objects
-    of a UE compete for it. Each sender may take an equal share of what is free in
-    a slot, which is round robin without needing a rotation to be maintained.
+    The window is per UE rather than per object, so the objects of a UE compete
+    for it. Each sender may take an equal share of what is free in a slot, which
+    is round robin without needing a rotation to be maintained.
     """
 
     def __init__(self, limit_bytes: int) -> None:
@@ -142,8 +145,8 @@ class IdealSender:
             self.stats.bytes_acked += arrival.size
             return
         if self.recover:
-            # The pilot's recovery rule: whatever the network reports as lost is
-            # offered again, with no delay and no penalty to the sending rate.
+            # Recovery without a transport: whatever the network reports as lost
+            # is offered again, with no delay and no penalty to the sending rate.
             self.app_available += arrival.size
             self.stats.retransmits += 1
         if self.complete():

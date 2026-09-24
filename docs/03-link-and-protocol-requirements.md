@@ -119,7 +119,7 @@ or a dedicated drain:
 ```
 
 The expected cost then follows the grant-only floor plus a small payload, around
-130 to 150 µs per slot at pilot scale: 45 s of overhead for a 300 s run, and
+130 to 150 µs per slot with four UEs: 45 s of overhead for a 300 s run, and
 independent of the window size. This is the single change that decides whether the
 approach scales, and it is worth making before anything else.
 

@@ -1,3 +1,6 @@
+# Copyright 2026 Nokia
+# Licensed under the BSD 3-Clause Clear License
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """The transport state machine: segmentation, acknowledgements, RTT, RTO, retransmission.
 
 The sender never learns that a segment was lost. It learns that acknowledgements

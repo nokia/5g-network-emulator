@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright 2026 Nokia
+# Licensed under the BSD 3-Clause Clear License
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """One TCP transfer over the real emulator, in lockstep, with no emulator changes.
 
 Answers the only question that matters before building anything else: does a

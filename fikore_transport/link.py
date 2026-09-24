@@ -1,3 +1,6 @@
+# Copyright 2026 Nokia
+# Licensed under the BSD 3-Clause Clear License
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """The network boundary: what the transport model hands over, and what comes back.
 
 Everything below this interface is the network's business (queueing, scheduling,

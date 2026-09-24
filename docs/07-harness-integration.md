@@ -1,9 +1,13 @@
-# Integration with the Pilot Harness
+# Integration with an External Harness
 
-The pilot defines a `NetworkBackend`: submit a request for a number of bytes,
-cancel it, advance, and receive progress, completion, cancellation and telemetry
-events. `TransportBackend` implements that interface without changing it, over
-either link.
+The interface an external harness needs is small: submit a request for a number
+of bytes, cancel it, advance, and receive progress, completion, cancellation and
+telemetry events. `TransportBackend` implements exactly that, over either link.
+
+The concrete contract used here is the `NetworkBackend` specified by VQEG's
+CAP-CSP collaboration test pilot, which is where the names below come from. It
+is a reasonable shape for any harness that hands over opaque byte objects, and
+nothing in the transport model depends on that project.
 
 ## The mapping
 

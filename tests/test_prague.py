@@ -1,7 +1,10 @@
+# Copyright 2026 Nokia
+# Licensed under the BSD 3-Clause Clear License
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Prague over the binding to the L4S reference implementation.
 
 Skipped, loudly, when `prague/libpraguesim.so` is not built: a silent skip on the
-one controller the pilot is about would be worse than a failure.
+one controller the L4S work is about would be worse than a failure.
 """
 import os
 import sys

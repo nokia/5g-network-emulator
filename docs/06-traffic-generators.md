@@ -53,7 +53,7 @@ pilot's congested conditions need.
 
 ## Without a transport at all
 
-`ideal.py` is the pilot's current injection rule, kept as something to compare
+`ideal.py` is injection with no transport at all, kept as something to compare
 against: a fixed window per UE shared by the objects on it, and whatever the
 network reports as lost is handed over again. No congestion window, no
 acknowledgements, no round trip, no timers.
@@ -69,14 +69,14 @@ stopwatch by spending radio that a real sender does not have.
 `BackendConfig.transport = "ideal"` selects it, so an A/B is one parameter and
 everything else about the run is held fixed.
 
-## Objects, for the pilot
+## Objects
 
 The generator the harness actually needs is neither of those: a request for an
 object of known size, which starts, progresses and finishes, with several of them
 concurrently per UE. It is built, and it is the pilot's own interface rather than a
 new one — `TransportBackend.submit_request(ue_id, request_id, bytes_total)`, which
 creates a connection on that UE and hands the application `bytes_total`. See
-[docs/07](07-pilot-integration.md).
+[docs/07](07-harness-integration.md).
 
 One connection per object is the default, which is what a player issuing a fresh
 request per segment gets. Sharing one connection across a queue of objects is the

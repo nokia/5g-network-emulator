@@ -1,3 +1,6 @@
+# Copyright 2026 Nokia
+# Licensed under the BSD 3-Clause Clear License
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """The transport layer, exercised against the deterministic Python bottleneck.
 
 These tests do not need an emulator. They are the ones that say whether the state

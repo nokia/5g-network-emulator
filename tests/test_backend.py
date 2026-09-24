@@ -1,4 +1,7 @@
-"""The pilot's `NetworkBackend` contract, checked against the loopback link."""
+# Copyright 2026 Nokia
+# Licensed under the BSD 3-Clause Clear License
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+"""The request and delivery interface, checked against the loopback link."""
 import os
 import sys
 

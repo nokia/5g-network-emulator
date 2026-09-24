@@ -1,3 +1,6 @@
+# Copyright 2026 Nokia
+# Licensed under the BSD 3-Clause Clear License
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """The `Link` implementation that drives FikoRE over its control protocol.
 
 One slot per round trip, because a transport model reacts within the slot in which

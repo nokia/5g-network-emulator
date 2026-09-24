@@ -1,7 +1,7 @@
 # fikore-transport
 
 A discrete-event transport and traffic-generation layer in Python, driving FikoRE
-through its runtime control protocol. It gives the harness a TCP abstraction:
+through its runtime control protocol. It gives a caller a TCP abstraction:
 applications hand over bytes, the model segments them, manages a congestion window,
 acknowledges, estimates RTT, times out and retransmits, and the emulator provides
 what it is good at — queueing, scheduling, radio, delay, loss and ECN marking.
@@ -12,12 +12,16 @@ object tag on it.
 
 ## Why
 
-Offline co-simulation currently has no transport layer, so a byte the network loses
-is lost for good and the harness has to invent a recovery rule, a sender window and
-a concurrency policy. All three are TCP mechanisms. Modelling TCP instead of
-approximating its effects turns those invented policies into consequences, and it
-gives the experiments a measured RTT, a real congestion response and a place to put
-L4S.
+An offline co-simulation with no transport layer loses a byte for good, so whoever
+drives it has to invent a recovery rule, a sender window and a concurrency policy.
+All three are TCP mechanisms. Modelling TCP instead of approximating its effects
+turns those invented policies into consequences, and it gives the experiments a
+measured RTT, a real congestion response and a place to put L4S.
+
+The request and delivery interface that `TransportBackend` exposes follows the
+`NetworkBackend` contract specified by VQEG's CAP-CSP collaboration test pilot, so
+a harness written against that contract can use this without adaptation. Nothing
+else here depends on that project.
 
 ## Status
 
@@ -29,17 +33,17 @@ Working. What runs today:
   inference, Linux-style pacing.
 - Reno, CUBIC, and **Prague**, bound to the L4S reference implementation rather
   than reimplemented.
-- Two other transports for comparison: **ideal**, the pilot's injection rule with a
-  fixed window per UE and instant recovery, and **UDP**, open loop with no
-  reaction.
+- Two other transports for comparison: **ideal**, bare injection with a fixed
+  window per UE and instant recovery of whatever the network reports as lost, and
+  **UDP**, open loop with no reaction.
 - `LoopbackLink`, a deterministic Python bottleneck, with the test suites that
   exercise all of it without an emulator.
 - `FikoreLink`, which drives a real FikoRE run one slot at a time: one object tag
   per segment, per-tag counters read back every slot, tags released as soon as they
   are terminal.
-- `TransportBackend`, the pilot's `NetworkBackend`: object requests, concurrent
-  objects per UE, cancellation with a drained tail, and telemetry with a measured
-  round-trip time.
+- `TransportBackend`, the request and delivery interface: object requests,
+  concurrent objects per UE, cancellation with a drained tail, and telemetry with
+  a measured round-trip time.
 
 Prague and ECT(1) need the emulator to accept `ecn` on `inject` and to report
 `ce_bytes` per object. That is now in the emulator, and the two counters are the
@@ -159,5 +163,5 @@ defaults to `../../L4STeam/udp_prague`; nothing in it is modified.
 4. [The transport model](docs/04-transport-model.md)
 5. [Congestion control, including Prague](docs/05-congestion-control.md)
 6. [Traffic generators](docs/06-traffic-generators.md)
-7. [Integration with the pilot harness](docs/07-pilot-integration.md)
+7. [Integration with an external harness](docs/07-harness-integration.md)
 8. [Validation and roadmap](docs/08-validation-and-roadmap.md)

@@ -1,3 +1,6 @@
+# Copyright 2026 Nokia
+# Licensed under the BSD 3-Clause Clear License
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Simulated time and event scheduling, quantised to the radio slot.
 
 The clock is not ours to advance: it belongs to the emulator, and the runner moves

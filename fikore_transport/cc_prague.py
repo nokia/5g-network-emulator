@@ -1,3 +1,6 @@
+# Copyright 2026 Nokia
+# Licensed under the BSD 3-Clause Clear License
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Prague, bound to the L4S reference implementation rather than reimplemented.
 
 The controller is `prague_cc.cpp` from the L4S team's `udp_prague`, compiled into

@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright 2026 Nokia
+# Licensed under the BSD 3-Clause Clear License
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Measure the wall-clock cost of driving FikoRE one TTI at a time.
 
 A Python TCP model has to react to each delivery within the same millisecond it
@@ -139,7 +142,7 @@ if __name__ == "__main__":
     run("1 TTI, grant+get, 1 tag")
     run("1 TTI, grant+get, 100 tags", live_tags=100)
     run("10 TTI window, grant+get", window=10)
-    print("-- 4 UEs (pilot scale)")
+    print("-- 4 UEs")
     run("1 TTI, grant only", read_state=False, n_ues=4)
     run("1 TTI, get, 1 tag/UE", n_ues=4)
     run("1 TTI, get, 20 tags/UE", live_tags=20, n_ues=4)

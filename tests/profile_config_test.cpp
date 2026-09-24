@@ -45,6 +45,8 @@ void check_profile(const expected_profile &expected)
     assert(phy.bandwidth == expected.bandwidth_hz);
     assert(mac.bandwidth == expected.bandwidth_hz);
     assert(mac.numerology == expected.numerology);
+    assert(near(mac.pf_alpha, 1.0));
+    assert(near(mac.pf_time_window_ms, 100.0));
     assert(near(phy.tx_power, expected.tx_power_dbm));
     assert(near(phy.eNB_gain, expected.enb_gain_dbi));
     assert(near(phy.UT_gain, expected.ue_gain_dbi));
@@ -61,7 +63,11 @@ void check_profile(const expected_profile &expected)
     const std::list<ue_full_config> ue_groups = loader.get_ue_c_list();
     assert(!ue_groups.empty());
     for (const ue_full_config &group : ue_groups)
+    {
         assert(group.ue_c.ue_m.o2i == expected.o2i);
+        if (mac.metric_type == METRIC_PF)
+            assert(!group.ue_c.beta_metric_configured);
+    }
 
     grid shape(
         TX_DL,

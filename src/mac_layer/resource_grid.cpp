@@ -138,6 +138,21 @@ void grid::step()
                 n_enabled++;
             if (it->has_packets(tx))
                 last_step_metrics.active_ues_with_data++;
+            bool scheduler_active =
+                it->is_enabled() && it->has_packets(tx);
+            if (scheduler_active)
+            {
+                scheduler_active = false;
+                for (int f = 0; f < n_freq_rbg; f++)
+                {
+                    if (it->get_tp(tx, f) > 0.0f)
+                    {
+                        scheduler_active = true;
+                        break;
+                    }
+                }
+            }
+            it->prepare_scheduler_tti(tx, scheduler_active);
         }
     }
     std::vector<bool> scheduled_ues(ue_list != nullptr ? ue_list->size() : 0, false);

@@ -145,6 +145,7 @@ struct ue_config
     float delta_metric; 
     float delay_t_metric; 
     float beta_metric;
+    bool beta_metric_configured = false;
     float pkt_delay_budget = 0.35f;
     int log_freq = 0; 
     bool log_ue = false; 

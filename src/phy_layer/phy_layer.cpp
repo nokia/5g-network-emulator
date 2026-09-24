@@ -95,7 +95,12 @@ void phy_layer::init_rank(int _period, int _n_antennas,int _mimo_layers)
 phy_layer::phy_layer(int _tx, int _id, scenario_config _scenario_config, phy_ue_config _phy_ue_config, phy_enb_config _phy_enb_config, bool _stochastics, int _verbosity)
     : distance_cqi_dist(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()),
       gen(rng_seed(_stochastics, RNG_PHY_LAYER, 2ULL * (std::uint64_t)_id + (std::uint64_t)_tx)),
-      metric_h(_phy_enb_config.metric_type, _phy_ue_config.beta, _phy_ue_config.delay_t, _phy_ue_config.delta)
+      metric_h(
+          _phy_enb_config.metric_type,
+          _phy_ue_config.beta,
+          _phy_ue_config.delay_t,
+          _phy_ue_config.delta,
+          _phy_enb_config.pf_alpha)
 
 {
 
@@ -116,6 +121,7 @@ phy_layer::phy_layer(int _tx, int _id, scenario_config _scenario_config, phy_ue_
     // Verbosity configuration
     verbosity = _verbosity;
     bandwidth = _phy_enb_config.bandwidth;
+    pf_state.set_time_window_ms(_phy_enb_config.pf_time_window_ms);
 
     // Metric variables
     init_metric(id);
@@ -603,6 +609,16 @@ float phy_layer::get_mean_eff()
     return eff_s;
 }
 
+float phy_layer::get_mean_scheduler_metric() const
+{
+    if (metric_v.empty())
+        return 0.0f;
+    float total = 0.0f;
+    for (float metric : metric_v)
+        total += metric;
+    return total / static_cast<float>(metric_v.size());
+}
+
 int phy_layer::get_modulation_index()
 {
     return modulation_m;
@@ -844,8 +860,41 @@ void phy_layer::prepare_metrics(float oldest_t, float avg_tp)
 {
     // Get UE info for metrics
     metric_i.req_time = oldest_t;
-    metric_i.avrg_tp = avg_tp * MBIT2BIT / S2MS;
+    metric_i.avrg_tp =
+        metric_h.is_pf()
+            ? pf_state.average_throughput()
+            : avg_tp * MBIT2BIT / S2MS;
     metric_i.current_delay = current_t - metric_i.req_time;
+}
+
+float phy_layer::standalone_rate_bits_per_tti() const
+{
+    float bits_per_symbol = 0.0f;
+    for (float rate : tp_v)
+        bits_per_symbol += rate;
+    return bits_per_symbol
+           * SCH_N_OFDM_DEFAULT
+           * static_cast<float>(1 << numerology);
+}
+
+void phy_layer::prepare_scheduler_tti(bool active)
+{
+    if (!metric_h.is_pf() || !active)
+        return;
+    pf_state.prepare(standalone_rate_bits_per_tti());
+}
+
+void phy_layer::update_scheduler_state(float effective_bits, bool active)
+{
+    if (!metric_h.is_pf() || !active)
+        return;
+    prepare_scheduler_tti(true);
+    pf_state.update(effective_bits, true);
+}
+
+void phy_layer::reset_scheduler_state()
+{
+    pf_state.reset();
 }
 
 void phy_layer::estimate_metric(int f)
@@ -969,6 +1018,9 @@ void phy_layer::estimate_channel_state(float distance, phy_shared &phy_s, float 
         {
             estimate_channel_q(i);
             estimate_tp(i);
+        }
+        if (update_cqi || metric_h.is_pf())
+        {
             estimate_metric(i);
             /*if(tx==TX_DL && dumb)
             {

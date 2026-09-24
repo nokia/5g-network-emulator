@@ -73,6 +73,7 @@ private:
     int last_ue_index_v = -1;
     float last_scheduled_bits_v = 0.0f;
     float last_effective_bits_v = 0.0f;
+    int tie_cursor = 0;
 };
 
 #endif

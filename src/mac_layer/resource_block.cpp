@@ -7,6 +7,9 @@
 #include <mac_layer/resource_block.h>
 #include <utils/terminal_logging.h>
 
+#include <cmath>
+#include <limits>
+
 rb::rb(int _t, int _f, int _tx, int _mimo_layers,  int _n_sc, std::vector<ue> *_ue_list, int _verbosity, log_handler * _logger)
 {
     t = _t; 
@@ -48,13 +51,47 @@ void rb::estimate_params(int syms, float _current_t, int n_enabled)
     current_t = _current_t;
     if(syms > 0)
     {
+        std::vector<schedule_candidate> tied_candidates;
+        float best_metric = -std::numeric_limits<float>::infinity();
         for(std::vector<ue>::iterator it = ue_list->begin(); it != ue_list->end(); ++it)
         {
             schedule_candidate candidate = it->get_schedule_candidate(tx, f, n_enabled, index);
-            if(candidate.has_data && max_metric.evaluate(candidate.metric)){
-                max_metric.assign(candidate.bits_per_symbol, candidate.metric, candidate.ue_index, candidate.ue_id);
+            if (candidate.has_data)
+            {
+                if (candidate.metric > best_metric + 1e-6f)
+                {
+                    best_metric = candidate.metric;
+                    tied_candidates.clear();
+                    tied_candidates.push_back(candidate);
+                }
+                else if (std::fabs(candidate.metric - best_metric) <= 1e-6f)
+                {
+                    tied_candidates.push_back(candidate);
+                }
             }
             index++; 
+        }
+        if (!tied_candidates.empty())
+        {
+            size_t selected = 0;
+            for (size_t i = 0; i < tied_candidates.size(); i++)
+            {
+                if (tied_candidates[i].ue_index >= tie_cursor)
+                {
+                    selected = i;
+                    break;
+                }
+            }
+            const schedule_candidate &winner = tied_candidates[selected];
+            max_metric.assign(
+                winner.bits_per_symbol,
+                winner.metric,
+                winner.ue_index,
+                winner.ue_id);
+            tie_cursor =
+                ue_list->empty()
+                    ? 0
+                    : (winner.ue_index + 1) % static_cast<int>(ue_list->size());
         }
     }
 }

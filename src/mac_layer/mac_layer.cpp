@@ -64,6 +64,7 @@ mac_layer::mac_layer(bool _threading, std::vector<ue> *ue_list, mac_config mac_c
                     mac_c.bandwidth, mac_c.scheduling_mode, mac_c.scheduling_type,
                     mac_c.scheduling_config, mac_c.duplexing_type, mac_c.ratio_DL_UL,_tdd_c)
             {
+                ue_list_v = ue_list;
                 threading = _threading;
                 if(threading) 
                 {
@@ -146,6 +147,12 @@ void mac_layer::step(float current_t)
     {
         grid_dl.step();
         grid_ul.step();
+    }
+
+    if (ue_list_v != nullptr)
+    {
+        for (ue &terminal : *ue_list_v)
+            terminal.commit_scheduler_tti();
     }
 
     monitoring_manager &monitoring = monitoring_manager::instance();

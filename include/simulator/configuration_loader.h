@@ -50,6 +50,8 @@ std::string getBaseMapPath();
 #define DELAY_METRIC_DEFAULT 0.1
 #define BETA_METRIC_DEFAULT 0.5
 #define PKT_DELAY_BUDGET_DEFAULT 0.35f
+#define PF_ALPHA_DEFAULT 1.0f
+#define PF_TIME_WINDOW_MS_DEFAULT 100.0f
 
 // UE PRIORITY
 #define DEFAULT_UE_PRIORITY 1
@@ -281,6 +283,8 @@ private:
     float rtx_proc_delay_var_dl = RTX_PROC_DELAY_VAR_DEFAULT;
     // METRIC COFIGURATION
     int metric_type = DEFAULT_METRIC;
+    float pf_alpha = PF_ALPHA_DEFAULT;
+    float pf_time_window_ms = PF_TIME_WINDOW_MS_DEFAULT;
     // LOG DATA
     int log_freq = -1;
     bool log_mac = false;

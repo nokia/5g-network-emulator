@@ -55,12 +55,18 @@ struct metric_info{
 class metric_handler
 {
 public: 
-    metric_handler(int _metric_type, float _beta = 0.9, float _delay_t = 0.001, float _delta = 0.8 );
+    metric_handler(
+        int _metric_type,
+        float _bet_beta = 0.9,
+        float _delay_t = 0.001,
+        float _delta = 0.8,
+        float _pf_alpha = 1.0);
 private: 
     int rr_index = 0; 
     int prev_f = -1; 
     int metric_t; 
-    float beta; 
+    float bet_beta;
+    float pf_alpha;
     float delay_t; 
     float delta;
     typedef float (metric_handler::*f_ptr)(metric_info metric_i , float current_t, int f);
@@ -74,6 +80,7 @@ public:
     // are enabled, not the UE id and the total count: a disabled UE must not take a turn.
     float get_rr_metric(int f, int rank, int n_enabled);
     bool is_rr();
+    bool is_pf() const;
 private: 
     void assign_metric();
     float fifo(metric_info metric_i, float current_t, int f);

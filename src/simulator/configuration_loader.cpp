@@ -209,7 +209,10 @@ void configuration_loader::load(std::string cfg_file)
                             if (key == "delay_t_metric")
                                 ue_c_list.back().ue_c.delay_t_metric = std::stof(value);
                             if (key == "beta_metric")
+                            {
                                 ue_c_list.back().ue_c.beta_metric = std::stof(value);
+                                ue_c_list.back().ue_c.beta_metric_configured = true;
+                            }
                             if (key == "pkt_delay_budget")
                                 ue_c_list.back().ue_c.pkt_delay_budget = std::stof(value);
                             if (key == "l4s_dual_queue")
@@ -363,6 +366,10 @@ void configuration_loader::load(std::string cfg_file)
                                 // METRIC CONFIG
                                 if (key == "metric_type")
                                     metric_type = std::stoi(value);
+                                if (key == "pf_alpha")
+                                    pf_alpha = std::stof(value);
+                                if (key == "pf_time_window_ms")
+                                    pf_time_window_ms = std::stof(value);
 
                                 // LOG DATA CONFIG
                                 if (key == "log_freq")
@@ -607,6 +614,20 @@ void configuration_loader::load(std::string cfg_file)
     // where it appears in it.
     for (ue_full_config &ue_c : ue_c_list)
         ue_c.ue_c.log_id = get_unique_id();
+
+    if (metric_type == METRIC_PF)
+    {
+        if (pf_alpha < 0.0f || pf_time_window_ms <= 0.0f)
+            throw std::invalid_argument(
+                "PF requires pf_alpha >= 0 and pf_time_window_ms > 0");
+        for (const ue_full_config &ue_c : ue_c_list)
+        {
+            if (ue_c.ue_c.beta_metric_configured)
+                throw std::invalid_argument(
+                    "beta_metric is not valid for PF; configure pf_alpha in "
+                    "[MACLayer] and keep UE priority as the per-UE weight");
+        }
+    }
 }
 
 float configuration_loader::get_period()
@@ -639,7 +660,8 @@ phy_enb_config configuration_loader::get_phy_enb_config()
     return phy_enb_config(tx_power, modulation_m, target_ber,
                           cqi_mode, frequency, bandwidth, mimo_layers,
                           metric_type, interference_ues, interference_eNBs, distance_interference, interfered_bandwidth_ratio,
-                          thermal_noise, enb_noise_figure, ut_noise_figure, eNB_gain, UT_gain, power_boost, numerology);
+                          thermal_noise, enb_noise_figure, ut_noise_figure, eNB_gain, UT_gain, power_boost, numerology,
+                          pf_alpha, pf_time_window_ms);
 }
 
 pdcp_config configuration_loader::get_pdcp_config_ul()
@@ -681,7 +703,7 @@ mac_config configuration_loader::get_mac_config()
 {
     return mac_config(mimo_layers, numerology, n_re_freq, n_ofdm_syms, bandwidth, scheduling_mode,
                       scheduling_type, scheduling_config, metric_type,
-                      duplexing_type, ratio_DL_UL);
+                      duplexing_type, ratio_DL_UL, pf_alpha, pf_time_window_ms);
 }
 
 tdd_config configuration_loader::get_tdd_config()

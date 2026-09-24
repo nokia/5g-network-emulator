@@ -64,11 +64,17 @@ float max_metric_handler::get_value() const
 // METRIC HANDLER METHODS
 //-------------------------
 
-metric_handler::metric_handler(int _metric_type, float _beta, float _delay_t, float _delta)
+metric_handler::metric_handler(
+    int _metric_type,
+    float _bet_beta,
+    float _delay_t,
+    float _delta,
+    float _pf_alpha)
 {
     metric_t = check_metric(_metric_type);
     assign_metric();
-    beta = _beta; 
+    bet_beta = _bet_beta;
+    pf_alpha = _pf_alpha;
     delay_t = _delay_t; 
     delta = _delta; 
 }
@@ -96,7 +102,7 @@ float metric_handler::fifo(metric_info metric_i, float current_t, int f)
 
 float metric_handler::bet(metric_info metric_i, float current_t, int f)
 {
-    return 1/(beta*metric_i.avrg_tp + (1 - beta)*metric_i.current_tp);
+    return 1/(bet_beta*metric_i.avrg_tp + (1 - bet_beta)*metric_i.current_tp);
 }
 
 float metric_handler::dist_delay(metric_info metric_i, float current_t, int f)
@@ -122,13 +128,18 @@ float metric_handler::rr(metric_info metric_i, float current_t, int f)
 float metric_handler::pf(metric_info metric_i, float current_t, int f)
 {
     if(metric_i.avrg_tp!=0)
-        return metric_i.current_tp/pow(metric_i.avrg_tp, beta);// + (1 - beta)*metric_i.current_tp));
+        return pow(metric_i.current_tp, pf_alpha) / metric_i.avrg_tp;
     else return metric_i.current_tp;
 }
 
 bool metric_handler::is_rr()
 {
     return metric_t == METRIC_RR; 
+}
+
+bool metric_handler::is_pf() const
+{
+    return metric_t == METRIC_PF;
 }
 
 float metric_handler::get_rr_metric(int f, int rank, int n_enabled)

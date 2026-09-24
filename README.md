@@ -135,6 +135,9 @@ runtime/software, 74 lost control peer, 75 credit timeout, 76 control-protocol
 integrity failure (including event backlog), and 78 invalid configuration.
 SIGINT and SIGTERM retain their native signal status.
 
+PF configuration and migration from the legacy per-UE beta parameter are
+documented in [docs/pf-scheduler-v2.md](docs/pf-scheduler-v2.md).
+
 ## Execution Warnings and Troubleshooting
 When running FikoRE in emulator mode, you must press Ctrl+C twice:
 

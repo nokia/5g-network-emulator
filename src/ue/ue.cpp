@@ -277,6 +277,12 @@ void ue::set_enabled(bool on)
     {
         pdcp_dl.drop_all();
         pdcp_ul.drop_all();
+        phy_dl.reset_scheduler_state();
+        phy_ul.reset_scheduler_state();
+        scheduler_effective_bits[TX_DL] = 0.0f;
+        scheduler_effective_bits[TX_UL] = 0.0f;
+        scheduler_active[TX_DL] = false;
+        scheduler_active[TX_UL] = false;
     }
 }
 
@@ -309,12 +315,31 @@ float ue::handle_pkt(float bits, int tx_dir, int f_index)
     // brings them back, which keeps the long run rate at rmax without splitting an RBG.
     if (ctl.rmax_bps[tx_dir] > 0.0f) ctl.rmax_tokens[tx_dir] -= bits;
     float eff_tp = pdcp(tx_dir).handle_pkt(bits, phy(tx_dir).get_mcs(f_index), phy(tx_dir).get_sinr(f_index), mobility_m.get_distance());
+    scheduler_effective_bits[tx_dir] += eff_tp;
     return eff_tp;
 }
 
 void ue::finalize_ul_allocation(int allocated_prbs)
 {
     phy_ul.finalize_ul_allocation(allocated_prbs);
+}
+
+void ue::prepare_scheduler_tti(int tx_dir, bool active)
+{
+    scheduler_active[tx_dir] = active;
+    phy(tx_dir).prepare_scheduler_tti(active);
+}
+
+void ue::commit_scheduler_tti()
+{
+    phy_dl.update_scheduler_state(
+        scheduler_effective_bits[TX_DL], scheduler_active[TX_DL]);
+    phy_ul.update_scheduler_state(
+        scheduler_effective_bits[TX_UL], scheduler_active[TX_UL]);
+    scheduler_effective_bits[TX_DL] = 0.0f;
+    scheduler_effective_bits[TX_UL] = 0.0f;
+    scheduler_active[TX_DL] = false;
+    scheduler_active[TX_UL] = false;
 }
 
 float ue::get_delay_t()
@@ -561,6 +586,21 @@ void ue::emit_phy_monitoring()
     dl_point.fields["mcs_mean"] = make_metric_field(phy_dl.get_mean_mcs(), field_aggregation::mean);
     dl_point.fields["eff_mean"] = make_metric_field(phy_dl.get_mean_eff(), field_aggregation::mean);
     dl_point.fields["ri_mean"] = make_metric_field(phy_dl.get_ri(), field_aggregation::mean);
+    if (phy_dl.uses_pf_scheduler())
+    {
+        dl_point.fields["pf_average_throughput_bits_per_tti_last"] =
+            make_metric_field(
+                phy_dl.get_pf_average_throughput_bits_per_tti(),
+                field_aggregation::last);
+        dl_point.fields["pf_metric_mean"] =
+            make_metric_field(
+                phy_dl.get_mean_scheduler_metric(),
+                field_aggregation::mean);
+        dl_point.fields["pf_weighted_metric_mean"] =
+            make_metric_field(
+                phy_dl.get_mean_scheduler_metric() * ctl.priority,
+                field_aggregation::mean);
+    }
     monitoring.publish(dl_point);
 
     metric_point ul_point;
@@ -574,6 +614,21 @@ void ue::emit_phy_monitoring()
     ul_point.fields["mcs_mean"] = make_metric_field(phy_ul.get_mean_mcs(), field_aggregation::mean);
     ul_point.fields["eff_mean"] = make_metric_field(phy_ul.get_mean_eff(), field_aggregation::mean);
     ul_point.fields["ri_mean"] = make_metric_field(phy_ul.get_ri(), field_aggregation::mean);
+    if (phy_ul.uses_pf_scheduler())
+    {
+        ul_point.fields["pf_average_throughput_bits_per_tti_last"] =
+            make_metric_field(
+                phy_ul.get_pf_average_throughput_bits_per_tti(),
+                field_aggregation::last);
+        ul_point.fields["pf_metric_mean"] =
+            make_metric_field(
+                phy_ul.get_mean_scheduler_metric(),
+                field_aggregation::mean);
+        ul_point.fields["pf_weighted_metric_mean"] =
+            make_metric_field(
+                phy_ul.get_mean_scheduler_metric() * ctl.priority,
+                field_aggregation::mean);
+    }
     monitoring.publish(ul_point);
 }
 

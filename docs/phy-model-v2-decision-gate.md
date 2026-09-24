@@ -1,6 +1,6 @@
 # PHY Model V2 Decision Gate
 
-**Status:** Pending owner approval  
+**Status:** Approved on 2026-09-24
 **Required before:** Any profile or runtime behavior change
 
 ## 1. Confirmed context
@@ -45,6 +45,8 @@ model beam state, pattern, pointing loss, blockage, or sidelobes.
 The n258 values are an expert-review baseline, not a product-specific
 calibration. The approximate DL EIRP is 59 dBm before any additional losses.
 
+**Decision:** Approved as proposed.
+
 ### 2.3 Proposed FWA profile set before O2I redesign
 
 The current runtime cannot cleanly select low-loss versus high-loss facade
@@ -55,6 +57,9 @@ models. Therefore Block 0 should add only:
 
 The low-loss/window profile should wait for the supervised O2I work in Block
 2 rather than encoding wall loss indirectly through antenna gain.
+
+**Decision:** Approved. Block 0 will provide outdoor and high-loss stress
+profiles only.
 
 ## 3. Decision B — resource-level signal and noise representation
 
@@ -103,15 +108,44 @@ Options:
    total power over its complete allocation and recompute UL SINR/MCS/grant.
    Most physically coherent, but materially increases scheduler complexity.
 
-Recommendation for the initial branch: option 2 only if the configuration is
-renamed to make the PSD/reference-bandwidth semantics explicit; otherwise use
-option 1 as a documented approximation and keep option 3 for the MIMO/advanced
-review.
+The selected implementation is recorded below.
+
+**Decision:** Use allocation-aware two-stage UL finalization without
+rescheduling:
+
+1. The scheduler uses nominal per-PRB power, corrected by the previous TTI's
+   allocation when the UE is power-limited.
+2. After all UL assignments are known, calculate the current total allocated
+   PRBs per UE.
+3. Recompute total/per-PRB power, SINR, MCS, and grant size.
+4. Do not rerun scheduling in the same TTI.
+
+For fractional power control:
+
+\[
+P_{\mathrm{nominal,PRB}}=P_0+\alpha PL
+\]
+
+\[
+P_{\mathrm{total}}=
+\min(P_{\max},P_{\mathrm{nominal,PRB}}+10\log_{10}M)
+\]
+
+\[
+P_{\mathrm{actual,PRB}}=
+P_{\mathrm{total}}-10\log_{10}M
+\]
+
+For fixed-power mode, the configured value remains a total UE power and is
+distributed over the allocated PRBs. Simplified inter-cell UL interference
+remains a documented per-PRB PSD approximation until the multicell work.
 
 ### 3.4 Thermal-noise configuration
 
 Recommendation: honor `thermal_noise` as noise-density input in dBm/Hz, with
 default `-174`, rather than parsing and ignoring it.
+
+**Decision:** Approved.
 
 ## 4. Decision C — PF state and configuration
 
@@ -158,6 +192,10 @@ short-term boost.
 - Reject per-UE `beta_metric` when `metric_type` selects PF after the migration
   period; do not silently ignore it.
 - Update all canonical configs and documentation in the same commit.
+
+**Decision:** Approved as proposed, including `pf_alpha=1`,
+`pf_time_window_ms=100`, standalone-rate cold start, idle-state freeze,
+zero-throughput updates for active unscheduled UEs, and reset on detach.
 
 ## 5. Decision D — approval scope
 

@@ -1,0 +1,216 @@
+#include <cassert>
+#include <cmath>
+#include <list>
+#include <string>
+
+#include <common/direction.h>
+#include <mac_layer/resource_grid.h>
+#include <simulator/configuration_loader.h>
+
+namespace
+{
+bool near(double actual, double expected, double tolerance = 1e-4)
+{
+    return std::fabs(actual - expected) <= tolerance;
+}
+
+struct expected_profile
+{
+    const char *path;
+    int scenario;
+    double frequency_hz;
+    int bandwidth_hz;
+    int numerology;
+    double tx_power_dbm;
+    double enb_gain_dbi;
+    double ue_gain_dbi;
+    double enb_nf_db;
+    double ue_nf_db;
+    int frequency_rbs;
+    int rbg_size;
+    int frequency_rbgs;
+    int o2i;
+    const char *map_suffix;
+};
+
+void check_profile(const expected_profile &expected)
+{
+    configuration_loader loader(expected.path);
+    const phy_enb_config phy = loader.get_phy_enb_config();
+    const mac_config mac = loader.get_mac_config();
+    const scenario_config scenario = loader.get_scenario_config();
+
+    assert(scenario.type == expected.scenario);
+    assert(near(phy.frequency, expected.frequency_hz, 4096.0));
+    assert(phy.bandwidth == expected.bandwidth_hz);
+    assert(mac.bandwidth == expected.bandwidth_hz);
+    assert(mac.numerology == expected.numerology);
+    assert(near(phy.tx_power, expected.tx_power_dbm));
+    assert(near(phy.eNB_gain, expected.enb_gain_dbi));
+    assert(near(phy.UT_gain, expected.ue_gain_dbi));
+    assert(near(phy.figure_noise_enb, expected.enb_nf_db));
+    assert(near(phy.figure_noise_ut, expected.ue_nf_db));
+    assert(
+        scenario.map_file.size() >= std::string(expected.map_suffix).size()
+        && scenario.map_file.compare(
+               scenario.map_file.size() - std::string(expected.map_suffix).size(),
+               std::string(expected.map_suffix).size(),
+               expected.map_suffix)
+               == 0);
+
+    const std::list<ue_full_config> ue_groups = loader.get_ue_c_list();
+    assert(!ue_groups.empty());
+    for (const ue_full_config &group : ue_groups)
+        assert(group.ue_c.ue_m.o2i == expected.o2i);
+
+    grid shape(
+        TX_DL,
+        mac.mimo_layers,
+        mac.numerology,
+        mac.n_re_freq,
+        mac.n_ofdm_syms,
+        mac.metric_type,
+        mac.bandwidth,
+        mac.scheduling_mode,
+        mac.scheduling_type,
+        mac.scheduling_config,
+        mac.duplexing_type,
+        mac.ratio_DL_UL,
+        loader.get_tdd_config());
+
+    assert(shape.get_n_freq_rb() == expected.frequency_rbs);
+    assert(shape.get_rbg_size() == expected.rbg_size);
+    assert(shape.get_n_freq_rbg() == expected.frequency_rbgs);
+    assert(shape.get_n_time_rb() == (1 << expected.numerology));
+}
+} // namespace
+
+int main()
+{
+    const expected_profile profiles[] = {
+        {
+            "config/offline_umi_n40_npn.ini",
+            URBAN_MICROCELL,
+            2.38e9,
+            20000000,
+            1,
+            43.0,
+            8.7,
+            0.0,
+            2.0,
+            9.0,
+            50,
+            8,
+            6,
+            OUTDOOR,
+            "macroscopic_fading_map_URBAN_MICROCELL_3.5.json",
+        },
+        {
+            "config/offline_uma_n78_pedestrian.ini",
+            URBAN_MACROCELL,
+            3.5e9,
+            100000000,
+            1,
+            46.0,
+            8.7,
+            0.0,
+            2.0,
+            9.0,
+            273,
+            16,
+            17,
+            OUTDOOR,
+            "macroscopic_fading_map_URBAN_MACROCELL_3.5.json",
+        },
+        {
+            "config/offline_rural_n78_vehicular.ini",
+            RURAL_MACROCELL,
+            3.5e9,
+            100000000,
+            1,
+            46.0,
+            8.7,
+            0.0,
+            2.0,
+            9.0,
+            273,
+            1,
+            273,
+            IN_CAR,
+            "macroscopic_fading_map_RURAL_MACROCELL_3.5.json",
+        },
+        {
+            "config/offline_indoor_hotspot_n78_pedestrian.ini",
+            INDOOR_OPEN_OFFICE,
+            3.5e9,
+            100000000,
+            1,
+            24.0,
+            8.7,
+            0.0,
+            2.0,
+            9.0,
+            273,
+            16,
+            17,
+            IN_BUILDING,
+            "macroscopic_fading_map_INDOOR_OPEN_OFFICE_3.5.json",
+        },
+        {
+            "config/emulated_rural_n78_single_with_background.ini",
+            RURAL_MACROCELL,
+            3.5e9,
+            100000000,
+            1,
+            46.0,
+            8.7,
+            0.0,
+            2.0,
+            9.0,
+            273,
+            1,
+            273,
+            IN_CAR,
+            "macroscopic_fading_map_RURAL_MACROCELL_3.5.json",
+        },
+        {
+            "config/offline_umi_n258_fwa.ini",
+            URBAN_MICROCELL,
+            26e9,
+            400000000,
+            3,
+            35.0,
+            24.0,
+            26.0,
+            7.0,
+            10.0,
+            250,
+            16,
+            15,
+            OUTDOOR,
+            "macroscopic_fading_map_URBAN_MICROCELL_26.json",
+        },
+        {
+            "config/offline_umi_n258_fwa_high_loss.ini",
+            URBAN_MICROCELL,
+            26e9,
+            400000000,
+            3,
+            35.0,
+            24.0,
+            26.0,
+            7.0,
+            10.0,
+            250,
+            16,
+            15,
+            IN_BUILDING,
+            "macroscopic_fading_map_URBAN_MICROCELL_26.json",
+        },
+    };
+
+    for (const expected_profile &profile : profiles)
+        check_profile(profile);
+
+    return 0;
+}

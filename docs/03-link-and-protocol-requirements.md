@@ -42,6 +42,18 @@ transport thread and everything else at the quiescent point, so replies do not c
 back in the order they were sent, and waiting for the first one blocks the run until
 the credit timeout.
 
+**A message of N commands is answered N times, and every reply carries the
+message's `id`.** The `id` identifies the message, not the command, so it cannot be
+used to tell one reply from the next; what aligns the stream is counting, one reply
+per command written, in the order they were written. Only the `get` carries a
+`result`. A client that reads one reply per `id` leaves N-1 in the socket and from
+then on reads a previous slot's answers — which are well formed, say `ok`, and
+describe the wrong instant. That was the state of this client until it was first
+run against a real emulator, and the symptom was not an error but a plausible
+number: slots that injected anything reported no arrivals at all, arrivals appeared
+only on the idle slots where the backlog happened to drain, and the round-trip time
+the sender measured was that backlog rather than the network.
+
 **The reply lags by one slot.** Commands are applied and state is resolved at the
 same quiescent point, so the state read at slot `n` reports what finished during
 `n-1`. Arrivals are stamped with the slot in which they were learnt, because that is
@@ -57,15 +69,25 @@ ordering is unobservable, so sequence order is the only defensible one to presen
 ## What works today, and what it costs
 
 Everything above exists in the protocol as it stands, so Phase 1 needs no emulator
-change at all. The measured cost is the object map: 20 live segments per UE across
-4 UEs is 338 µs per slot, and 60 is 809 µs. A congestion window of 60 segments is
-not large — it is 90 KB, about right for 15 Mbps at 50 ms — so a 300 s run would
-take about four minutes of wall clock, and worse as capacity grows.
+change at all. The measured cost is the object map. The barrier on its own is 40 µs
+per slot, 12 s over a 300 s run, and it is not the problem. Adding the state read
+costs 103 µs with one live tag on one UE, 829 µs with a hundred; across 4 UEs it is
+309 µs with one tag each, 749 µs with 20, and 1890 µs with 60. A congestion window
+of 60 segments is not large — it is 90 KB, about right for 15 Mbps at 50 ms — so a
+300 s run is about nine minutes of wall clock, and worse as capacity grows.
 
-The real path confirms it. The same end-to-end script costs 130 to 170 µs per slot
-while a 1 MB object is in flight, and 553 to 844 µs once a bulk flow holds a window
-of 85 to 138 segments. The extra time is the whole object map being serialised,
-parsed and diffed every slot to learn about the handful of segments that changed.
+The real path confirms it. The same end-to-end script costs 245 to 314 µs per slot
+while a 1 MB object is in flight, and 600 to 2100 µs once a bulk flow holds a window
+of tens to hundreds of segments: about 9.7 KB of JSON per slot, 660 µs of it spent
+waiting on the emulator and 250 µs parsing in Python. The extra time is the whole
+object map being serialised, parsed and diffed every slot to learn about the handful
+of segments that changed.
+
+These figures are roughly twice what this document reported before the client was
+fixed, and the earlier ones were understated for a reason worth recording: reading
+one reply per message left the state reply buffered for the next slot to collect, so
+the client never waited for the emulator to produce the answer it was using. Lagging
+a slot behind looks like speed until you notice which slot the answer describes.
 
 The map can be isolated from everything else by sending the same `get` twice in one
 message: the second copy costs what producing it costs, and nothing else. With 2486
@@ -153,3 +175,16 @@ of live tags, the whole map is serialized every slot in both directions, and a r
 of that shape eventually spends more than the emulator's 30 s credit timeout in a
 single slot and is aborted. It is the scaling problem above, reached from the other
 side, and the same per-tag delta feedback fixes it.
+
+**`max_cmds_per_tick` and the barrier do not compose.** The emulator applies at most
+that many commands per TTI and defers the rest to the next one, which is the right
+thing to do when nobody is waiting. Under the barrier nobody can be waiting for
+anything else: the client is blocked on acknowledgements the deferred commands have
+not produced, and the TTI that would produce them needs credit the client cannot
+grant until it is unblocked. The run stops until `credit_timeout_ms` expires and
+then, with `on_timeout: abort`, ends. A lockstep slot carries one command per
+segment, so the shipped 256 is below an ordinary congestion window and the config
+has to raise it; `EmulatorConfig.max_cmds_per_tick` does, and the client refuses a
+slot it knows will not fit rather than hanging. Deferring the limit in the emulator
+would be reasonable too — a barrier could take everything addressed to the TTI it is
+about to run — but nothing here needs it.

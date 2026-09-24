@@ -370,6 +370,17 @@ void configuration_loader::load(std::string cfg_file)
                                     pf_alpha = std::stof(value);
                                 if (key == "pf_time_window_ms")
                                     pf_time_window_ms = std::stof(value);
+                                if (key == "pf_intra_tti_update")
+                                {
+                                    if (value == "none")
+                                        pf_intra_tti_update = false;
+                                    else if (value == "allocation_unit")
+                                        pf_intra_tti_update = true;
+                                    else
+                                        throw std::invalid_argument(
+                                            "pf_intra_tti_update must be none or "
+                                            "allocation_unit");
+                                }
 
                                 // LOG DATA CONFIG
                                 if (key == "log_freq")
@@ -661,7 +672,7 @@ phy_enb_config configuration_loader::get_phy_enb_config()
                           cqi_mode, frequency, bandwidth, mimo_layers,
                           metric_type, interference_ues, interference_eNBs, distance_interference, interfered_bandwidth_ratio,
                           thermal_noise, enb_noise_figure, ut_noise_figure, eNB_gain, UT_gain, power_boost, numerology,
-                          pf_alpha, pf_time_window_ms);
+                          pf_alpha, pf_time_window_ms, pf_intra_tti_update);
 }
 
 pdcp_config configuration_loader::get_pdcp_config_ul()
@@ -703,7 +714,8 @@ mac_config configuration_loader::get_mac_config()
 {
     return mac_config(mimo_layers, numerology, n_re_freq, n_ofdm_syms, bandwidth, scheduling_mode,
                       scheduling_type, scheduling_config, metric_type,
-                      duplexing_type, ratio_DL_UL, pf_alpha, pf_time_window_ms);
+                      duplexing_type, ratio_DL_UL, pf_alpha, pf_time_window_ms,
+                      pf_intra_tti_update);
 }
 
 tdd_config configuration_loader::get_tdd_config()

@@ -148,9 +148,14 @@ public:
     float handle_pkt(float bits, int tx_dir, int f_index);
     void finalize_ul_allocation(int allocated_prbs);
     void prepare_scheduler_tti(int tx_dir, bool active);
+    void record_provisional_scheduler_service(int tx_dir, float scheduled_bits);
     void commit_scheduler_tti();
     float get_ul_tx_power_per_prb_dbm() const { return phy_ul.get_current_tx_power_per_prb_dbm(); }
     int get_ul_scheduling_prbs() const { return phy_ul.get_ul_scheduling_prbs(); }
+    int get_max_service_gap_ttis(int tx_dir) const
+    {
+        return scheduler_max_service_gap_ttis[tx_dir];
+    }
     void step();
     void add_current_t(double _current_t){current_t = _current_t; }
 
@@ -282,6 +287,8 @@ private:
     dualpi2_stats last_l4s_dl_interval_stats;
     float scheduler_effective_bits[2] = {0.0f, 0.0f};
     bool scheduler_active[2] = {false, false};
+    int scheduler_current_service_gap_ttis[2] = {0, 0};
+    int scheduler_max_service_gap_ttis[2] = {0, 0};
 
 };
 

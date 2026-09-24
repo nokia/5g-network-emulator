@@ -283,6 +283,10 @@ void ue::set_enabled(bool on)
         scheduler_effective_bits[TX_UL] = 0.0f;
         scheduler_active[TX_DL] = false;
         scheduler_active[TX_UL] = false;
+        scheduler_current_service_gap_ttis[TX_DL] = 0;
+        scheduler_current_service_gap_ttis[TX_UL] = 0;
+        scheduler_max_service_gap_ttis[TX_DL] = 0;
+        scheduler_max_service_gap_ttis[TX_UL] = 0;
     }
 }
 
@@ -330,8 +334,33 @@ void ue::prepare_scheduler_tti(int tx_dir, bool active)
     phy(tx_dir).prepare_scheduler_tti(active);
 }
 
+void ue::record_provisional_scheduler_service(int tx_dir, float scheduled_bits)
+{
+    phy(tx_dir).record_provisional_service(scheduled_bits);
+}
+
 void ue::commit_scheduler_tti()
 {
+    for (int tx_dir = TX_DL; tx_dir <= TX_UL; tx_dir++)
+    {
+        if (!scheduler_active[tx_dir])
+        {
+            scheduler_current_service_gap_ttis[tx_dir] = 0;
+            continue;
+        }
+        if (scheduler_effective_bits[tx_dir] > 0.0f)
+        {
+            scheduler_current_service_gap_ttis[tx_dir] = 0;
+        }
+        else
+        {
+            scheduler_current_service_gap_ttis[tx_dir]++;
+            scheduler_max_service_gap_ttis[tx_dir] =
+                std::max(
+                    scheduler_max_service_gap_ttis[tx_dir],
+                    scheduler_current_service_gap_ttis[tx_dir]);
+        }
+    }
     phy_dl.update_scheduler_state(
         scheduler_effective_bits[TX_DL], scheduler_active[TX_DL]);
     phy_ul.update_scheduler_state(

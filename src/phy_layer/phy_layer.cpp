@@ -122,6 +122,7 @@ phy_layer::phy_layer(int _tx, int _id, scenario_config _scenario_config, phy_ue_
     verbosity = _verbosity;
     bandwidth = _phy_enb_config.bandwidth;
     pf_state.set_time_window_ms(_phy_enb_config.pf_time_window_ms);
+    pf_intra_tti_update = _phy_enb_config.pf_intra_tti_update;
 
     // Metric variables
     init_metric(id);
@@ -862,7 +863,7 @@ void phy_layer::prepare_metrics(float oldest_t, float avg_tp)
     metric_i.req_time = oldest_t;
     metric_i.avrg_tp =
         metric_h.is_pf()
-            ? pf_state.average_throughput()
+            ? pf_metric_average_throughput()
             : avg_tp * MBIT2BIT / S2MS;
     metric_i.current_delay = current_t - metric_i.req_time;
 }
@@ -877,11 +878,29 @@ float phy_layer::standalone_rate_bits_per_tti() const
            * static_cast<float>(1 << numerology);
 }
 
+float phy_layer::pf_metric_average_throughput() const
+{
+    if (!pf_intra_tti_update || !pf_state.initialized())
+        return pf_state.average_throughput();
+    return pf_state.projected_average(pf_provisional_service_bits);
+}
+
 void phy_layer::prepare_scheduler_tti(bool active)
 {
+    pf_provisional_service_bits = 0.0f;
     if (!metric_h.is_pf() || !active)
         return;
     pf_state.prepare(standalone_rate_bits_per_tti());
+}
+
+void phy_layer::record_provisional_service(float scheduled_bits)
+{
+    if (!metric_h.is_pf() || !pf_intra_tti_update)
+        return;
+    pf_provisional_service_bits += std::max(scheduled_bits, 0.0f);
+    metric_i.avrg_tp = pf_metric_average_throughput();
+    for (int f = 0; f < n_rbs; f++)
+        estimate_metric(f);
 }
 
 void phy_layer::update_scheduler_state(float effective_bits, bool active)
@@ -895,6 +914,7 @@ void phy_layer::update_scheduler_state(float effective_bits, bool active)
 void phy_layer::reset_scheduler_state()
 {
     pf_state.reset();
+    pf_provisional_service_bits = 0.0f;
 }
 
 void phy_layer::estimate_metric(int f)

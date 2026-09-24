@@ -105,6 +105,7 @@ public:
     float assignRFBandwidth(float bandwidth);
     void finalize_ul_allocation(int allocated_prbs);
     void prepare_scheduler_tti(bool active);
+    void record_provisional_service(float scheduled_bits);
     void update_scheduler_state(float effective_bits, bool active);
     void reset_scheduler_state();
     float get_current_tx_power_per_prb_dbm() const { return current_tx_power_per_prb_dbm; }
@@ -157,6 +158,7 @@ private:
     void estimate_tp(int f);
     void prepare_metrics(float oldest_t, float avg_tp);
     float standalone_rate_bits_per_tti() const;
+    float pf_metric_average_throughput() const;
     int get_modulation_index();
     int get_n_layers();
 
@@ -265,6 +267,8 @@ private:
     metric_handler metric_h;
     metric_info metric_i;
     pf_throughput_state pf_state;
+    bool pf_intra_tti_update = false;
+    float pf_provisional_service_bits = 0.0f;
 
 private:
     std::vector<int> cqi_v;

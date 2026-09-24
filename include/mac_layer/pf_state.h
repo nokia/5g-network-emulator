@@ -46,6 +46,17 @@ public:
     bool initialized() const { return initialized_; }
     float average_throughput() const { return average_throughput_; }
     float time_window_ms() const { return time_window_ms_; }
+    float projected_average(float current_tti_bits) const
+    {
+        if (!initialized_)
+            return 0.0f;
+        const float coefficient =
+            1.0f - std::exp(-1.0f / time_window_ms_);
+        return std::max(
+            (1.0f - coefficient) * average_throughput_
+                + coefficient * current_tti_bits,
+            1e-6f);
+    }
 
 private:
     float time_window_ms_ = 100.0f;

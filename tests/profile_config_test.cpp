@@ -47,6 +47,7 @@ void check_profile(const expected_profile &expected)
     assert(mac.numerology == expected.numerology);
     assert(near(mac.pf_alpha, 1.0));
     assert(near(mac.pf_time_window_ms, 100.0));
+    assert(!mac.pf_intra_tti_update);
     assert(near(phy.tx_power, expected.tx_power_dbm));
     assert(near(phy.eNB_gain, expected.enb_gain_dbi));
     assert(near(phy.UT_gain, expected.ue_gain_dbi));

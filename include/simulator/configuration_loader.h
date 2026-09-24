@@ -285,6 +285,7 @@ private:
     int metric_type = DEFAULT_METRIC;
     float pf_alpha = PF_ALPHA_DEFAULT;
     float pf_time_window_ms = PF_TIME_WINDOW_MS_DEFAULT;
+    bool pf_intra_tti_update = false;
     // LOG DATA
     int log_freq = -1;
     bool log_mac = false;

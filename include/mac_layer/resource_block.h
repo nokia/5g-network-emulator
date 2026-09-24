@@ -63,6 +63,12 @@ public:
                    ? max_metric.get_index()
                    : -1;
     }
+    float planned_scheduled_bits(int syms) const
+    {
+        return planned_ue_index() >= 0
+                   ? max_metric.get_tp() * syms
+                   : 0.0f;
+    }
     int last_ue_index() const { return last_ue_index_v; }
     float last_scheduled_bits() const { return last_scheduled_bits_v; }
     float last_effective_bits() const { return last_effective_bits_v; }

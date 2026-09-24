@@ -184,7 +184,13 @@ void grid::step()
             // UL power is a per-UE total-power budget. Plan the complete frequency
             // allocation for this time group before deriving per-PRB power and MCS.
             for (int f = 0; f < n_freq_rbg; f++)
+            {
                 rb_grid[t][f].estimate_params(syms, current_t, n_enabled);
+                const int ue_index = rb_grid[t][f].planned_ue_index();
+                if (ue_index >= 0)
+                    (*ue_list)[ue_index].record_provisional_scheduler_service(
+                        tx, rb_grid[t][f].planned_scheduled_bits(syms));
+            }
 
             std::vector<int> allocated_prbs(
                 ue_list != nullptr ? ue_list->size() : 0, 0);
@@ -208,6 +214,10 @@ void grid::step()
             for (int f = 0; f < n_freq_rbg; f++)
             {
                 rb_grid[t][f].estimate_params(syms, current_t, n_enabled);
+                const int ue_index = rb_grid[t][f].planned_ue_index();
+                if (ue_index >= 0)
+                    (*ue_list)[ue_index].record_provisional_scheduler_service(
+                        tx, rb_grid[t][f].planned_scheduled_bits(syms));
                 rb_grid[t][f].handle_packet(syms);
                 record_rbg(f);
             }

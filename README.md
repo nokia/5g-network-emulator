@@ -48,15 +48,43 @@ whole of it; see [docs/03](docs/03-link-and-protocol-requirements.md).
 ### Measured
 
 End to end against FikoRE (one UE, 20 MHz, proportional fair, 20 ms PDCP delay
-budget, 256 KB receive window, 3 s of simulated time):
+budget, 256 KB receive window, 3 s of simulated time), saturating the cell:
 
 | Congestion control | Goodput | SRTT | Window | Retransmits | Losses reported by the emulator | RTOs | Wall clock |
 | :-- | --: | --: | --: | --: | --: | --: | --: |
-| CUBIC | 60.5 Mbps | 22.1 ms | 138 seg | 521 | 491 expired | 0 | 2.5 s |
-| Reno | 56.4 Mbps | 12.6 ms | 85 seg | 232 | 232 expired | 0 | 1.7 s |
+| Reno | 59.7 Mbps | 18.5 ms | 100 seg | 265 | 265 expired | 0 | 6.3 s |
+| CUBIC | 25.4 Mbps | 6.2 ms | 15 seg | 155 | 121 expired | 1 | 1.8 s |
 
 Reno's retransmission count matches the emulator's loss count exactly, which is the
-check that the sender is inferring loss rather than being told about it.
+check that the sender is inferring loss rather than being told about it. CUBIC
+takes a timeout on this bottleneck and does not recover the pipe within the run;
+that is the transport model's behaviour, not the link's, and it is unexplained.
+
+Every run is checked for byte conservation: what the link submitted comes back
+delivered, lost with a cause, or still inside the emulator, and the emulator's own
+per-UE totals are compared against the link's. A 1 MB object over an unloaded cell
+finishes in 142 ms at 56.3 Mbps with all 1 000 000 bytes delivered and none lost.
+
+### What a slot costs
+
+This decides whether a 300 s experiment is affordable, and the answer is that the
+barrier is nearly free while reading the state back is not. From
+`benchmarks/bench_lockstep.py`:
+
+| Round trip | Per slot | Extrapolated to a 300 s run |
+| :-- | --: | --: |
+| grant only, no state read | 40 us | 12 s |
+| grant + `get`, 1 UE, 1 live object | 119 us | 36 s |
+| grant + `get`, 1 UE, 100 live objects | 820 us | 246 s |
+| grant + `get`, 4 UEs, 20 live objects each | 778 us | 233 s |
+| grant + `get`, 4 UEs, 60 live objects each | 1859 us | 557 s |
+| grant + `get` every 10 slots, 4 UEs, 20 each | 849 us | 25 s |
+
+The cost is linear in the number of live object tags, because the whole UE state
+is re-serialised every slot: about 9.7 KB of JSON per slot under a saturating
+transfer, of which roughly 660 us is spent waiting on the emulator and 250 us
+parsing in Python. One TTI per round trip is viable — a 300 s run is minutes, not
+hours — but the window size, not the duration, is what sets the bill.
 
 Prague against the same bottleneck, over the deterministic link so that the two
 runs differ in nothing but the controller (50 Mbps, 20 ms, 512 KB queue, CE above
@@ -72,9 +100,9 @@ the library exists, and it now also runs against the emulator's own DualPI2:
 `benchmarks/e2e_prague.py`.
 
 Through the backend, two UEs fetching a queue of 375 kB objects over 6 s of
-simulated time: 106 objects, median 110 ms each, about 27 Mbps per UE, with
+simulated time: 110 objects, median 110 ms each, about 28 Mbps per UE, with
 throughput, round-trip time, drop rate, queue occupancy and SINR reported per
-window. 4.7 s of wall clock, of which most is the per-slot object map.
+window. 14.8 s of wall clock, of which most is the per-slot object map.
 
 The ideal transport against the transport model, same 300 kB object over the same
 bottleneck: it finishes in 0.14 s against 0.23 s, and drops 2503 segments doing it
@@ -98,7 +126,8 @@ fikore_transport/
   fikore_link.py   the control-protocol client as a Link
   backend.py       the pilot's NetworkBackend over the transport model
 prague/            the C++ shim over the L4S reference, and its Makefile
-tests/             every transport, against the loopback link
+tests/             every transport against the loopback link, and the link
+                   itself against a real emulator
 benchmarks/        lockstep cost, one transfer, an object queue, and Prague
 docs/              the design
 ```
@@ -111,6 +140,7 @@ python3 tests/test_loopback_transfer.py        # no emulator needed
 python3 tests/test_backend.py                  # no emulator needed
 python3 tests/test_transports.py               # ideal and UDP
 python3 tests/test_prague.py                   # needs the binding
+python3 tests/test_fikore_link.py              # needs bin/fikore; skips without it
 python3 benchmarks/bench_lockstep.py           # cost of one slot per round trip
 python3 benchmarks/e2e_fikore.py               # one transfer over FikoRE
 python3 benchmarks/e2e_backend.py              # a player-like object queue, 2 UEs

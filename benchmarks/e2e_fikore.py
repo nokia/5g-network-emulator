@@ -63,6 +63,17 @@ def run(size_bytes=1_000_000, duration_s=4.0, cc_cls=Cubic, ack_over_link=False,
           f"lost={lost:4d} rto={sender.stats.rto_events:2d} | "
           f"{link.round_trips} slots in {wall:5.2f} s "
           f"({wall/max(link.round_trips,1)*1e6:5.0f} us/slot)")
+    # The byte account, which is the only thing that says the run was real rather
+    # than merely fast: what went in came out delivered, lost with a reason, or is
+    # still inside the emulator.
+    terminal = link.terminal_bytes
+    settled = sum(terminal.values()) + link.in_flight_bytes
+    causes = " ".join(f"{k}={v}" for k, v in link.lost_bytes_by_cause.items() if v)
+    print(f"{'':22} bytes: submitted={link.submitted_bytes} "
+          f"delivered={terminal['delivered']} dropped={terminal['dropped']} "
+          f"expired={terminal['expired']} in-flight={link.in_flight_bytes} "
+          f"-> {'conserved' if settled == link.submitted_bytes else 'LOST ' + str(link.submitted_bytes - settled)}"
+          f"{' | ' + causes if causes else ''}")
     return sender
 
 

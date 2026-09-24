@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 import re
+import socket
 import subprocess
 import time
 from dataclasses import dataclass, field
@@ -25,6 +26,12 @@ class EmulatorConfig:
     pkt_size_bits: int = 12000        # the MSS the transport model must match
     delay_budget_s: float = 30.0      # see docs/03: the budget is not the experiment
     log_path: str | None = None
+    # The emulator applies at most this many commands per TTI and defers the rest to
+    # the next one. A slot carries one command per segment, so the shipped 256 is
+    # below a window of a few hundred segments, and the deferred tail would be a
+    # deadlock: the client waits for acknowledgements that only the next TTI can
+    # produce, and that TTI needs the credit the client has not granted yet.
+    max_cmds_per_tick: int = 8192
     extra: dict[str, str] = field(default_factory=dict)
 
     def render(self, path: str) -> str:
@@ -41,6 +48,7 @@ class EmulatorConfig:
             "sync_mode": "barrier",
             "address": self.socket_path,
             "on_timeout": "abort",
+            "max_cmds_per_tick": f"{self.max_cmds_per_tick}",
             "progress_log_period_s": "0",
             **self.extra,
         }
@@ -79,9 +87,37 @@ class Emulator:
             if os.path.exists(self.cfg.socket_path):
                 return
             if self.proc.poll() is not None:
-                raise RuntimeError(f"emulator exited early, see {self._log.name}")
+                raise RuntimeError(f"emulator exited early{self.log_tail()}")
             time.sleep(0.01)
-        raise TimeoutError(f"socket never appeared, see {self._log.name}")
+        raise TimeoutError(f"socket never appeared{self.log_tail()}")
+
+    def connect(self, timeout_s: float = 10.0) -> socket.socket:
+        """The file exists from `bind`, but only `listen` makes it connectable, so a
+        connection refused here is the emulator still starting up and not a failure."""
+        self.wait_for_socket(timeout_s)
+        deadline = time.time() + timeout_s
+        while True:
+            sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            try:
+                sock.connect(self.cfg.socket_path)
+                return sock
+            except (ConnectionRefusedError, FileNotFoundError):
+                sock.close()
+                if self.proc.poll() is not None:
+                    raise RuntimeError(f"emulator exited early{self.log_tail()}")
+                if time.time() >= deadline:
+                    raise
+                time.sleep(0.01)
+
+    def log_tail(self, lines: int = 12) -> str:
+        """Appended to every failure: a stack trace in the client says nothing about
+        why the emulator refused, and the reason is always in its log."""
+        try:
+            self._log.flush()
+            tail = open(self._log.name).read().splitlines()[-lines:]
+        except OSError:
+            return f" (see {self._log.name})"
+        return f"\n--- tail of {self._log.name} ---\n" + "\n".join(tail)
 
     def close(self) -> None:
         if self.proc.poll() is None:

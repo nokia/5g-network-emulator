@@ -20,8 +20,9 @@ public:
     simulated_packet_handler(int ue_id, traffic_config traffic_c, pdcp_config pdcp_c, unsigned int seed, int verbosity = 0);
 
     float ingest(int tx_dir, float current_t) override;
-    void drop(harq_pkt pkt, bool expired) override;
+    void drop(harq_pkt pkt, bit_fate fate) override;
     void drop_ingress_pkt(ip_pkt pkt) override;
+    void flush_released() override;
     float release() override;
     bool set_traffic_target(int tx_dir, float bps) override;
     bool get_traffic_target(int tx_dir, float &bps) const override;

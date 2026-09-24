@@ -43,6 +43,8 @@ double injected(ue &u, int tx_dir) { return u.pdcp_state(tx_dir).injected_bits_t
 double delivered(ue &u, int tx_dir) { return u.pdcp_state(tx_dir).delivered_bits_total() / 8.0; }
 double expired(ue &u, int tx_dir) { return u.pdcp_state(tx_dir).expired_bits_total() / 8.0; }
 double dropped(ue &u, int tx_dir) { return u.pdcp_state(tx_dir).dropped_bits_total() / 8.0; }
+double queue_dropped(ue &u, int tx_dir) { return u.pdcp_state(tx_dir).queue_dropped_bits_total() / 8.0; }
+double radio_dropped(ue &u, int tx_dir) { return u.pdcp_state(tx_dir).radio_dropped_bits_total() / 8.0; }
 double pending(ue &u, int tx_dir) { return u.pdcp_state(tx_dir).pending_bits() / 8.0; }
 
 // With no generator and no injection, nothing is created.
@@ -176,6 +178,35 @@ void test_counters_are_monotonic()
     }
     assert(last_in == 200000.0);
 }
+
+// Detaching a UE throws away whatever was still queued, and those bytes have to land
+// somewhere. Two of them used to reach the per object counters and never the per UE
+// totals, so the two disagreed on how much had been injected: the ingress queue, and the
+// bits already granted on the air that were waiting out the backhaul delay with nobody
+// left to call release() for them.
+void test_detaching_accounts_for_what_it_throws_away()
+{
+    write_file(TIMELINE,
+               "{\"id\":1,\"at_tti\":10,\"cmds\":[{\"target\":\"ue/0\",\"set\":{\"dl.inject_bytes\":4000000}}]}\n"
+               "{\"id\":2,\"at_tti\":40,\"cmds\":[{\"target\":\"ue/0\",\"set\":{\"enabled\":false}}]}\n");
+    write_config(TIMELINE, "0.0");
+
+    simulator sim(CONFIG);
+    ue &u = (*sim.ue_list())[0];
+
+    // 4 MB against 30 TTIs of air: most of it is still queued when the detach lands.
+    sim.run_steps(41);
+
+    // The flush counts as a queue drop, not as a radio one, and nothing had time to expire.
+    assert(queue_dropped(u, TX_DL) > 1000000.0);
+    assert(radio_dropped(u, TX_DL) == 0.0);
+    assert(expired(u, TX_DL) == 0.0);
+
+    // And the per UE totals add up to what was injected, which is what the holes broke.
+    const double accounted = delivered(u, TX_DL) + expired(u, TX_DL) + dropped(u, TX_DL)
+                           + pending(u, TX_DL);
+    assert(std::fabs(accounted - 4000000.0) < 1500.0);
+}
 }
 
 int main()
@@ -185,6 +216,7 @@ int main()
     test_injection_adds_to_the_generator();
     test_delay_budget_is_the_binding_constraint();
     test_counters_are_monotonic();
+    test_detaching_accounts_for_what_it_throws_away();
     std::remove(TIMELINE);
     std::remove(CONFIG);
     return 0;

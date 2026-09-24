@@ -486,7 +486,13 @@ nlohmann::json direction_state(ue &u, int tx_dir)
     j["injected_bytes_total"] = p.injected_bits_total() / 8.0;
     j["delivered_bytes_total"] = p.delivered_bits_total() / 8.0;
     j["expired_bytes_total"] = p.expired_bits_total() / 8.0;
+    // dropped_bytes_total is every non-expiry loss, which is what it has always been and
+    // what the co-simulation spec closes an object with. The two below split it into the
+    // answer a client actually wants: the AQM fires at 15 ms of queue and is asking the
+    // sender to slow down, while an exhausted HARQ means the link itself is bad.
     j["dropped_bytes_total"] = p.dropped_bits_total() / 8.0;
+    j["queue_dropped_bytes_total"] = p.queue_dropped_bits_total() / 8.0;
+    j["radio_dropped_bytes_total"] = p.radio_dropped_bits_total() / 8.0;
     j["ce_packets_total"] = p.ce_packets_total();
     j["pending_packets"] = q.ip_buffer_size;
     j["pending_bytes"] = p.pending_bits() / 8.0;
@@ -509,8 +515,10 @@ nlohmann::json direction_state(ue &u, int tx_dir)
         {
             nlohmann::json c;
             c["delivered_bytes"] = it->second.delivered_bits / 8.0;
-            c["dropped_bytes"] = it->second.dropped_bits / 8.0;
+            c["dropped_bytes"] = it->second.dropped_bits() / 8.0;
             c["expired_bytes"] = it->second.expired_bits / 8.0;
+            c["queue_dropped_bytes"] = it->second.queue_dropped_bits / 8.0;
+            c["radio_dropped_bytes"] = it->second.radio_dropped_bits / 8.0;
             c["ce_bytes"] = it->second.ce_bits / 8.0;
             o[std::to_string(it->first)] = c;
         }

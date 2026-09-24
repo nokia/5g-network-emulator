@@ -65,14 +65,18 @@ void pdcp_layer::drain_ingress_pkts()
         ip_pkt pkt = _packet_h->pop_ingress_pkt();
         if(!_ip_buffer.add_pkt(pkt))
         {
+            // A tail drop on a full buffer. Recorded here and not in drop_ingress_pkt
+            // because that one only reaches the per object counters, and the per UE
+            // totals have to add up the same way.
+            _packet_h->record_error(pkt.size, bit_fate::queue_dropped);
             _packet_h->drop_ingress_pkt(std::move(pkt));
         }
     }
     harq_pkt dropped;
     while(_ip_buffer.pop_aqm_dropped_pkt(dropped))
     {
-        _packet_h->record_error(dropped.bits, false);
-        _packet_h->drop(std::move(dropped), false);
+        _packet_h->record_error(dropped.bits, bit_fate::queue_dropped);
+        _packet_h->drop(std::move(dropped), bit_fate::queue_dropped);
     }
 }
 
@@ -113,13 +117,13 @@ float pdcp_layer::handle_pkt(float bits, int mcs, float sinr, float distance)
                 harq_pkt dropped;
                 while(_ip_buffer.pop_aqm_dropped_pkt(dropped))
                 {
-                    _packet_h->record_error(dropped.bits, false);
-                    _packet_h->drop(std::move(dropped), false);
+                    _packet_h->record_error(dropped.bits, bit_fate::queue_dropped);
+                    _packet_h->drop(std::move(dropped), bit_fate::queue_dropped);
                 }
                 if(pkt.bits <= 0.0f) continue;
                 if(is_expired(pkt))
                 {
-                    drop_harq_pkt(std::move(pkt), true);
+                    drop_harq_pkt(std::move(pkt), bit_fate::expired);
                     continue;
                 }
                 if(_harq_buffer.get_rtx(mcs, sinr, 0))
@@ -149,7 +153,7 @@ float pdcp_layer::handle_pkt(float bits, int mcs, float sinr, float distance)
             else
             {
                 // Retransmissions exhausted: a radio failure, not an overfed client.
-                drop_harq_pkt(std::move(pkt), false);
+                drop_harq_pkt(std::move(pkt), bit_fate::radio_dropped);
             }
             return 0;
         }
@@ -162,11 +166,11 @@ float pdcp_layer::handle_pkt(float bits, int mcs, float sinr, float distance)
     }
 }
 
-void pdcp_layer::drop_harq_pkt(harq_pkt pkt, bool expired)
+void pdcp_layer::drop_harq_pkt(harq_pkt pkt, bit_fate fate)
 {
     _ip_buffer.drop_pkt(pkt.bits);
-    _packet_h->record_error(pkt.bits, expired);
-    _packet_h->drop(std::move(pkt), expired);
+    _packet_h->record_error(pkt.bits, fate);
+    _packet_h->drop(std::move(pkt), fate);
 }
 
 bool pdcp_layer::is_expired(float ip_t) const
@@ -219,11 +223,18 @@ bool pdcp_layer::using_l4s() const
     return _ip_buffer.using_dualpi2();
 }
 
+// Emptying the queues of a detached UE. All of it counts as a queue drop: the client
+// asked for the detach and knows it happened, so a cause of its own would only add a
+// counter nobody reads.
 void pdcp_layer::drop_all()
 {
     while(_packet_h->has_ingress_pkts())
     {
-        _packet_h->drop_ingress_pkt(_packet_h->pop_ingress_pkt());
+        ip_pkt pkt = _packet_h->pop_ingress_pkt();
+        // Same reason as the tail drop above: drop_ingress_pkt does not reach the per UE
+        // totals, so they would stop adding up to what was injected.
+        _packet_h->record_error(pkt.size, bit_fate::queue_dropped);
+        _packet_h->drop_ingress_pkt(std::move(pkt));
     }
 
     while(_ip_buffer.has_pkts())
@@ -231,14 +242,16 @@ void pdcp_layer::drop_all()
         harq_pkt pkt(current_id, _ip_buffer.get_oldest_timestamp(), current_t, 0, 0, 0, bh_d, bh_d_var);
         current_id++;
         if(!_ip_buffer.pop_oldest_pkt(pkt)) break;
-        drop_harq_pkt(std::move(pkt), false);
+        drop_harq_pkt(std::move(pkt), bit_fate::queue_dropped);
     }
 
     harq_pkt rtx_pkt;
     while(_harq_buffer.pop_pkt_older_than(std::numeric_limits<float>::max(), rtx_pkt))
     {
-        drop_harq_pkt(std::move(rtx_pkt), false);
+        drop_harq_pkt(std::move(rtx_pkt), bit_fate::queue_dropped);
     }
+
+    _packet_h->flush_released();
 }
 
 void pdcp_layer::cleanup_expired_pkts()
@@ -258,7 +271,7 @@ void pdcp_layer::cleanup_expired_ip_pkts()
         current_id++;
 
         if(!_ip_buffer.pop_oldest_pkt(pkt)) break;
-        drop_harq_pkt(std::move(pkt), true);
+        drop_harq_pkt(std::move(pkt), bit_fate::expired);
     }
 }
 
@@ -267,7 +280,7 @@ void pdcp_layer::cleanup_expired_harq_pkts()
     harq_pkt pkt;
     while(_harq_buffer.pop_pkt_older_than(oldest_allowed_ip_t(), pkt))
     {
-        drop_harq_pkt(std::move(pkt), true);
+        drop_harq_pkt(std::move(pkt), bit_fate::expired);
     }
 }
 

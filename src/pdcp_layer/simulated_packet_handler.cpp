@@ -98,17 +98,29 @@ float simulated_packet_handler::ingest(int tx_dir, float current_t)
     return generated + injected;
 }
 
-void simulated_packet_handler::drop(harq_pkt pkt, bool expired)
+void simulated_packet_handler::drop(harq_pkt pkt, bit_fate fate)
 {
     for(std::deque<ip_pkt>::const_iterator it = pkt.pkts.begin(); it != pkt.pkts.end(); ++it)
     {
-        update_pending_packet(*it, expired ? bit_fate::expired : bit_fate::dropped);
+        update_pending_packet(*it, fate);
     }
 }
 
 void simulated_packet_handler::drop_ingress_pkt(ip_pkt pkt)
 {
-    update_pending_packet(pkt, bit_fate::dropped);
+    update_pending_packet(pkt, bit_fate::queue_dropped);
+}
+
+void simulated_packet_handler::flush_released()
+{
+    for(std::deque<harq_pkt>::const_iterator it = pkt_list.begin(); it != pkt_list.end(); ++it)
+    {
+        for(std::deque<ip_pkt>::const_iterator pkt_it = it->pkts.begin(); pkt_it != it->pkts.end(); ++pkt_it)
+        {
+            update_pending_packet(*pkt_it, bit_fate::queue_dropped);
+        }
+    }
+    packet_handler::flush_released();
 }
 
 float simulated_packet_handler::release()
@@ -162,7 +174,8 @@ void simulated_packet_handler::update_pending_packet(const ip_pkt& pkt, bit_fate
             if(pkt.ce_marked) o.ce_bits += pkt.size;
         }
         else if(fate == bit_fate::expired) o.expired_bits += pkt.size;
-        else o.dropped_bits += pkt.size;
+        else if(fate == bit_fate::radio_dropped) o.radio_dropped_bits += pkt.size;
+        else o.queue_dropped_bits += pkt.size;
     }
 
     const bool dropped = fate != bit_fate::delivered;

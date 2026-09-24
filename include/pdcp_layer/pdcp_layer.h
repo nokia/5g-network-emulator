@@ -59,6 +59,8 @@ public:
     float retransmitted_bits_total() const { return rtx_bits_total_; }
     float expired_bits_total() const { return _packet_h->expired_bits_total(); }
     float dropped_bits_total() const { return _packet_h->dropped_bits_total(); }
+    float queue_dropped_bits_total() const { return _packet_h->queue_dropped_bits_total(); }
+    float radio_dropped_bits_total() const { return _packet_h->radio_dropped_bits_total(); }
     int ce_packets_total() const { return _packet_h->ce_packets_total(); }
     float pending_bits() const { return _ip_buffer.bits(); }
     int get_pkt_size() const { return _packet_h->get_pkt_size(); }
@@ -69,7 +71,7 @@ private:
     void cleanup_expired_pkts();
     void cleanup_expired_ip_pkts();
     void cleanup_expired_harq_pkts();
-    void drop_harq_pkt(harq_pkt pkt, bool expired);
+    void drop_harq_pkt(harq_pkt pkt, bit_fate fate);
     bool is_expired(float ip_t) const;
     bool is_expired(const harq_pkt& pkt) const;
     float oldest_allowed_ip_t() const;

@@ -79,9 +79,9 @@ void captured_packet_handler::push(harq_pkt pkt)
     sort_by_id();
 }
 
-void captured_packet_handler::drop(harq_pkt pkt, bool expired)
+void captured_packet_handler::drop(harq_pkt pkt, bit_fate fate)
 {
-    (void)expired;
+    (void)fate;
     for(std::deque<ip_pkt>::iterator jt = pkt.pkts.begin(); jt != pkt.pkts.end(); jt++)
     {
         jt->t_out = pkt.t_out;

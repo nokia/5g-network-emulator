@@ -159,10 +159,15 @@ def test_injection_and_state_block(client):
 
     dl = body["state"]["dl"]
     for field in ("injected_bytes_total", "delivered_bytes_total", "expired_bytes_total",
-                  "dropped_bytes_total", "pending_bytes", "pending_packets",
+                  "dropped_bytes_total", "queue_dropped_bytes_total",
+                  "radio_dropped_bytes_total", "pending_bytes", "pending_packets",
                   "oldest_age_s", "latency_s", "ce_packets_total"):
         assert field in dl
     assert dl["injected_bytes_total"] == pytest.approx(before + 100000.0)
+    # dropped_bytes_total is the sum of its two causes, which is what keeps
+    # delivered + dropped + expired == injected true for a co-simulation client.
+    assert dl["dropped_bytes_total"] == pytest.approx(
+        dl["queue_dropped_bytes_total"] + dl["radio_dropped_bytes_total"])
     assert body["state"]["pkt_size_bits"] > 0
 
 

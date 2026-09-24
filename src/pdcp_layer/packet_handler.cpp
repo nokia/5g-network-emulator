@@ -68,10 +68,19 @@ void packet_handler::push(harq_pkt pkt)
     pkt_list.push_back(std::move(pkt));
 }
 
-void packet_handler::drop(harq_pkt pkt, bool expired)
+void packet_handler::drop(harq_pkt pkt, bit_fate fate)
 {
     (void)pkt;
-    (void)expired;
+    (void)fate;
+}
+
+void packet_handler::flush_released()
+{
+    for(std::deque<harq_pkt>::const_iterator it = pkt_list.begin(); it != pkt_list.end(); ++it)
+    {
+        record_error(it->bits, bit_fate::queue_dropped);
+    }
+    pkt_list.clear();
 }
 
 float packet_handler::release()
@@ -153,11 +162,16 @@ float packet_handler::get_tp(bool elapsed)
     else return BIT2MBIT*tp_mean.get()*S2MS;
 }
 
-void packet_handler::record_error(float bits, bool expired)
+void packet_handler::record_error(float bits, bit_fate fate)
 {
     if(verbosity > 0) e_mean.add(bits);
-    if(expired) expired_bits_total_ += bits;
-    else dropped_bits_total_ += bits;
+    switch(fate)
+    {
+        case bit_fate::expired:        expired_bits_total_ += bits; break;
+        case bit_fate::queue_dropped:  queue_dropped_bits_total_ += bits; break;
+        case bit_fate::radio_dropped:  radio_dropped_bits_total_ += bits; break;
+        case bit_fate::delivered:      break;
+    }
 }
 
 void packet_handler::push_ingress_pkt(ip_pkt pkt)

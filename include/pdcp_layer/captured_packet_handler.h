@@ -25,7 +25,7 @@ public:
     float ingest(int tx_dir, float current_t) override;
     void drop_ingress_pkt(ip_pkt pkt) override;
     void push(harq_pkt pkt) override;
-    void drop(harq_pkt pkt, bool expired) override;
+    void drop(harq_pkt pkt, bit_fate fate) override;
     float release() override;
     void fill_queue_status(pdcp_queue_status& status, float current_t) const override;
 

@@ -28,7 +28,8 @@ void write_file(const char *path, const std::string &text)
 
 // The control smoke scenario with the generators silenced and the dual queue on, so
 // that the only traffic is what the test injects and ECT(1) has somewhere to go.
-void write_config(const std::string &timeline)
+// budget_s overrides pkt_delay_budget when positive.
+void write_config(const std::string &timeline, double budget_s = -1.0)
 {
     std::ifstream base("tests/control_smoke.ini");
     assert(base.is_open());
@@ -39,6 +40,8 @@ void write_config(const std::string &timeline)
         if (line.rfind("timeline_file:", 0) == 0) line = "timeline_file: " + timeline;
         if (line.rfind("dl_target:", 0) == 0) line = "dl_target: 0.0";
         if (line.rfind("ul_target:", 0) == 0) line = "ul_target: 0.0";
+        if (budget_s > 0.0 && line.rfind("pkt_delay_budget:", 0) == 0)
+            line = "pkt_delay_budget: " + std::to_string(budget_s);
         if (line.rfind("[eNBConfig]", 0) == 0)
             line = "l4s_dual_queue: true\nl4s_target_ms: 1.0\n" + line;
         text += line + "\n";
@@ -113,7 +116,7 @@ void test_ect1_is_marked_instead_of_dropped()
     // Marks are a fraction of what arrived, not a restatement of it.
     assert(o.ce_bits <= o.delivered_bits);
     // And the object is still conserved: a mark is not a fate.
-    assert(std::fabs((o.delivered_bits + o.dropped_bits + o.expired_bits) / 8.0 - flood) < 1500.0);
+    assert(std::fabs((o.delivered_bits + o.dropped_bits() + o.expired_bits) / 8.0 - flood) < 1500.0);
 }
 
 // The same flood without the field earns no marks: not-ECT traffic can only be dropped,
@@ -131,7 +134,33 @@ void test_not_ect_traffic_is_never_marked()
 
     const object_counters &o = counters(u, 2);
     assert(o.ce_bits == 0.0);
-    assert(o.dropped_bits + o.expired_bits > 0.0);
+    assert(o.dropped_bits() + o.expired_bits > 0.0);
+}
+
+// An AQM drop is not a late packet. The dual queue fires off its own target -1 ms here-
+// and the delay budget is a different threshold three orders of magnitude away, so with
+// the budget raised out of reach the AQM still drops and nothing expires. This is the
+// configuration the co-simulation harness runs its driven UEs in, and the reason the two
+// causes are counted apart rather than added together.
+void test_the_aqm_drops_long_before_the_budget_would()
+{
+    const double flood = 2000000.0;
+
+    write_file(TIMELINE, inject(10, 5, (long)flood, nullptr));
+    write_config(TIMELINE, 60.0);
+
+    simulator sim(CONFIG);
+    ue &u = (*sim.ue_list())[0];
+    sim.run_steps(3000);
+
+    const object_counters &o = counters(u, 5);
+    assert(o.queue_dropped_bits > 0.0);
+    assert(o.expired_bits == 0.0);
+    // Good channel at 300 m, so the losses are the queue's and not the link's.
+    assert(o.radio_dropped_bits == 0.0);
+    // And dropped_bytes, which is what the co-simulation spec closes an object with,
+    // still means every non-expiry loss.
+    assert(o.dropped_bits() == o.queue_dropped_bits);
 }
 
 // Two objects on one UE, one scalable and one classic, are marked apart. This is what a
@@ -155,6 +184,7 @@ int main()
     test_the_ecn_field_is_parsed_by_name();
     test_ect1_is_marked_instead_of_dropped();
     test_not_ect_traffic_is_never_marked();
+    test_the_aqm_drops_long_before_the_budget_would();
     test_marks_are_attributed_per_object();
     std::remove(TIMELINE);
     std::remove(CONFIG);

@@ -61,7 +61,7 @@ bool known(ue &u, std::uint32_t tag)
 }
 
 double delivered(const object_counters &o) { return o.delivered_bits / 8.0; }
-double lost(const object_counters &o) { return (o.dropped_bits + o.expired_bits) / 8.0; }
+double lost(const object_counters &o) { return (o.dropped_bits() + o.expired_bits) / 8.0; }
 
 // Traffic from the generator, and injection through the knob, carry no tag.
 void test_untagged_traffic_creates_no_objects()

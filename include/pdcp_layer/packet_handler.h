@@ -27,14 +27,28 @@ enum class final_packet_verdict
 };
 
 // Terminal state of a packet's bits, from the point of view of whoever handed them over.
+// The three losses are kept apart because they ask the client for different things, and
+// because the first two are easy to mistake for one another:
+//
+//   - expired is deterministic and about this packet: it sat longer than the budget.
+//   - queue_dropped is mostly the AQM asking the sender to slow down. It is
+//     probabilistic, it looks at the head of the queue and not at the packet it
+//     sacrifices, and with the default 15 ms target it fires some twenty times earlier
+//     than the 350 ms budget. A packet dropped here would have made it out well within
+//     its budget.
+//   - radio_dropped is the only one that means the link itself is bad.
 enum class bit_fate
 {
     delivered,
-    // Discarded against the delay budget: the client is overfeeding.
+    // Past the delay budget.
     expired,
-    // Discarded by the AQM, by an exhausted HARQ or by a full buffer: the radio is
-    // struggling, or the queue is.
-    dropped
+    // Anything the queue itself got rid of for a reason that is not the radio: an AQM
+    // drop, a tail drop on a full buffer, or the queues being emptied when the UE was
+    // detached. The detach is not broken out because the client asked for it and already
+    // knows, so the only thing the count would add is noise.
+    queue_dropped,
+    // Retransmissions exhausted.
+    radio_dropped
 };
 
 // What happened to the bits of one object. Cumulative and monotonic, like the per UE
@@ -42,12 +56,18 @@ enum class bit_fate
 struct object_counters
 {
     float delivered_bits = 0.0f;
-    float dropped_bits = 0.0f;
     float expired_bits = 0.0f;
+    float queue_dropped_bits = 0.0f;
+    float radio_dropped_bits = 0.0f;
     // Congestion marks, in bits of delivered payload. Per object rather than per UE
     // because a scalable sender needs the marks of its own flow, and a UE can carry
     // more than one.
     float ce_bits = 0.0f;
+
+    // Both drop causes as one number. The co-simulation spec closes an object with
+    // delivered + dropped + expired == injected, so the sum stays available under the
+    // name it has there, covering exactly what it used to cover.
+    float dropped_bits() const { return queue_dropped_bits + radio_dropped_bits; }
 };
 
 class packet_handler
@@ -64,7 +84,12 @@ public:
     ip_pkt pop_ingress_pkt();
     virtual void drop_ingress_pkt(ip_pkt pkt);
     virtual void push(harq_pkt pkt);
-    virtual void drop(harq_pkt pkt, bool expired);
+    virtual void drop(harq_pkt pkt, bit_fate fate);
+    // Bits already granted on the air and waiting out the backhaul delay. A detach has to
+    // resolve them too: nobody calls release() for a UE that is gone, so without this they
+    // end up neither delivered nor lost. A captured source overrides push() and never
+    // fills pkt_list, so for it this is a no-op and the netfilter verdicts are untouched.
+    virtual void flush_released();
     virtual float release();
     virtual void fill_queue_status(pdcp_queue_status& status, float current_t) const;
 
@@ -99,13 +124,14 @@ public:
     // nothing and the emulator keeps no "since last time" state.
     float delivered_bits_total() const { return delivered_bits_total_; }
     float expired_bits_total() const { return expired_bits_total_; }
-    float dropped_bits_total() const { return dropped_bits_total_; }
+    float queue_dropped_bits_total() const { return queue_dropped_bits_total_; }
+    float radio_dropped_bits_total() const { return radio_dropped_bits_total_; }
+    float dropped_bits_total() const { return queue_dropped_bits_total_ + radio_dropped_bits_total_; }
     int ce_packets_total() const { return ce_packets_total_; }
 
-    // Expiry by delay budget means the client is overfeeding; an AQM drop or an
-    // exhausted HARQ means the radio is struggling. Merging them would make the reading
-    // useless, so the caller states which one it is.
-    void record_error(float bits, bool expired);
+    // The caller states the cause; see bit_fate for why the three are not interchangeable.
+    // Never called with delivered.
+    void record_error(float bits, bit_fate fate);
 
 protected:
     void push_ingress_pkt(ip_pkt pkt);
@@ -126,7 +152,8 @@ protected:
     mean_handler<float> e_mean;
     float delivered_bits_total_ = 0.0f;
     float expired_bits_total_ = 0.0f;
-    float dropped_bits_total_ = 0.0f;
+    float queue_dropped_bits_total_ = 0.0f;
+    float radio_dropped_bits_total_ = 0.0f;
     int ce_packets_total_ = 0;
     int final_accept_packets_interval = 0;
     int final_accept_ce_packets_interval = 0;

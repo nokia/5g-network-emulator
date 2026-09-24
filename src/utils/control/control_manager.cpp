@@ -194,11 +194,22 @@ void control_manager::wait_for_credit(std::int64_t tti)
         return;
     }
 
-    if (!granted && on_timeout_ == on_timeout_t::abort)
+    if (!granted)
     {
-        stopping_ = true;
-        LOG_ERROR_I("control_manager")
-            << " no credit for tti " << tti << " after " << timeout_.count() << " ms; aborting" << END();
+        if (on_timeout_ == on_timeout_t::abort)
+        {
+            stopping_ = true;
+            LOG_ERROR_I("control_manager")
+                << " no credit for tti " << tti << " after " << timeout_.count() << " ms; aborting" << END();
+            return;
+        }
+
+        // Only reachable if it was asked for, and still worth a line: from here on the
+        // run is not the synchronised experiment it was configured to be, and without
+        // this that would be invisible in the output.
+        LOG_WARNING_I("control_manager")
+            << " no credit for tti " << tti << " after " << timeout_.count()
+            << " ms; running it anyway, the run is no longer in lockstep" << END();
     }
 }
 
@@ -290,8 +301,16 @@ void control_manager::drain_transport()
 
 void control_manager::apply_due(double sim_t, std::int64_t tti)
 {
+    // The cap bounds how long one TTI may take, which only matters when the run is
+    // pacing itself against the wall clock. A barrier run never is -- init degrades
+    // barrier to async when period > 0 -- and there the client owns the clock. Deferring
+    // commands it is blocked on then manufactures a stall it cannot clear: the
+    // acknowledgements it is waiting for would only come from a TTI it has not granted,
+    // and it cannot grant that TTI until it stops waiting.
+    const bool capped = mode_ != mode_t::barrier;
     int applied = 0;
-    while (!sched_.empty() && sched_.top().at_tti <= tti && applied < max_cmds_per_tick_)
+    while (!sched_.empty() && sched_.top().at_tti <= tti
+           && (!capped || applied < max_cmds_per_tick_))
     {
         command c = sched_.top().cmd;
         sched_.pop();

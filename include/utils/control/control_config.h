@@ -26,7 +26,11 @@ struct control_config
     // when period > 0 and degrades to async with a warning.
     std::string sync_mode = "async";
     int credit_timeout_ms = 30000;
-    std::string on_timeout = "continue"; // continue | abort
+    // Only consulted in barrier mode. Defaults to abort for the same reason on_peer_loss
+    // does: a TTI run without its credit is not the synchronised experiment that was
+    // asked for, and carrying on records that as if it were data. Set it to continue if
+    // you would rather have an unsynchronised result than none.
+    std::string on_timeout = "abort"; // abort | continue
 
     // What to do in barrier mode when a controller that had connected goes away.
     // abort ends the run; continue carries on free running for the rest of it. An

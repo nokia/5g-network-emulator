@@ -332,17 +332,7 @@ void configuration_loader::load(std::string cfg_file)
                                 if (key == "bandwidth")
                                     bandwidth = std::stoi(value);
                                 if (key == "frequency")
-                                {
                                     frequency = std::stod(value);
-                                    std::cout << "frequency " << frequency << std::endl;
-                                    std::cout << "scenario_type " << scenario_type << std::endl;
-                                }
-
-                                map_file = getClosestMapFile(scenario_type, frequency);
-                                if (map_file.empty())
-                                {
-                                    std::cerr << "Failed to find a valid map file for scenario_type: " << scenario_type << " and frequency: " << frequency << std::endl;
-                                }
                             }
                             if (mode == "PDCP_RLC")
                             {
@@ -621,6 +611,13 @@ void configuration_loader::load(std::string cfg_file)
         LOG_WARNING_I("configuration_loader::load") << "File doesn't exit...falling back to defaults" << END();
     }
 
+    // Resolve the map only after all sections have been parsed. This removes the
+    // historical dependency on Scenario appearing before eNBConfig.
+    map_file = getClosestMapFile(scenario_type, frequency);
+    if (map_file.empty())
+        throw std::invalid_argument(
+            "no map is available for the configured scenario and frequency");
+
     // Once the whole file has been read, so that run_id decides the name no matter
     // where it appears in it.
     for (ue_full_config &ue_c : ue_c_list)
@@ -779,7 +776,8 @@ std::string configuration_loader::getClosestMapFile(int scenario_type, double fr
     auto scenarioIt = SCENARIO_TYPE_MAP.find(scenario_type);
     if (scenarioIt == SCENARIO_TYPE_MAP.end())
     {
-        std::cerr << "Unknown scenario_type: " << scenario_type << std::endl;
+        LOG_ERROR_I("configuration_loader::getClosestMapFile")
+            << "Unknown scenario_type: " << scenario_type << END();
         return "";
     }
 
@@ -788,7 +786,8 @@ std::string configuration_loader::getClosestMapFile(int scenario_type, double fr
     auto freqIt = AVAILABLE_FREQUENCIES.find(scenarioName);
     if (freqIt == AVAILABLE_FREQUENCIES.end())
     {
-        std::cerr << "No frequencies available for scenario: " << scenarioName << std::endl;
+        LOG_ERROR_I("configuration_loader::getClosestMapFile")
+            << "No frequencies available for scenario: " << scenarioName << END();
         return "";
     }
 
@@ -815,8 +814,14 @@ std::string configuration_loader::getClosestMapFile(int scenario_type, double fr
     }
 
     std::string mapFilePath = getBaseMapPath() + scenarioName + "_" + freqStr + ".json";
-
-    std::cout << "Generated map file path: " << mapFilePath << std::endl;
+    if (std::abs(closestFreq - freqGHz) > 1e-6)
+    {
+        LOG_WARNING_I("configuration_loader::getClosestMapFile")
+            << "Requested " << freqGHz << " GHz for " << scenarioName
+            << "; selected nearest map at " << closestFreq << " GHz" << END();
+    }
+    LOG_INFO_I("configuration_loader::getClosestMapFile")
+        << "Selected map " << mapFilePath << END();
 
     return mapFilePath;
 }

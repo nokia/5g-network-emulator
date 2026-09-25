@@ -1,5 +1,6 @@
 #include <cassert>
 #include <cmath>
+#include <fstream>
 #include <list>
 #include <string>
 
@@ -224,6 +225,22 @@ int main()
 
     for (const expected_profile &profile : profiles)
         check_profile(profile);
+
+    const std::string reordered_path =
+        "build/tests/profile_config_reordered.ini";
+    std::ofstream reordered(reordered_path);
+    reordered
+        << "[eNBConfig]\n"
+        << "frequency: 26000000000\n"
+        << "bandwidth: 400000000\n"
+        << "[Scenario]\n"
+        << "scenario_type: 0\n";
+    reordered.close();
+    configuration_loader reordered_loader(reordered_path);
+    assert(
+        reordered_loader.get_scenario_config().map_file.find(
+            "URBAN_MICROCELL_26.json")
+        != std::string::npos);
 
     return 0;
 }

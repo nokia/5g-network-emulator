@@ -70,6 +70,10 @@ The experimental mode uses nominal scheduled bits only for provisional
 intra-TTI ordering. It must be benchmarked across localized/distributed and
 grouped/per-RB scheduling modes before a production default is selected.
 
+The parser default remains `none`. Canonical grouped-RBG PF profiles explicitly
+select `allocation_unit`; high-resolution per-RB experiments must opt in after
+considering their runtime budget.
+
 ## Migration
 
 Remove `beta_metric` from every PF UE section and add the two PF keys to

@@ -43,8 +43,8 @@ The complete machine-readable results are in
 
 | Frequency mode | Median runtime change | Runtime range | Mean DL Jain gain | Mean maximum-gap reduction |
 |---|---:|---:|---:|---:|
-| Grouped RBG | -1.0% | -8.5% to +4.7% | +0.261 | 27.5 TTIs |
-| Per-RB | +11.2% | -5.7% to +92.3% | +0.135 | 27.9 TTIs |
+| Grouped RBG | +1.3% | -14.0% to +13.5% | +0.261 | 27.5 TTIs |
+| Per-RB | +1.5% | -3.2% to +5.9% | +0.119 | 12.4 TTIs |
 
 The negative timing values in some short cases are measurement noise; the
 screening run is sufficient to distinguish negligible grouped-mode overhead
@@ -57,43 +57,43 @@ performance regression threshold.
 
 | Time mode | Frequency mode | Decisions/TTI | Reranking | µs/TTI | DL Jain | Max DL gap |
 |---|---|---:|---|---:|---:|---:|
-| Localized | Grouped | 17 | none | 37,556 | 0.450 | 47 |
-| Localized | Grouped | 17 | allocation unit | 37,638 | 0.995 | 11 |
-| Distributed | Grouped | 34 | none | 37,520 | 0.449 | 47 |
-| Distributed | Grouped | 34 | allocation unit | 37,438 | 0.998 | 9 |
-| Localized | Per-RB | 273 | none | 39,309 | 0.450 | 47 |
-| Localized | Per-RB | 273 | allocation unit | 44,552 | 0.600 | 16 |
-| Distributed | Per-RB | 546 | none | 42,514 | 0.447 | 47 |
-| Distributed | Per-RB | 546 | allocation unit | 44,338 | 0.538 | 26 |
+| Localized | Grouped | 17 | none | 35,448 | 0.450 | 47 |
+| Localized | Grouped | 17 | allocation unit | 35,529 | 0.997 | 13 |
+| Distributed | Grouped | 34 | none | 35,745 | 0.449 | 47 |
+| Distributed | Grouped | 34 | allocation unit | 35,993 | 0.998 | 9 |
+| Localized | Per-RB | 273 | none | 37,897 | 0.450 | 47 |
+| Localized | Per-RB | 273 | allocation unit | 38,609 | 0.569 | 41 |
+| Distributed | Per-RB | 546 | none | 38,723 | 0.447 | 47 |
+| Distributed | Per-RB | 546 | allocation unit | 38,621 | 0.539 | 35 |
 
 ### 400 MHz / μ3 / 64 UEs
 
 | Time mode | Frequency mode | Decisions/TTI | Reranking | µs/TTI | DL Jain | Max DL gap |
 |---|---|---:|---|---:|---:|---:|
-| Localized | Grouped | 15 | none | 39,877 | 0.625 | 47 |
-| Localized | Grouped | 15 | allocation unit | 37,492 | 0.987 | 24 |
-| Distributed | Grouped | 120 | none | 41,201 | 0.625 | 47 |
-| Distributed | Grouped | 120 | allocation unit | 39,219 | 0.995 | 10 |
-| Localized | Per-RB | 250 | none | 40,201 | 0.625 | 47 |
-| Localized | Per-RB | 250 | allocation unit | 43,808 | 0.752 | 0 |
-| Distributed | Per-RB | 2,000 | none | 44,258 | 0.476 | 47 |
-| Distributed | Per-RB | 2,000 | allocation unit | 61,346 | 0.492 | 1 |
+| Localized | Grouped | 15 | none | 35,419 | 0.625 | 47 |
+| Localized | Grouped | 15 | allocation unit | 35,898 | 0.994 | 19 |
+| Distributed | Grouped | 120 | none | 36,061 | 0.625 | 47 |
+| Distributed | Grouped | 120 | allocation unit | 36,694 | 0.991 | 13 |
+| Localized | Per-RB | 250 | none | 38,200 | 0.625 | 47 |
+| Localized | Per-RB | 250 | allocation unit | 40,466 | 0.625 | 47 |
+| Distributed | Per-RB | 2,000 | none | 47,359 | 0.476 | 47 |
+| Distributed | Per-RB | 2,000 | allocation unit | 46,852 | 0.476 | 47 |
 
 ## Interpretation
 
 1. Allocation-unit reranking provides a large fairness and continuity benefit
    in grouped-RBG modes.
-2. The grouped-mode runtime effect is below the noise floor of this short
-   screening benchmark.
-3. Per-RB reranking can be materially more expensive, especially for
-   distributed 400 MHz / μ3.
+2. After the scalar-denominator optimization, both grouped and per-RB median
+   runtime effects are close to the noise floor of this short benchmark.
+3. Fine per-RB grants may be too small to materially change a 100 ms PF EWMA
+   within one TTI; the 400 MHz / μ3 per-RB cases show no fairness benefit.
 4. At very high decision counts, fairness after only 50 TTIs remains sensitive
    to TDD phase and finite observation duration; longer functional runs are
    required before comparing final Jain values.
 5. Aggregate throughput changes little in most DL cases; the primary benefit is
    service continuity and fairness.
 
-## Proposed production policy
+## Production policy
 
 - Keep both modes configurable.
 - Use `allocation_unit` in the canonical grouped-RBG PF profiles.
@@ -103,4 +103,5 @@ performance regression threshold.
 - Run a repeated timing suite on the target real-time host before changing the
   global parser default.
 
-This policy is pending owner approval.
+This policy was approved on 2026-09-25. The results above use the optimized
+O(1) scalar-denominator update.

@@ -207,6 +207,9 @@ Approval of this packet authorizes:
 
 It does not authorize:
 
-- a production default for intra-TTI reranking;
 - semantic map/O2I changes;
 - multicell, beamforming, CA, or MIMO redesign.
+
+The intra-TTI benchmark decision was approved separately on 2026-09-25:
+canonical grouped-RBG PF profiles use `allocation_unit`, while the parser
+default remains `none` for custom and per-RB configurations.

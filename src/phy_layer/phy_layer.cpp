@@ -898,9 +898,6 @@ void phy_layer::record_provisional_service(float scheduled_bits)
     if (!metric_h.is_pf() || !pf_intra_tti_update)
         return;
     pf_provisional_service_bits += std::max(scheduled_bits, 0.0f);
-    metric_i.avrg_tp = pf_metric_average_throughput();
-    for (int f = 0; f < n_rbs; f++)
-        estimate_metric(f);
 }
 
 void phy_layer::update_scheduler_state(float effective_bits, bool active)
@@ -935,6 +932,13 @@ float phy_layer::get_metric(int f, int n_enabled, int rr_rank, float priority)
 {
     if (metric_h.is_rr())
         return metric_h.get_rr_metric(f, rr_rank, n_enabled);
+    if (metric_h.is_pf())
+    {
+        metric_info current = metric_i;
+        current.current_tp = tp_v[f];
+        current.avrg_tp = pf_metric_average_throughput();
+        return metric_h.get_metric(current, current_t, f) * priority;
+    }
     return metric_v[f] * priority;
 }
 

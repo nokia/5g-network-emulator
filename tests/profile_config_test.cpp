@@ -31,6 +31,7 @@ struct expected_profile
     int frequency_rbgs;
     int o2i;
     const char *map_suffix;
+    bool pf_intra_tti_update = false;
 };
 
 void check_profile(const expected_profile &expected)
@@ -47,7 +48,7 @@ void check_profile(const expected_profile &expected)
     assert(mac.numerology == expected.numerology);
     assert(near(mac.pf_alpha, 1.0));
     assert(near(mac.pf_time_window_ms, 100.0));
-    assert(!mac.pf_intra_tti_update);
+    assert(mac.pf_intra_tti_update == expected.pf_intra_tti_update);
     assert(near(phy.tx_power, expected.tx_power_dbm));
     assert(near(phy.eNB_gain, expected.enb_gain_dbi));
     assert(near(phy.UT_gain, expected.ue_gain_dbi));
@@ -111,6 +112,7 @@ int main()
             6,
             OUTDOOR,
             "macroscopic_fading_map_URBAN_MICROCELL_3.5.json",
+            true,
         },
         {
             "config/offline_uma_n78_pedestrian.ini",
@@ -128,6 +130,7 @@ int main()
             17,
             OUTDOOR,
             "macroscopic_fading_map_URBAN_MACROCELL_3.5.json",
+            true,
         },
         {
             "config/offline_rural_n78_vehicular.ini",
@@ -162,6 +165,7 @@ int main()
             17,
             IN_BUILDING,
             "macroscopic_fading_map_INDOOR_OPEN_OFFICE_3.5.json",
+            true,
         },
         {
             "config/emulated_rural_n78_single_with_background.ini",
@@ -196,6 +200,7 @@ int main()
             15,
             OUTDOOR,
             "macroscopic_fading_map_URBAN_MICROCELL_26.json",
+            true,
         },
         {
             "config/offline_umi_n258_fwa_high_loss.ini",
@@ -213,6 +218,7 @@ int main()
             15,
             IN_BUILDING,
             "macroscopic_fading_map_URBAN_MICROCELL_26.json",
+            true,
         },
     };
 

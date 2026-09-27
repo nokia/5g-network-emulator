@@ -6,7 +6,10 @@
 MapHandler::MapHandler(const std::string &filename) : filename(filename)
 {
     loadMap(filename);
-    maxApothem = cellNumber * cellSize / 2;
+    maxApothem =
+        schemaVersion >= 2
+            ? (cellNumber - 1) * cellSize / 2
+            : cellNumber * cellSize / 2;
 }
 
 // Loads map data from a JSON file
@@ -31,6 +34,9 @@ void MapHandler::loadMap(const std::string &filename)
         {
             std::cerr << "JSON key 'map' is missing" << std::endl;
         }
+
+        if (jsonData.contains("schema_version"))
+            schemaVersion = jsonData["schema_version"].get<int>();
 
         if (jsonData.contains("cell_size"))
         {
@@ -94,8 +100,12 @@ float MapHandler::bilinearInterpolation(float x, float y) const
     int height = cellNumber;
     int width = height;
 
-    float x_index = (x / cellSize) + (width / 2.0f);
-    float y_index = (y / cellSize) + (height / 2.0f);
+    const float origin_index =
+        schemaVersion >= 2
+            ? (width - 1) / 2.0f
+            : width / 2.0f;
+    float x_index = (x / cellSize) + origin_index;
+    float y_index = (y / cellSize) + origin_index;
 
     int x0 = std::floor(x_index);
     int x1 = std::ceil(x_index);

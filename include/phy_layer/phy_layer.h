@@ -167,6 +167,7 @@ private:
     std::uniform_real_distribution<float> distance_cqi_dist{-1, 1};
     std::uniform_real_distribution<float> uniform_stochastics{0.0, 1.0};
     std::normal_distribution<float> sinr_stochastics{0.0, 1.0};
+    std::normal_distribution<float> penetration_stochastics{0.0, 1.0};
 
 private:
     int modulation_m;
@@ -301,6 +302,8 @@ private:
     float antenna_h_172;
     float w;
     int o2i;
+    int penetration_profile = PENETRATION_LEGACY_AUTO;
+    int vehicle_profile = VEHICLE_STANDARD;
     int tx_dir = TX_DL;
 private:
     pos2d prev_pos;

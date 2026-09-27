@@ -315,6 +315,7 @@ private:
     bool mcs_tables = MCS_TABLES_DEFAULT;
     // MAP
     std::string map_file = MAP_FILE_DEFAULT;
+    bool map_file_explicit = false;
     // MAC LAYER
     int mimo_layers = MIMO_LAYERS_DEFAULT;
     int ofdm_symbols = OFDM_SYMBOLS_DEFAULT;

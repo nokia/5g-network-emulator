@@ -56,8 +56,9 @@ int phy_shared::verify_outdoor_to_indoor()
 
     case 3: // INDOOR_HOTSPOT
     case 4: // INDOOR_FACTORY
-        // Only valid value: OUTDOOR (10)
-        if (o2i == OUTDOOR)
+        // Both endpoints are inside the indoor scenario. IN_BUILDING records the UE
+        // location but does not imply an exterior-wall loss.
+        if (o2i == OUTDOOR || o2i == IN_BUILDING)
             return o2i;
         break;
 

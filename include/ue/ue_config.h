@@ -7,6 +7,7 @@
 #pragma once
 
 #include <phy_layer/phy_config.h>
+#include <phy_layer/phy_l_definitions.h>
 #include <random>
 #include <traffic_models/traffic_config.h>//este no estaba antes
 #include <pdcp_layer/pdcp_config.h>
@@ -47,6 +48,11 @@ struct ue_model
                  alpha_ul=_alpha_ul;
                  scaling_factor = _scaling_factor; 
                  o2i=_o2i;
+                 penetration_profile =
+                     _o2i == IN_BUILDING
+                         ? PENETRATION_LEGACY_AUTO
+                         : PENETRATION_NONE;
+                 vehicle_profile = VEHICLE_STANDARD;
             } 
     int n_antennas; 
     float nominal_pusch_p0; 
@@ -55,6 +61,8 @@ struct ue_model
     float alpha_ul; 
     float scaling_factor = 1;
     int o2i;
+    int penetration_profile = PENETRATION_LEGACY_AUTO;
+    int vehicle_profile = VEHICLE_STANDARD;
     int cqi_period; 
     int ri_period; 
     float ue_h; 
@@ -159,6 +167,7 @@ struct ue_config
     {
       return phy_ue_config(ue_m.alpha_ul,ue_m.nominal_pusch_p0,ue_m.set_ul_pow,ue_m.tx_power_ul, ue_m.cqi_period, ue_m.ri_period,
                                   ue_m.n_antennas,  ue_m.ue_h, priority,
-                                  delay_t_metric, delta_metric, beta_metric, mobility_c.get_max_speed(), ue_m.scaling_factor);
+                                  delay_t_metric, delta_metric, beta_metric, mobility_c.get_max_speed(), ue_m.scaling_factor,
+                                  ue_m.penetration_profile, ue_m.vehicle_profile);
     }
 };

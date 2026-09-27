@@ -94,6 +94,8 @@ test: $(TARGET) $(TEST_BINS)
 	@$(PYTHON) tests/exit_status_test.py
 	@echo "[TEST] tools/maps/validate_maps.py"
 	@python3 tools/maps/validate_maps.py
+	@echo "[TEST] tools/maps/test_generator_v2.py"
+	@python3 tools/maps/test_generator_v2.py
 
 test-transport:
 	@set -e; \

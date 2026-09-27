@@ -10,6 +10,7 @@
 #include <random>
 #include <string>
 #include <map/map_handler.h>
+#include <phy_layer/phy_l_definitions.h>
 
 //--------------------------------------------------------------------------------------------------
 // scenario_config(): modeled scenario configuration struct.
@@ -140,7 +141,9 @@ struct phy_ue_config
     phy_ue_config() {}
     phy_ue_config(float _alpha_ul, float _nominal_pusch_p0, bool _set_ul_pow, float _tx_power_ul, int _cqi_period,
                   int _ri_period, int _n_antennas, float _ue_h, float _priority,
-                  float _delay_t, float _delta, float _beta, float _max_speed, float _scaling_factor)
+                  float _delay_t, float _delta, float _beta, float _max_speed, float _scaling_factor,
+                  int _penetration_profile = PENETRATION_LEGACY_AUTO,
+                  int _vehicle_profile = VEHICLE_STANDARD)
     {
 
         cqi_period = _cqi_period;
@@ -161,6 +164,8 @@ struct phy_ue_config
         scaling_factor = _scaling_factor;
 
         priority = _priority;
+        penetration_profile = _penetration_profile;
+        vehicle_profile = _vehicle_profile;
     }
 
     float nominal_pusch_p0;
@@ -177,6 +182,8 @@ struct phy_ue_config
     float max_speed;
     float scaling_factor;
     float priority = 1;
+    int penetration_profile = PENETRATION_LEGACY_AUTO;
+    int vehicle_profile = VEHICLE_STANDARD;
 };
 
 #endif

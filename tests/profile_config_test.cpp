@@ -33,6 +33,8 @@ struct expected_profile
     int o2i;
     const char *map_suffix;
     bool pf_intra_tti_update = false;
+    int penetration_profile = PENETRATION_NONE;
+    int vehicle_profile = VEHICLE_STANDARD;
 };
 
 void check_profile(const expected_profile &expected)
@@ -70,6 +72,10 @@ void check_profile(const expected_profile &expected)
         assert(group.ue_c.ue_m.o2i == expected.o2i);
         if (mac.metric_type == METRIC_PF)
             assert(!group.ue_c.beta_metric_configured);
+        assert(
+            group.ue_c.ue_m.penetration_profile
+            == expected.penetration_profile);
+        assert(group.ue_c.ue_m.vehicle_profile == expected.vehicle_profile);
     }
 
     grid shape(
@@ -220,6 +226,7 @@ int main()
             IN_BUILDING,
             "macroscopic_fading_map_URBAN_MICROCELL_26.json",
             true,
+            PENETRATION_HIGH_LOSS,
         },
     };
 
@@ -241,6 +248,23 @@ int main()
         reordered_loader.get_scenario_config().map_file.find(
             "URBAN_MICROCELL_26.json")
         != std::string::npos);
+
+    const std::string explicit_path =
+        "build/tests/profile_config_explicit_map.ini";
+    std::ofstream explicit_config(explicit_path);
+    explicit_config
+        << "[Scenario]\n"
+        << "scenario_type: 0\n"
+        << "map_file: results/maps-v2-candidates/"
+        << "macroscopic_fading_map_URBAN_MICROCELL_2.38.json\n"
+        << "[eNBConfig]\n"
+        << "frequency: 2380000000\n";
+    explicit_config.close();
+    configuration_loader explicit_loader(explicit_path);
+    assert(
+        explicit_loader.get_scenario_config().map_file
+        == "results/maps-v2-candidates/"
+           "macroscopic_fading_map_URBAN_MICROCELL_2.38.json");
 
     return 0;
 }

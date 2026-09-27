@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  **********************************************/
 #include <phy_layer/phy_layer.h>
+#include <phy_layer/penetration_model.h>
 #include <phy_layer/power_model.h>
 #include <utils/rng_seed.h>
 
@@ -130,6 +131,8 @@ phy_layer::phy_layer(int _tx, int _id, scenario_config _scenario_config, phy_ue_
     // Model variables
     init_scenario(_scenario_config.type, _scenario_config.eNB_h, _scenario_config.w,
                   _scenario_config.antenna_h, _phy_ue_config.ue_h, _phy_ue_config.max_speed);
+    penetration_profile = _phy_ue_config.penetration_profile;
+    vehicle_profile = _phy_ue_config.vehicle_profile;
 
     // Phy configuration
     init_phy(_phy_enb_config.frequency, max_speed, _phy_enb_config.target_ber, ue_h,
@@ -382,49 +385,30 @@ float phy_layer::compute_pathloss_ABG(float distance, bool los)
 }
 float phy_layer::compute_penetration_losses()
 {
-
     if (o2i == OUTDOOR)
-    {
-        pltw = 0.0f;
-    }
-    else if (o2i == IN_BUILDING)
+        return pltw = 0.0f;
+
+    if (o2i == IN_CAR)
+        return pltw = vehicle_penetration_loss_db(
+                   vehicle_profile, penetration_stochastics(gen));
+
+    if (o2i != IN_BUILDING || penetration_profile == PENETRATION_NONE)
+        return pltw = 0.0f;
+
+    if (penetration_profile == PENETRATION_LEGACY_AUTO)
     {
         if (freq_ghz <= 6.0f)
-        {
-
-            pltw = 12.0f; // maybe 12 could be more accurate, 20dB is in 3GPP
-        }
-        else
-        {
-            // Compute penetration loss based on the scenario for frequencies > 6 GHz.
-            switch (scenario)
-            {
-            case RURAL_MACROCELL:
-                pltw = 5.0f - 10.0f * log10(
-                                          0.3f * pow(10.0f, (-2.0f - 0.2f * freq_ghz) / 10.0f) +
-                                          0.7f * pow(10.0f, (-5.0f - 4.0f * freq_ghz) / 10.0f));
-                break;
-
-            case URBAN_MICROCELL:
-            case URBAN_MACROCELL:
-                pltw = 5.0f - 10.0f * log10(
-                                          0.7f * pow(10.0f, (-23.0f - 0.3f * freq_ghz) / 10.0f) +
-                                          0.3f * pow(10.0f, (-5.0f - 4.0f * freq_ghz) / 10.0f));
-                break;
-
-            default:
-
-                pltw = 10.0f;
-                break;
-            }
-        }
-    }
-    else
-    {
-        // for car scenarios
-        pltw = 6.0f; // maybe 3-6dB,in 3GPP is said 9dB
+            return pltw = 12.0f;
+        penetration_profile =
+            scenario == RURAL_MACROCELL
+                ? PENETRATION_LOW_LOSS
+                : PENETRATION_HIGH_LOSS;
     }
 
+    pltw = building_penetration_loss_db(
+        penetration_profile,
+        freq_ghz,
+        penetration_stochastics(gen));
     return pltw;
 }
 
@@ -1011,9 +995,16 @@ void phy_layer::estimate_channel_state(float distance, phy_shared &phy_s, float 
 
     if (!d_in_computed)
     {
-        d_in = compute_d_in(distance);
+        d_in =
+            o2i == IN_BUILDING
+                    && penetration_profile != PENETRATION_NONE
+                ? compute_d_in(distance)
+                : 0.0f;
         pltw = compute_penetration_losses();
-        plin = 0.5 * d_in;
+        plin =
+            o2i == IN_BUILDING
+                ? 0.5f * d_in
+                : 0.0f;
 
         d_in_computed = true;
     }

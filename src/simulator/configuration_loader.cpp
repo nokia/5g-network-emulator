@@ -75,6 +75,8 @@ ue_full_config::ue_full_config()
     ue_c.priority = DEFAULT_UE_PRIORITY;
     ue_c.ue_m.ue_h = UE_HEIGHT_DEFAULT;
     ue_c.ue_m.o2i = O2I_DEFAULT;
+    ue_c.ue_m.penetration_profile = PENETRATION_NONE;
+    ue_c.ue_m.vehicle_profile = VEHICLE_STANDARD;
 }
 
 enb_config::enb_config(phy_enb_config _phy_config, pdcp_config _pdcp_ul, pdcp_config _pdcp_dl)
@@ -238,7 +240,58 @@ void configuration_loader::load(std::string cfg_file)
                             if (key == "ue_height")
                                 ue_c_list.back().ue_c.ue_m.ue_h = std::stof(value);
                             if (key == "o2i")
+                            {
+                                LOG_WARNING_I("configuration_loader::load")
+                                    << "o2i is deprecated; use location, "
+                                    << "building_penetration, and vehicle_penetration"
+                                    << END();
                                 ue_c_list.back().ue_c.ue_m.o2i = std::stoi(value);
+                                ue_c_list.back().ue_c.ue_m.penetration_profile =
+                                    ue_c_list.back().ue_c.ue_m.o2i == IN_BUILDING
+                                        ? PENETRATION_LEGACY_AUTO
+                                        : PENETRATION_NONE;
+                            }
+                            if (key == "location")
+                            {
+                                if (value == "outdoor")
+                                    ue_c_list.back().ue_c.ue_m.o2i = OUTDOOR;
+                                else if (value == "indoor")
+                                    ue_c_list.back().ue_c.ue_m.o2i = IN_BUILDING;
+                                else if (value == "vehicle")
+                                    ue_c_list.back().ue_c.ue_m.o2i = IN_CAR;
+                                else if (value == "random")
+                                    ue_c_list.back().ue_c.ue_m.o2i = LOCATION_RANDOM;
+                                else
+                                    throw std::invalid_argument(
+                                        "location must be outdoor, indoor, vehicle, or random");
+                            }
+                            if (key == "building_penetration")
+                            {
+                                if (value == "none")
+                                    ue_c_list.back().ue_c.ue_m.penetration_profile =
+                                        PENETRATION_NONE;
+                                else if (value == "low_loss")
+                                    ue_c_list.back().ue_c.ue_m.penetration_profile =
+                                        PENETRATION_LOW_LOSS;
+                                else if (value == "high_loss")
+                                    ue_c_list.back().ue_c.ue_m.penetration_profile =
+                                        PENETRATION_HIGH_LOSS;
+                                else
+                                    throw std::invalid_argument(
+                                        "building_penetration must be none, low_loss, or high_loss");
+                            }
+                            if (key == "vehicle_penetration")
+                            {
+                                if (value == "standard")
+                                    ue_c_list.back().ue_c.ue_m.vehicle_profile =
+                                        VEHICLE_STANDARD;
+                                else if (value == "metallized")
+                                    ue_c_list.back().ue_c.ue_m.vehicle_profile =
+                                        VEHICLE_METALLIZED;
+                                else
+                                    throw std::invalid_argument(
+                                        "vehicle_penetration must be standard or metallized");
+                            }
                             // LOGGING
                             if (key == "log_freq")
                                 ue_c_list.back().ue_c.log_freq = std::stoi(value);
@@ -310,6 +363,11 @@ void configuration_loader::load(std::string cfg_file)
                                 if (key == "scenario_type")
                                 {
                                     scenario_type = std::stoi(value);
+                                }
+                                if (key == "map_file")
+                                {
+                                    map_file = value;
+                                    map_file_explicit = true;
                                 }
                             }
                             if (mode == "eNBConfig")
@@ -613,7 +671,11 @@ void configuration_loader::load(std::string cfg_file)
 
     // Resolve the map only after all sections have been parsed. This removes the
     // historical dependency on Scenario appearing before eNBConfig.
-    map_file = getClosestMapFile(scenario_type, frequency);
+    if (!map_file_explicit)
+        map_file = getClosestMapFile(scenario_type, frequency);
+    else
+        LOG_INFO_I("configuration_loader::load")
+            << "Selected explicit map " << map_file << END();
     if (map_file.empty())
         throw std::invalid_argument(
             "no map is available for the configured scenario and frequency");

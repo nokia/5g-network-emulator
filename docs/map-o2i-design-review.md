@@ -1,6 +1,6 @@
 # PHY Model V2 Map and O2I Design Review
 
-**Status:** Pending owner approval  
+**Status:** Approved on 2026-09-27
 **Scope:** Block 2B semantic decisions  
 **Rule:** No production map bytes or O2I behavior change before approval
 
@@ -290,3 +290,7 @@ The owner should approve or revise:
 9. Explicit building penetration fields.
 10. Gaussian vehicle-loss model.
 11. Defer Rician/LOS small-scale changes to Phase 3.
+
+All eleven design items were approved on 2026-09-27. Candidate maps are
+generated and evaluated in parallel; replacing shipped production map bytes
+remains a separate activation decision based on the comparison report.

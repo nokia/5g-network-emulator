@@ -143,6 +143,9 @@ generation are documented in
 [docs/map-provenance.md](docs/map-provenance.md) and
 [docs/map-schema-v2.md](docs/map-schema-v2.md).
 
+Explicit UE location, building penetration, and vehicle penetration are
+documented in [docs/o2i-v2.md](docs/o2i-v2.md).
+
 ## Execution Warnings and Troubleshooting
 When running FikoRE in emulator mode, you must press Ctrl+C twice:
 

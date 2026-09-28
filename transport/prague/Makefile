@@ -5,7 +5,9 @@
 # own Makefile produces, because that archive is built without -fPIC and cannot go into
 # a shared object. Nothing in the L4S tree is modified.
 
-PRAGUE_DIR ?= ../../L4STeam/udp_prague
+# In the development workspace the L4S reference tree is a sibling of the FikoRE
+# repository. A standalone checkout can point this at its own copy.
+PRAGUE_DIR ?= ../../../L4STeam/udp_prague
 
 CXX      ?= g++
 CXXFLAGS := -std=c++11 -O3 -fPIC -Wall -Wextra -I$(PRAGUE_DIR)

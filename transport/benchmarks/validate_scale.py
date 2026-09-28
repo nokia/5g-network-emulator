@@ -16,6 +16,7 @@ from pathlib import Path
 from fikore_transport.backend import (BackendConfig, DownloadCompleted,
                                       NetworkTelemetryReceived, TransportBackend)
 from fikore_transport.cc import Cubic
+from fikore_transport.cc_prague import Prague, PragueUnavailable
 from fikore_transport.emulator import Emulator, EmulatorConfig
 from fikore_transport.fikore_link import FikoreLink
 
@@ -29,7 +30,10 @@ def jain(values: list[float]) -> float:
 
 
 def make_backend(work: Path, duration_s: float, n_ues: int,
-                 delay_budget_s: float, rwnd: int) -> tuple[FikoreLink, TransportBackend]:
+                 delay_budget_s: float, rwnd: int, cc_factory=Cubic,
+                 ecn: str = "not-ect",
+                 extra: dict[str, str] | None = None
+                 ) -> tuple[FikoreLink, TransportBackend]:
     cfg = EmulatorConfig(
         binary=str(REPO / "bin" / "fikore"),
         base_ini=str(REPO / "config" / "control_demo.ini"),
@@ -39,13 +43,15 @@ def make_backend(work: Path, duration_s: float, n_ues: int,
         n_ues=n_ues,
         delay_budget_s=delay_budget_s,
         log_path=str(work / "emulator.log"),
+        extra=extra or {},
     )
     link = FikoreLink(Emulator(cfg), flow_to_ue={})
     backend = TransportBackend(link, BackendConfig(
         window_ttis=10,
         horizon_ttis=int(duration_s * 1000),
         rwnd=rwnd,
-        cc_factory=Cubic,
+        cc_factory=cc_factory,
+        ecn=ecn,
         telemetry_every_windows=100,
     ))
     return link, backend
@@ -167,12 +173,55 @@ def run_loss(duration_s: float, output: Path) -> dict:
     return result
 
 
+def run_prague(duration_s: float, output: Path) -> dict:
+    try:
+        Prague()
+    except PragueUnavailable as exc:
+        result = {"kind": "prague", "skipped": True, "reason": str(exc)}
+        output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
+        return result
+
+    with tempfile.TemporaryDirectory(prefix="fikore-scale-prague-") as tmp:
+        link, backend = make_backend(
+            Path(tmp), duration_s, 1, 0.3, 4 * 1024 * 1024,
+            cc_factory=Prague, ecn="ect1",
+            extra={"l4s_dual_queue": "true", "l4s_target_ms": "5.0"})
+        backend.submit_request(0, "bulk", 4_000_000_000)
+        wall0 = time.perf_counter()
+        while True:
+            step = backend.advance()
+            backend.runner.arrivals.clear()
+            if step.is_final:
+                break
+        wall = time.perf_counter() - wall0
+
+        request = backend.requests[(0, "bulk")]
+        sender = request.flow.sender
+        receiver = request.flow.receiver
+        result = common_result("prague", duration_s, wall, link, backend)
+        result.update({
+            "n_ues": 1,
+            "ecn": "ect1",
+            "l4s_target_ms": 5.0,
+            "delivered_bytes": receiver.rcv_nxt,
+            "goodput_mbps": receiver.rcv_nxt * 8 / duration_s / 1e6,
+            "srtt_ms": (sender.srtt_us or 0) / 1000.0,
+            "ce_segments": receiver.pkts_ce,
+            "lost_segments": receiver.pkts_lost,
+            "prague": sender.cc.stats(),
+        })
+        backend.close()
+    output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
+    return result
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--duration", type=float, default=300.0)
     parser.add_argument("--output-dir", type=Path,
                         default=Path("transport/benchmarks/results"))
-    parser.add_argument("--mode", choices=("objects", "loss", "all"), default="all")
+    parser.add_argument("--mode", choices=("objects", "loss", "prague", "all"),
+                        default="all")
     args = parser.parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -183,9 +232,13 @@ def main() -> int:
     if args.mode in ("loss", "all"):
         results.append(run_loss(
             args.duration, args.output_dir / "scale-loss.json"))
+    if args.mode in ("prague", "all"):
+        results.append(run_prague(
+            args.duration, args.output_dir / "scale-prague.json"))
     for result in results:
         print(json.dumps(result, sort_keys=True))
-    return 0 if all(result["bytes_conserved"] for result in results) else 1
+    return 0 if all(result.get("skipped") or result["bytes_conserved"]
+                    for result in results) else 1
 
 
 if __name__ == "__main__":

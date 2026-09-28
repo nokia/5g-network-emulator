@@ -92,6 +92,22 @@ movements and remains close to the grant-only floor regardless of how many
 completed tags are retained. A compact cumulative state, without knobs or the
 object map, is requested once per harness window for telemetry.
 
+### Full 300 s validation
+
+Measured by `benchmarks/validate_scale.py`; the raw summaries are under
+`benchmarks/results/`.
+
+| Scenario | Wall | Goodput / objects | Feedback | Conservation |
+| :-- | --: | :-- | :-- | :-- |
+| 4 UEs, sequential 375 kB objects, CUBIC | 156.9 s | 5554 objects, 180 ms median; 17.01 / 17.01 / 8.68 / 12.86 Mbps, Jain 0.942 | max 15 events/reply | exact |
+| 1 UE bulk, CUBIC, 20 ms delay budget | 142.9 s | 58.43 Mbps; 4262 retransmits, 7 RTOs, 4.99 MB expired | max 112 events/reply | exact |
+| 1 UE Prague/ECT(1), DualPI2 target 5 ms | 113.5 s | 38.86 Mbps, 6.03 ms SRTT, 23440 CE segments, zero loss/retransmit | max 10 events/reply | exact |
+
+The four-UE condition is deliberately not channel-homogeneous; its throughput
+fairness reflects the different per-UE radio realizations rather than transport
+starvation. The live registries remain bounded even though request history keeps
+all 5554 completed objects for reporting.
+
 Prague against the same bottleneck, over the deterministic link so that the two
 runs differ in nothing but the controller (50 Mbps, 20 ms, 512 KB queue, CE above
 2 ms of queueing delay):
@@ -155,7 +171,8 @@ PYTHONPATH=transport python3 transport/benchmarks/e2e_prague.py
 
 The scripts resolve the emulator from the repository that contains this directory;
 `FIKORE_DIR` is only an override. `PRAGUE_DIR` points at the L4S `udp_prague` tree
-and defaults to `../../L4STeam/udp_prague`; nothing in it is modified.
+and defaults to the sibling workspace path `../L4STeam/udp_prague`; nothing in it
+is modified and no compiled `.so` is stored in git.
 
 ## Reading order
 

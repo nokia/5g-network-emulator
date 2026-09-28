@@ -1,0 +1,31 @@
+{
+  "bytes_conserved": true,
+  "delay_budget_s": 0.02,
+  "delivered_bytes": 2191240500,
+  "git_commit": "61c07224259fe2c4687541c43477e3e897c51ed6",
+  "goodput_mbps": 58.43308,
+  "in_flight_bytes": 96000,
+  "kind": "loss",
+  "lost_bytes_by_cause": {
+    "budget": 4993500,
+    "queue": 0,
+    "radio": 0
+  },
+  "max_events_per_reply": 112,
+  "n_ues": 1,
+  "receive_window_bytes": 524288,
+  "reply_bytes": 394824096,
+  "simulated_s": 300.0,
+  "slots": 300000,
+  "srtt_ms": 14.21433553337477,
+  "submitted_bytes": 2197729500,
+  "terminal_bytes": {
+    "delivered": 2192640000,
+    "dropped": 0,
+    "expired": 4993500
+  },
+  "transport_retransmits": 4262,
+  "transport_rto_events": 7,
+  "us_per_slot": 476.2165541263918,
+  "wall_s": 142.86496623791754
+}

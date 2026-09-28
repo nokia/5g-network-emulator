@@ -8,6 +8,8 @@ import csv
 import itertools
 import json
 import math
+import platform
+import socket
 import statistics
 import subprocess
 from pathlib import Path
@@ -143,6 +145,19 @@ def run_case(binary: Path, config: Path, steps: int) -> dict:
     raise RuntimeError(f"benchmark output missing for {config}")
 
 
+def percentile(values: list[float], probability: float) -> float:
+    ordered = sorted(values)
+    if len(ordered) == 1:
+        return ordered[0]
+    position = probability * (len(ordered) - 1)
+    lower = math.floor(position)
+    upper = math.ceil(position)
+    if lower == upper:
+        return ordered[lower]
+    fraction = position - lower
+    return ordered[lower] * (1.0 - fraction) + ordered[upper] * fraction
+
+
 def markdown_table(rows: list[dict]) -> str:
     columns = [
         "grid",
@@ -151,7 +166,9 @@ def markdown_table(rows: list[dict]) -> str:
         "frequency_mode",
         "reranking",
         "decisions_per_tti",
-        "us_per_tti",
+        "us_per_tti_p50",
+        "us_per_tti_p95",
+        "us_per_tti_p99",
         "dl_total_mbps",
         "dl_jain",
         "dl_max_service_gap_ttis",
@@ -175,6 +192,11 @@ def main() -> None:
     parser.add_argument("--repeats", type=int, default=2)
     parser.add_argument("--full", action="store_true")
     parser.add_argument(
+        "--envelope-modes",
+        action="store_true",
+        help="run localized/grouped and distributed/per-RB modes only",
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=ROOT / "results" / "pf-granularity",
@@ -186,12 +208,17 @@ def main() -> None:
         raise SystemExit(f"build benchmark first: {binary}")
 
     ue_counts = [1, 16, 64, 256] if args.full else [16, 64]
-    modes = list(itertools.product([1, 0], [0, 1]))
+    modes = (
+        [(1, 0), (0, 1)]
+        if args.envelope_modes
+        else list(itertools.product([1, 0], [0, 1]))
+    )
     reranking_modes = ["none", "allocation_unit"]
     output = args.output.resolve()
     config_dir = output / "configs"
     config_dir.mkdir(parents=True, exist_ok=True)
     rows: list[dict] = []
+    sample_rows: list[dict] = []
 
     for grid_name, ue_count, (time_mode, frequency_mode), reranking in itertools.product(
         GRID_PROFILES,
@@ -218,7 +245,18 @@ def main() -> None:
             run_case(binary, config, args.steps)
             for _ in range(args.repeats)
         ]
+        for repeat, sample in enumerate(samples):
+            sample_rows.append(
+                {
+                    "case": case_name,
+                    "repeat": repeat,
+                    "steps": args.steps,
+                    "us_per_tti": sample["us_per_tti"],
+                }
+            )
         representative = samples[0]
+        runtime_samples = [
+            sample["us_per_tti"] for sample in samples]
         row = {
             "grid": grid_name,
             "ues": ue_count,
@@ -229,8 +267,14 @@ def main() -> None:
                 bandwidth, numerology, time_mode, frequency_mode
             ),
             "us_per_tti": round(
-                statistics.median(sample["us_per_tti"] for sample in samples), 3
+                statistics.median(runtime_samples), 3
             ),
+            "us_per_tti_p50": round(
+                percentile(runtime_samples, 0.50), 3),
+            "us_per_tti_p95": round(
+                percentile(runtime_samples, 0.95), 3),
+            "us_per_tti_p99": round(
+                percentile(runtime_samples, 0.99), 3),
             "dl_total_mbps": round(representative["dl_total_mbps"], 3),
             "ul_total_mbps": round(representative["ul_total_mbps"], 3),
             "dl_jain": round(representative["dl_jain"], 5),
@@ -251,11 +295,18 @@ def main() -> None:
             handle, fieldnames=list(rows[0]), lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
+    with (output / "runtime-samples.csv").open("w", newline="") as handle:
+        writer = csv.DictWriter(
+            handle, fieldnames=list(sample_rows[0]), lineterminator="\n")
+        writer.writeheader()
+        writer.writerows(sample_rows)
 
     report = [
         "# PF Granularity Benchmark",
         "",
         f"Steps per sample: {args.steps}; repeats: {args.repeats}.",
+        "",
+        f"Host: `{socket.gethostname()}`; platform: `{platform.platform()}`.",
         "",
         "Time modes: `localized` uses one time allocation group per 1 ms; "
         "`distributed` uses one group per numerology slot.",
@@ -267,6 +318,30 @@ def main() -> None:
         "",
     ]
     (output / "report.md").write_text("\n".join(report))
+    source_sha = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+    source_dirty = bool(
+        subprocess.check_output(
+            ["git", "status", "--porcelain"], cwd=ROOT, text=True
+        ).strip()
+    )
+    metadata = {
+        "schema_version": 1,
+        "source_sha": source_sha,
+        "source_dirty": source_dirty,
+        "host": {
+            "hostname": socket.gethostname(),
+            "platform": platform.platform(),
+            "python": platform.python_version(),
+        },
+        "steps": args.steps,
+        "repeats": args.repeats,
+        "ue_counts": ue_counts,
+        "modes": modes,
+        "grids": GRID_PROFILES,
+    }
+    (output / "metadata.json").write_text(
+        json.dumps(metadata, indent=2, sort_keys=True) + "\n")
     print(output)
 
 

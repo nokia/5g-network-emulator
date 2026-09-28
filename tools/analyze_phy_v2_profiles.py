@@ -266,6 +266,11 @@ def summarize(
             for row in non_outage
             for gap in row["_gaps_s"]
         ]
+        ue_max_gaps_ms = [
+            row["service_gap_max_ms"]
+            for row in non_outage
+            if math.isfinite(row["service_gap_max_ms"])
+        ]
         generated = sum(row["generated_mbps"] for row in rows)
         delivered = sum(row["throughput_mbps"] for row in rows)
         grid = grid_metrics.get((profile, direction), {})
@@ -301,19 +306,17 @@ def summarize(
                 [row["mcs_p50"] for row in rows], 0.50),
             "mcs_p95": percentile(
                 [row["mcs_p95"] for row in rows], 0.50),
-            "service_gap_p50_ms": 1000.0 * percentile(gaps, 0.50),
-            "service_gap_p95_ms": 1000.0 * percentile(gaps, 0.95),
-            "service_gap_p99_ms": 1000.0 * percentile(gaps, 0.99),
-            "service_gap_max_ms": (
-                max(
-                    (
-                        row["service_gap_max_ms"]
-                        for row in non_outage
-                        if math.isfinite(row["service_gap_max_ms"])
-                    ),
-                    default=math.nan,
-                )
-            ),
+            "pooled_service_gap_p50_ms": 1000.0 * percentile(gaps, 0.50),
+            "pooled_service_gap_p95_ms": 1000.0 * percentile(gaps, 0.95),
+            "pooled_service_gap_p99_ms": 1000.0 * percentile(gaps, 0.99),
+            "ue_max_service_gap_p50_ms": percentile(
+                ue_max_gaps_ms, 0.50),
+            "ue_max_service_gap_p95_ms": percentile(
+                ue_max_gaps_ms, 0.95),
+            "ue_max_service_gap_p99_ms": percentile(
+                ue_max_gaps_ms, 0.99),
+            "ue_max_service_gap_ms": (
+                max(ue_max_gaps_ms) if ue_max_gaps_ms else math.nan),
             "wall_seconds": elapsed.get(profile, math.nan),
             **grid,
         }
@@ -356,9 +359,10 @@ def report(manifest: dict, summaries: list[dict], warmup_s: float) -> str:
         f"- Warm-up excluded: {warmup_s:g} seconds",
         "",
         "| Profile | Dir. | Offered | Delivered | Errors | Outage UEs | "
-        "Zero-service windows (10/100/1000 ms) | Gap P95/P99/max (ms) | "
+        "Zero-service windows (10/100/1000 ms) | "
+        "UE max-gap P50/P95/P99/max (ms) | Grid fill | "
         "Payload/grant | Wall time |",
-        "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for row in summaries:
         efficiency = row.get("grant_payload_efficiency", math.nan)
@@ -366,6 +370,12 @@ def report(manifest: dict, summaries: list[dict], warmup_s: float) -> str:
             "n/a"
             if not isinstance(efficiency, float) or not math.isfinite(efficiency)
             else f"{100.0 * efficiency:.1f}%"
+        )
+        fill = row.get("resource_fill_fraction", math.nan)
+        fill_text = (
+            "n/a"
+            if not isinstance(fill, float) or not math.isfinite(fill)
+            else f"{100.0 * fill:.1f}%"
         )
         lines.append(
             f"| {row['profile']} | {row['direction'].upper()} | "
@@ -375,10 +385,12 @@ def report(manifest: dict, summaries: list[dict], warmup_s: float) -> str:
             f"{100.0 * row['zero_10ms_window_fraction']:.1f}% / "
             f"{100.0 * row['zero_100ms_window_fraction']:.1f}% / "
             f"{100.0 * row['zero_1000ms_window_fraction']:.1f}% | "
-            f"{row['service_gap_p95_ms']:.0f} / "
-            f"{row['service_gap_p99_ms']:.0f} / "
-            f"{row['service_gap_max_ms']:.0f} | "
-            f"{efficiency_text} | {row['wall_seconds']:.2f} s |"
+            f"{row['ue_max_service_gap_p50_ms']:.0f} / "
+            f"{row['ue_max_service_gap_p95_ms']:.0f} / "
+            f"{row['ue_max_service_gap_p99_ms']:.0f} / "
+            f"{row['ue_max_service_gap_ms']:.0f} | "
+            f"{fill_text} | {efficiency_text} | "
+            f"{row['wall_seconds']:.2f} s |"
         )
     lines.extend(
         [
@@ -390,6 +402,14 @@ def report(manifest: dict, summaries: list[dict], warmup_s: float) -> str:
             "A zero-service window has positive offered traffic and no delivered "
             "payload in that non-overlapping window. This avoids interpreting "
             "every unassigned TTI as user starvation.",
+            "",
+            "The service-gap distribution in the table is the distribution of "
+            "each non-outage UE's maximum post-warm-up gap. Pooled inter-service "
+            "gap quantiles remain available in the CSV.",
+            "",
+            "Grid fill is the assigned fraction of frequency-time allocation "
+            "units in logged opportunities for that direction. TDD slots of the "
+            "other direction are not included in this denominator.",
             "",
             "Payload/grant efficiency is sampled from logged grid grants and is "
             "the sum of effective payload bits divided by nominal grant bits.",

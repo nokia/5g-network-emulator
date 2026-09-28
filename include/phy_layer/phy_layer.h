@@ -81,7 +81,10 @@ public:
     phy_layer(int _tx, int _id, scenario_config _scenario_config, phy_ue_config _phy_ue_config, phy_enb_config _phy_enb_config, bool _stochastics = true, int _verbosity = 0);
 
 public:
-    void init(int _n_rbs, int _bandwidth);
+    void init(
+        int _n_rbs,
+        int _bandwidth,
+        int _carrier_prbs);
     int get_cqi(int f_index);
     float get_eff(int f_index);
     int get_ri();

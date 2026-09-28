@@ -2,8 +2,8 @@
 
 **Status:** External technical-review manuscript
 **Model under test:** `feature/phy-model-v2`
-**Validated simulator source:** `172f1a8936e903ba93308c809dcc8ab309e59bfd`
-**Runtime-benchmark source:** `f89a3159935cc58737dd68324ca5f8ba72f21419`
+**Validated simulator source:** `7cbed30592232f44667f01384a4ce03dbf889c10`
+**Runtime-benchmark source:** `aaceffcc59b0a933a1fb0dbd4ef344924360b31f`
 **Evidence protocol:** `docs/phy-model-v2-evidence-protocol.md`
 **Date:** 2026-09-28
 
@@ -615,12 +615,12 @@ fairness and continuity consistently:
 
 | Grid | Unit | Jain none → rerank | Maximum DL gap none → rerank | P99 runtime none → rerank |
 |---|---|---:|---:|---:|
-| 20 MHz, \(\mu=1\) | grouped | 0.9991 → 0.9999 | 102 → 19 TTIs | 228 → 208 µs |
-| 100 MHz, \(\mu=1\) | grouped | 0.9991 → 1.0000 | 103 → 13 TTIs | 419 → 489 µs |
-| 400 MHz, \(\mu=3\) | grouped | 0.9995 → 1.0000 | 83 → 22 TTIs | 489 → 603 µs |
-| 20 MHz, \(\mu=1\) | per-PRB | 0.9991 → 1.0000 | 106 → 15 TTIs | 1280 → 1366 µs |
-| 100 MHz, \(\mu=1\) | per-PRB | 0.9993 → 1.0000 | 112 → 48 TTIs | 6859 → 6992 µs |
-| 400 MHz, \(\mu=3\) | per-PRB | 0.9998 → 1.0000 | 83 → 56 TTIs | 15939 → 16905 µs |
+| 20 MHz, \(\mu=1\) | grouped | 0.9991 → 0.9999 | 102 → 19 TTIs | 199 → 191 µs |
+| 100 MHz, \(\mu=1\) | grouped | 0.9991 → 1.0000 | 103 → 13 TTIs | 365 → 395 µs |
+| 400 MHz, \(\mu=3\) | grouped | 0.9995 → 1.0000 | 83 → 22 TTIs | 354 → 387 µs |
+| 20 MHz, \(\mu=1\) | per-PRB | 0.9991 → 1.0000 | 106 → 15 TTIs | 1050 → 1122 µs |
+| 100 MHz, \(\mu=1\) | per-PRB | 0.9993 → 1.0000 | 112 → 48 TTIs | 5640 → 6008 µs |
+| 400 MHz, \(\mu=3\) | per-PRB | 0.9998 → 1.0000 | 83 → 56 TTIs | 13190 → 13613 µs |
 
 ![PF reranking fairness and service gaps](figures/phy-v2-reranking.svg)
 
@@ -637,10 +637,11 @@ Runtime is a property of the complete grid/population, not only reranking:
 
 On the measured, non-isolated host, grouped modes have zero observed 1 ms
 deadline misses through 64 UEs for every tested bandwidth. At 256 UEs, miss
-fractions are 2.5–2.8% at 20 MHz, 39.5–43.4% at 100 MHz, and 52.9–65.6% at
+fractions are 0.1% at 20 MHz, 21.1–24.4% at 100 MHz, and 23.5–25.8% at
 400 MHz. Distributed per-PRB 20 MHz first shows misses at 64 UEs; 100 MHz
-shows 7.8–9.3% misses even at one UE, and every 400 MHz TTI misses. At
-256 UEs, per-PRB P99 reaches 26.41 ms for 100 MHz and 48.21 ms for 400 MHz.
+already shows rare misses at one UE and exceeds 90% at 16 UEs, while every
+400 MHz TTI misses. At 256 UEs, per-PRB P99 reaches 21.51 ms for 100 MHz and
+42.36 ms for 400 MHz.
 These are empirical host/case measurements, not a general real-time guarantee.
 
 ## 7. External validity and parameter realism

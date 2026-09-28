@@ -146,6 +146,12 @@ generation are documented in
 Explicit UE environment type, building penetration, and vehicle penetration are
 documented in [docs/o2i-v2.md](docs/o2i-v2.md).
 
+The complete PHY Model V2 equations, controlled evidence, limitations, and
+open Phase 3 options are in the
+[external technical-review manuscript](docs/phy-model-evolution-external-review.md).
+Its reproducibility matrix is
+[docs/baselines/phy-v2-validation-matrix.md](docs/baselines/phy-v2-validation-matrix.md).
+
 ## Execution Warnings and Troubleshooting
 When running FikoRE in emulator mode, you must press Ctrl+C twice:
 

@@ -1,4 +1,5 @@
 {
+  "artifact_policy": "Committed summaries and exact rendered inputs are hash-verified; raw logs remain local and are reproducible but not archived.",
   "canonical_profiles": [
     {
       "id": "umi-n40-npn",
@@ -33,49 +34,159 @@
   ],
   "committed_evidence": [
     {
-      "id": "legacy-v2-spatial-deltas",
-      "path": "docs/baselines/map-v2-spatial-deltas.csv",
-      "sha256": "223a57449f972c1350f725b36f777cd1555da42b1eed99b0776710553dcaf879"
+      "id": "map-v2.1-activation",
+      "path": "docs/baselines/map-v2.1-activation.md",
+      "sha256": "110266779a5e58ff1a26255679cc8b68cb09c391b9ff35b282c120a6b886dd07"
     },
     {
-      "id": "optimized-pf-granularity",
-      "path": "docs/baselines/pf-granularity-benchmark.csv",
-      "sha256": "1a04c4329437abdc97c905538693ef0a068d3720ce22ab11324641d4e6ed653d"
+      "id": "map-v2.1-multiseed-summary",
+      "path": "docs/baselines/map-v2-multiseed-summary.csv",
+      "sha256": "ed8e5b01470bf3233ac914d5b1b6413439ad8b6a5d7402b4a931bac72f395245"
+    },
+    {
+      "id": "map-v2.1-los-radial",
+      "path": "docs/baselines/map-v2-multiseed-los-radial.csv",
+      "sha256": "b7e9d9281cc03f713d5a68c374e44f7577928c3ca6f4ebd6ad443ca11f45dbdd"
+    },
+    {
+      "id": "map-v2.1-statistics-metadata",
+      "path": "docs/baselines/map-v2-multiseed-metadata.json",
+      "sha256": "2365902021a1cad80a8514ad4581943bd54f44699e6e7f121ac5b0b46b332c3b"
+    },
+    {
+      "id": "map-v2.1-statistics-report",
+      "path": "docs/baselines/map-v2-multiseed-validation.md",
+      "sha256": "5c3276878f67338f8ac0e37d5c5263f4d526bbfe720050fe3d1863e89dfda68c"
+    },
+    {
+      "id": "map-v2.1-paired-profile-comparison",
+      "path": "docs/baselines/map-v2.1-paired-profile-comparison.csv",
+      "sha256": "beabfea4db39fb3b87265fe1a1d52656534564d22e02095a3b46550bc2f922bd"
     },
     {
       "id": "production-profile-ue-summary",
       "path": "docs/baselines/phy-v2-production-ue-summary.csv",
-      "sha256": "6e3f51df3062c30ada924d6e1b37018d262eb2102865e2f42b950474e9e3ecf8"
+      "sha256": "23c05c20b8a576a5eabf5e73965ae3a14074f6ab2c08edd76c922a93d146bb92"
     },
     {
-      "id": "map-v2-multiseed-summary",
-      "path": "docs/baselines/map-v2-multiseed-summary.csv",
-      "sha256": "b573f2f49ecbc96cc18e115d81a2cbcaf7f6f1a9ec33846abaeda7d95ea2df85"
+      "id": "production-whole-run-summary",
+      "path": "docs/baselines/phy-v2-production-whole-run-summary.csv",
+      "sha256": "23829a71782400ff9de7d6b9fd9d382dfadac92f8d8807957abe333e8b159407"
     },
     {
-      "id": "map-v2-multiseed-los-radial",
-      "path": "docs/baselines/map-v2-multiseed-los-radial.csv",
-      "sha256": "9779777e3d4e3a56238b6f902c70bdfbb5e3d6173a31a2fdde1c42a4c29f7c29"
+      "id": "production-analysis-metadata",
+      "path": "docs/baselines/phy-v2-production-analysis-metadata.json",
+      "sha256": "f0020b70ebf909f5ec4ffef93f7d551917e4399a7d91269477b48cf8605b7288"
     },
     {
-      "id": "pf-runtime-envelope",
-      "path": "docs/baselines/pf-runtime-envelope.csv",
-      "sha256": "ab892d0aa57de77af67d8cede9bca2fbc2af720f031f71dfe6d604aeceba8253"
-    },
-    {
-      "id": "pf-runtime-samples",
-      "path": "docs/baselines/pf-runtime-samples.csv",
-      "sha256": "94df8762d6a25963cbe4ca0953b57d8d2ce83c0ee1b933c78f03fb851eefe4a1"
+      "id": "production-validation-report",
+      "path": "docs/baselines/phy-v2-production-validation.md",
+      "sha256": "9e9acf04e64242519c71fcc834c7515d5f575ca82508aaabc50f19375420a871"
     },
     {
       "id": "original-production-comparison",
       "path": "docs/baselines/phy-v2-production-comparison.csv",
-      "sha256": "eab8d6ac69312e0846b97a9e74423de78132e8ee084c9a7f015c3dbf18452300"
+      "sha256": "e2f1f595ceab23aca7304c83a3d09dcf13ca86967b8df98fd08fc5d8147dc199"
     },
     {
       "id": "controlled-o2i-comparison",
       "path": "docs/baselines/phy-v2-o2i-controlled-comparison.csv",
-      "sha256": "af941bd70d8a50e63e15d21a292d0ba79e85828907da67ef831a40f477801885"
+      "sha256": "ddf0d7f8c07fd9be734de8a8ff7117be8e723c3f8398b179e7fdbcfc5e4987a2"
+    },
+    {
+      "id": "controlled-o2i-crn-check",
+      "path": "docs/baselines/phy-v2-o2i-crn-check.csv",
+      "sha256": "23ec92b973ae9b443bf3eae25fe8d30c51cef8586e4204ab0d711eebba0a66f8"
+    },
+    {
+      "id": "o2i-high-loss-ue-summary",
+      "path": "docs/baselines/phy-v2-o2i-high-loss-ue-summary.csv",
+      "sha256": "1ee320efc6356e5ea64b400d253abf00c09b8b5b27b217fe5b2029ec1167c6d9"
+    },
+    {
+      "id": "legacy-paired-validation",
+      "path": "docs/baselines/phy-v2-legacy-paired-validation.md",
+      "sha256": "fc43055abf7516710fa6a54fb707c9c457cd807f2b645e804794cfc99cf644c3"
+    },
+    {
+      "id": "pf-runtime-envelope",
+      "path": "docs/baselines/pf-runtime-envelope.csv",
+      "sha256": "75c1161a5dc3050e04a5d8e5944899f44105bd56949bfd44e6d6962a6f3d2229"
+    },
+    {
+      "id": "pf-runtime-samples",
+      "path": "docs/baselines/pf-runtime-samples.csv",
+      "sha256": "e6766bd04cb8afdb87f6d085683546bacddae27df952e2c372225d025e565445"
+    },
+    {
+      "id": "pf-runtime-metadata",
+      "path": "docs/baselines/pf-runtime-metadata.json",
+      "sha256": "b0cfd0c87307245842734857b3b0a92ffcf84676706960ed0848e59eb8b33b1c"
+    },
+    {
+      "id": "pf-runtime-report",
+      "path": "docs/baselines/pf-runtime-envelope.md",
+      "sha256": "c86e2bbb4d8505826702aa897bff7c3f8dfe18bf895799f0b85bcc936033dbd2"
+    },
+    {
+      "id": "pf-functional-long",
+      "path": "docs/baselines/pf-functional-long.csv",
+      "sha256": "3322fa060546f6afba1add3ef75f0bc33e679a7da76938a88b5002ec277e4452"
+    },
+    {
+      "id": "pf-functional-long-metadata",
+      "path": "docs/baselines/pf-functional-long-metadata.json",
+      "sha256": "3a81d96b0e16227aba83e3e845f7dac368170be98d30c8f0a04e753520eb0b7e"
+    },
+    {
+      "id": "pf-functional-long-report",
+      "path": "docs/baselines/pf-functional-long.md",
+      "sha256": "6346dc8c536c8a87e0f442abfa76c1d21476cbb979ad8c8a7f75023323e9f893"
+    },
+    {
+      "id": "validation-matrix",
+      "path": "docs/baselines/phy-v2-validation-matrix.md",
+      "sha256": "3def8f333e054da058f31a8fd6797b5082e030dd8f8c1df6f1a5eaee90e9248e"
+    },
+    {
+      "id": "evidence-protocol",
+      "path": "docs/phy-model-v2-evidence-protocol.md",
+      "sha256": "26eabda0ef9f8e39e39be9dfe313558ad826f74ddf005f35cf0d9d2fe2ba78de"
+    },
+    {
+      "id": "literature-set",
+      "path": "docs/phy-model-v2-literature.md",
+      "sha256": "d0075c341492b5676c293e199c15e4c9ca5fbad050cc74feebe27acad74ae1c7"
+    },
+    {
+      "id": "manuscript",
+      "path": "docs/phy-model-evolution-external-review.md",
+      "sha256": "c1036a0c15a42ebc1674ef0d074809749febc568f54e4f53d572e37d6dd520f3"
+    },
+    {
+      "id": "figure-pipeline",
+      "path": "docs/figures/phy-v2-pipeline.svg",
+      "sha256": "60e6b062bd519e92d15475e9f5970a816e7ad0478280e7a030fe8d5b811d8013"
+    },
+    {
+      "id": "figure-map-los",
+      "path": "docs/figures/phy-v2-map-los.svg",
+      "sha256": "d36d640e5a91567a9a84c15d900060b7a23cf5399632d4c4df48dde200cf62ff"
+    },
+    {
+      "id": "figure-throughput",
+      "path": "docs/figures/phy-v2-throughput.svg",
+      "sha256": "3ea653969cae5f765d5f034928daf040ef945642ed711eb9cadd0a010b56aa26"
+    },
+    {
+      "id": "figure-reranking",
+      "path": "docs/figures/phy-v2-reranking.svg",
+      "sha256": "dabeabb05dc54656803e79186412454430f7d57667c60006c7411c6902c56070"
+    },
+    {
+      "id": "figure-runtime",
+      "path": "docs/figures/phy-v2-runtime.svg",
+      "sha256": "47bbbf684c39f83178f07326fc5b4c9f4c811f4889c7a44b4263d74458311d1f"
     }
   ],
   "environment": {
@@ -90,22 +201,19 @@
     "python": "3.10.4"
   },
   "map_generation": {
-    "candidate_catalog": {
-      "path": "results/maps-v2-candidates/CATALOG.json",
-      "sha256": "2b9f2dc568804650dca7c1bc1efe0b543da1fa72e2563dedc5520eb7429e41b7",
-      "tracked": false
-    },
     "catalog_size": 21,
     "cell_number": 291,
+    "generator_version": "2.1.0",
     "master_seed": 20260927,
     "production_catalog": {
       "path": "include/maps_scenarios/CATALOG.json",
-      "sha256": "3a1c020b1873aec0a06e7a443e8dac69cd2840067ebc3154392bc7547f75a6d2"
+      "sha256": "57449bd7ea961aba3359be973ca34363102ca5ee3903b56a5b7336f6becdbcd0"
     },
     "production_manifest": {
       "path": "include/maps_scenarios/MANIFEST.json",
-      "sha256": "f4e84042f2a9a760cc84023246814a568a1f5c0e9e4b29cee960b4ab198cfcd3"
-    }
+      "sha256": "0e3fe2f1b46584f786d2efa046bdd0bbbe8b17c1064d0fd239d971b96af269f1"
+    },
+    "semantic_version": "2.1.0"
   },
   "pending_evidence": [],
   "protocol": "docs/phy-model-v2-evidence-protocol.md",
@@ -121,43 +229,48 @@
     },
     {
       "duration_s": 180,
-      "id": "phy-v2-legacy-maps-current-code",
-      "local_manifest": "results/phy-v2-legacy-maps-current-code/manifest.json",
-      "local_manifest_sha256": "a80b54e825365701a38e1895f4d5108cf49f7f7c368c1f4980ba5547e70de559",
-      "seed": 20260927,
-      "source_sha": "dc81da62f59ca93e36a02c36bdcecd45ec6cd2bd"
-    },
-    {
-      "duration_s": 180,
-      "id": "phy-v2-candidate-maps",
-      "local_manifest": "results/phy-v2-candidate-maps/manifest.json",
-      "local_manifest_sha256": "8c52bd9c8ad19380a98ff72e2057d313d47f21668975bbfbc3a1a3448ae4af9d",
-      "paired_summary": "docs/baselines/map-v2-profile-deltas.csv",
-      "paired_summary_sha256": "9aaa63afae4c5bd32e7681fff8bed6394db6f93d7be3065700160270b71d3e93",
-      "seed": 20260927,
-      "source_sha": "dc81da62f59ca93e36a02c36bdcecd45ec6cd2bd"
-    },
-    {
-      "duration_s": 180,
-      "id": "phy-v2-production-mimo-index-fe93077-seed20260927",
+      "id": "phy-v2-final2-7cbed30-seed20260927",
       "manifest": "docs/baselines/phy-v2-production-run-manifest.json",
-      "manifest_sha256": "36c3aa2a386dc9f9dad8ead1bed84e1ab4818d342cc83a1a37d15f7973d3064a",
+      "manifest_sha256": "002507b841956906f0adff47dad4852d3534047f30e9649b4ab4c648f06acea0",
       "seed": 20260927,
-      "source_sha": "fe9307795130804fe41b9edf6730b35eb75cf162",
+      "source_sha": "7cbed30592232f44667f01384a4ce03dbf889c10",
       "summary": "docs/baselines/phy-v2-production-profile-summary.csv",
-      "summary_sha256": "6407c9f1762cb55d22c1790696c186f4547234e3466be20bd503429ab48d147e",
+      "summary_sha256": "b570d90d7a0c2a138339c98f240d2ac2ef46e9753ab74b9337eaf268f32934b5",
+      "warmup_s": 20
+    },
+    {
+      "duration_s": 180,
+      "id": "phy-v2-o2i-final2-7cbed30-seed20260927",
+      "manifest": "docs/baselines/phy-v2-o2i-high-loss-run-manifest.json",
+      "manifest_sha256": "61e4dad580f85a000a556ec0372bbf9cef2c8e271de5aa63022eb90de4d10580",
+      "seed": 20260927,
+      "source_sha": "7cbed30592232f44667f01384a4ce03dbf889c10",
+      "summary": "docs/baselines/phy-v2-o2i-high-loss-summary.csv",
+      "summary_sha256": "2f7d9e159fc21d739ce12e69ddff6c953588516dcc8effdcd6db790543562310",
+      "warmup_s": 20
+    },
+    {
+      "duration_s": 180,
+      "id": "phy-v2-legacy-final2b-7cbed30-seed20260927",
+      "manifest": "docs/baselines/phy-v2-legacy-paired-run-manifest.json",
+      "manifest_sha256": "1c7b70790de6753f9d5caecdc87a4dcd652830dcf505bdc008df5f408d7256eb",
+      "seed": 20260927,
+      "source_sha": "7cbed30592232f44667f01384a4ce03dbf889c10",
+      "summary": "docs/baselines/phy-v2-legacy-paired-summary.csv",
+      "summary_sha256": "836e04117d014e5265954f63158499d8089198a159416c8b6c22fe6a02d76029",
       "warmup_s": 20
     }
   ],
-  "schema_version": 1,
+  "schema_version": 2,
   "source": {
+    "analyzer_source_sha": "f89a3159935cc58737dd68324ca5f8ba72f21419",
     "branch": "feature/phy-model-v2",
     "dev_baseline_sha": "e995563fd3e8fa300f4b0accca3b494f7177101c",
-    "feature_baseline_clean": true,
     "feature_baseline_sha": "dc81da62f59ca93e36a02c36bdcecd45ec6cd2bd",
-    "map_statistics_source_sha": "cd1e583407793a69ff558124f6dcb5b605f903e2",
-    "runtime_benchmark_source_sha": "9862842045d0dc136e5c458546d09455efc7070b",
-    "validated_source_sha": "fe9307795130804fe41b9edf6730b35eb75cf162"
+    "map_catalog_source_sha": "59e1329",
+    "map_statistics_source_sha": "172f1a8936e903ba93308c809dcc8ab309e59bfd",
+    "runtime_benchmark_source_sha": "aaceffcc59b0a933a1fb0dbd4ef344924360b31f",
+    "validated_source_sha": "7cbed30592232f44667f01384a4ce03dbf889c10"
   },
   "study": "FikoRE PHY Model V2"
 }

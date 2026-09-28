@@ -242,7 +242,8 @@ def markdown_report(
             "",
             "## Checks and interpretation",
             "",
-            f"- Maximum absolute radial LOS-probability bias: "
+            f"- Maximum absolute bias of the ensemble-mean radial LOS "
+            f"probability: "
             f"{max_radial_bias:.3f}.",
             f"- Maximum absolute ensemble shadow-standard-deviation error: "
             f"{max_shadow_std_error:.3f} dB.",

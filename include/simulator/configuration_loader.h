@@ -316,6 +316,7 @@ private:
     // MAP
     std::string map_file = MAP_FILE_DEFAULT;
     bool map_file_explicit = false;
+    bool allow_nearest_map_fallback = false;
     // MAC LAYER
     int mimo_layers = MIMO_LAYERS_DEFAULT;
     int ofdm_symbols = OFDM_SYMBOLS_DEFAULT;

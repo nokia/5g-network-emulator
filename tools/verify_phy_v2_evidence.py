@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -85,6 +86,9 @@ def main() -> None:
         if "manifest" in batch:
             run_manifest = json.loads(
                 (ROOT / batch["manifest"]).read_text())
+            if run_manifest.get("source_sha") != batch["source_sha"]:
+                raise ValueError(
+                    f"run source mismatch for {batch['id']}")
             for run in run_manifest.get("runs", []):
                 check(
                     run["rendered_config"],
@@ -103,6 +107,51 @@ def main() -> None:
                         run["map_sha256"],
                     )
                 checked += 1
+
+    analysis_metadata = json.loads(
+        (
+            ROOT
+            / "docs/baselines/phy-v2-production-analysis-metadata.json"
+        ).read_text()
+    )
+    if (
+        analysis_metadata.get("analyzer_source_sha")
+        != manifest["source"]["analyzer_source_sha"]
+    ):
+        raise ValueError("analysis metadata source SHA is stale")
+
+    manuscript = (
+        ROOT / "docs/phy-model-evolution-external-review.md"
+    ).read_text()
+    validated_match = re.search(
+        r"\*\*Validated simulator source:\*\* `([0-9a-f]{40})`",
+        manuscript,
+    )
+    runtime_match = re.search(
+        r"\*\*Runtime-benchmark source:\*\* `([0-9a-f]{40})`",
+        manuscript,
+    )
+    if (
+        validated_match is None
+        or validated_match.group(1)
+        != manifest["source"]["validated_source_sha"]
+    ):
+        raise ValueError("manuscript validated source SHA is stale")
+    if (
+        runtime_match is None
+        or runtime_match.group(1)
+        != manifest["source"]["runtime_benchmark_source_sha"]
+    ):
+        raise ValueError("manuscript runtime source SHA is stale")
+    subprocess.check_call(
+        [
+            "git",
+            "cat-file",
+            "-e",
+            f"{manifest['source']['map_catalog_source_sha']}^{{commit}}",
+        ],
+        cwd=ROOT,
+    )
 
     identifiers = set()
     for artifact in manifest["committed_evidence"]:

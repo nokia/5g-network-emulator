@@ -372,6 +372,16 @@ void configuration_loader::load(std::string cfg_file)
                                     map_file = value;
                                     map_file_explicit = true;
                                 }
+                                if (key == "allow_nearest_map_fallback")
+                                {
+                                    if (value == "true" || value == "1")
+                                        allow_nearest_map_fallback = true;
+                                    else if (value == "false" || value == "0")
+                                        allow_nearest_map_fallback = false;
+                                    else
+                                        throw std::invalid_argument(
+                                            "allow_nearest_map_fallback must be true or false");
+                                }
                             }
                             if (mode == "eNBConfig")
                             {
@@ -844,6 +854,7 @@ float configuration_loader::get_freq()
 
 std::string configuration_loader::getClosestMapFile(int scenario_type, double frequency)
 {
+    constexpr double frequency_tolerance_ghz = 1e-4;
     double freqGHz = frequency / 1e9;
 
     auto scenarioIt = SCENARIO_TYPE_MAP.find(scenario_type);
@@ -887,8 +898,14 @@ std::string configuration_loader::getClosestMapFile(int scenario_type, double fr
     }
 
     std::string mapFilePath = getBaseMapPath() + scenarioName + "_" + freqStr + ".json";
-    if (std::abs(closestFreq - freqGHz) > 1e-6)
+    if (std::abs(closestFreq - freqGHz) > frequency_tolerance_ghz)
     {
+        if (!allow_nearest_map_fallback)
+        {
+            throw std::invalid_argument(
+                "no exact map for requested scenario/frequency; "
+                "set allow_nearest_map_fallback: true or map_file explicitly");
+        }
         LOG_WARNING_I("configuration_loader::getClosestMapFile")
             << "Requested " << freqGHz << " GHz for " << scenarioName
             << "; selected nearest map at " << closestFreq << " GHz" << END();

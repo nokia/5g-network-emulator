@@ -292,5 +292,41 @@ int main()
     }
     assert(asymmetric_rejected);
 
+    const std::string nearest_rejected_path =
+        "build/tests/profile_config_nearest_rejected.ini";
+    std::ofstream nearest_rejected(nearest_rejected_path);
+    nearest_rejected
+        << "[Scenario]\n"
+        << "scenario_type: 0\n"
+        << "[eNBConfig]\n"
+        << "frequency: 2500000000\n";
+    nearest_rejected.close();
+    bool nearest_rejected_by_default = false;
+    try
+    {
+        configuration_loader rejected_loader(nearest_rejected_path);
+    }
+    catch (const std::invalid_argument &)
+    {
+        nearest_rejected_by_default = true;
+    }
+    assert(nearest_rejected_by_default);
+
+    const std::string nearest_allowed_path =
+        "build/tests/profile_config_nearest_allowed.ini";
+    std::ofstream nearest_allowed(nearest_allowed_path);
+    nearest_allowed
+        << "[Scenario]\n"
+        << "scenario_type: 0\n"
+        << "allow_nearest_map_fallback: true\n"
+        << "[eNBConfig]\n"
+        << "frequency: 2500000000\n";
+    nearest_allowed.close();
+    configuration_loader allowed_loader(nearest_allowed_path);
+    assert(
+        allowed_loader.get_scenario_config().map_file.find(
+            "URBAN_MICROCELL_2.38.json")
+        != std::string::npos);
+
     return 0;
 }

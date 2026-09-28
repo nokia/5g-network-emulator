@@ -45,7 +45,7 @@
     {
       "id": "production-profile-ue-summary",
       "path": "docs/baselines/phy-v2-production-ue-summary.csv",
-      "sha256": "27bbfd29b1e00f64db095be05ebc4fc5171ffa1efcb4d3d5c1c533b86adea3a3"
+      "sha256": "d234270e918c1c28128d87be0118fa0c0b34ed150316cb6fe25b4550b8af3227"
     },
     {
       "id": "map-v2-multiseed-summary",
@@ -70,7 +70,7 @@
     {
       "id": "original-production-comparison",
       "path": "docs/baselines/phy-v2-production-comparison.csv",
-      "sha256": "1cb28315e79c8ac29bcbc106bb2006f622ce6bcb3fe57f4ed80d253d3b6bf0fc"
+      "sha256": "cb94600ee08a0e8e8526e35530be1bd8202daf227429ef94fbf0208f3048c96c"
     },
     {
       "id": "controlled-o2i-comparison",
@@ -139,13 +139,13 @@
     },
     {
       "duration_s": 180,
-      "id": "phy-v2-production-cd1e5834-seed20260927",
+      "id": "phy-v2-production-tdd-metrics-62764dc-seed20260927",
       "manifest": "docs/baselines/phy-v2-production-run-manifest.json",
-      "manifest_sha256": "351d02c4880e9bfb15b4cf8d2e4ee845cc8fe4b639e84ff6502bec7a31c92b3f",
+      "manifest_sha256": "79d503fc0ec3fce5b1d2b42ef33fd3639aa9c71bb5e8fc213f2c360820dd8b50",
       "seed": 20260927,
-      "source_sha": "cd1e583407793a69ff558124f6dcb5b605f903e2",
+      "source_sha": "62764dc6957c9dadff3beecac4ac1c4e268a6ec3",
       "summary": "docs/baselines/phy-v2-production-profile-summary.csv",
-      "summary_sha256": "d2551191529fa02f9f14b369d28011d7b090fda5348f7cd10db3ae1875d3842a",
+      "summary_sha256": "c09a6089284df544cff4383d0709617cb8946d1d3a17b84560bff0224e9c2171",
       "warmup_s": 20
     }
   ],
@@ -157,7 +157,7 @@
     "feature_baseline_sha": "dc81da62f59ca93e36a02c36bdcecd45ec6cd2bd",
     "map_statistics_source_sha": "cd1e583407793a69ff558124f6dcb5b605f903e2",
     "runtime_benchmark_source_sha": "38202afe9b31f9e8c63a5f09617850d3ab87b2f1",
-    "validated_source_sha": "cd1e583407793a69ff558124f6dcb5b605f903e2"
+    "validated_source_sha": "62764dc6957c9dadff3beecac4ac1c4e268a6ec3"
   },
   "study": "FikoRE PHY Model V2"
 }

@@ -1,6 +1,6 @@
 {
   "artifact_policy": "Exact rendered inputs and compact summaries are committed; raw logs are local-only.",
-  "batch_id": "phy-v2-production-cd1e5834-seed20260927",
+  "batch_id": "phy-v2-production-tdd-metrics-62764dc-seed20260927",
   "duration_s": 180,
   "environment": {
     "hostname": "pitahaya",
@@ -10,73 +10,73 @@
   "production_map_manifest_sha256": "f4e84042f2a9a760cc84023246814a568a1f5c0e9e4b29cee960b4ab198cfcd3",
   "runs": [
     {
-      "elapsed_seconds": 6.254426604602486,
+      "elapsed_seconds": 19.432276329025626,
       "map_file": "macroscopic_fading_map_URBAN_MICROCELL_2.38.json",
       "map_realization_id": "urban_microcell-2.38-seed-17658170683946555616-f4716f8682de",
       "map_sha256": "9442a60cbf37714edd9dc0aad366a7ecc034a93bff1b621911580c6d34a39497",
       "profile": "offline_umi_n40_npn",
       "raw_logs_committed": false,
       "rendered_config": "docs/baselines/phy-v2-production-inputs/offline_umi_n40_npn.ini",
-      "rendered_config_sha256": "a2f921cce45e2d224a0eb2a4b718c216ba5e6ffee4c2dfe509ccb86e038ce8c6",
+      "rendered_config_sha256": "f0a5569e9fcf7a820f75873c46a9ed47ba1bad14a86ac264c4154bf99b5fc813",
       "return_code": 0,
-      "run_id": "phy-v2-production-cd1e5834-seed20260927-offline_umi_n40_npn",
+      "run_id": "phy-v2-production-tdd-metrics-62764dc-seed20260927-offline_umi_n40_npn",
       "source_config": "config/offline_umi_n40_npn.ini"
     },
     {
-      "elapsed_seconds": 11.500211891718209,
+      "elapsed_seconds": 30.685338757932186,
       "map_file": "macroscopic_fading_map_URBAN_MACROCELL_3.5.json",
       "map_realization_id": "urban_macrocell-3.5-seed-4828336182809713892-bdf23bdb695c",
       "map_sha256": "5c584b641bb00c239c64b706bb71cfeecba30b3c078884d19f7b7d36ea7be7dc",
       "profile": "offline_uma_n78_pedestrian",
       "raw_logs_committed": false,
       "rendered_config": "docs/baselines/phy-v2-production-inputs/offline_uma_n78_pedestrian.ini",
-      "rendered_config_sha256": "6c580216829bced762c4b77530f43a15c3c5fec78072e7b07300654c420d78bf",
+      "rendered_config_sha256": "1c6fb1f3123998c5c083cd0b2f3198ea11912f4e354c369ab9efaf7723e096bb",
       "return_code": 0,
-      "run_id": "phy-v2-production-cd1e5834-seed20260927-offline_uma_n78_pedestrian",
+      "run_id": "phy-v2-production-tdd-metrics-62764dc-seed20260927-offline_uma_n78_pedestrian",
       "source_config": "config/offline_uma_n78_pedestrian.ini"
     },
     {
-      "elapsed_seconds": 98.26718406006694,
+      "elapsed_seconds": 160.48808574071154,
       "map_file": "macroscopic_fading_map_RURAL_MACROCELL_3.5.json",
       "map_realization_id": "rural_macrocell-3.5-seed-4311708892289223397-143033a3aaca",
       "map_sha256": "3233f3c3fe2fbb61be2e250f42c41de8dd94a2b4ded9df6d6d6c898e70704de7",
       "profile": "offline_rural_n78_vehicular",
       "raw_logs_committed": false,
       "rendered_config": "docs/baselines/phy-v2-production-inputs/offline_rural_n78_vehicular.ini",
-      "rendered_config_sha256": "c7d8f70e400243a85ed544837cf12ffa85a535b326823bf44e87c42259669a87",
+      "rendered_config_sha256": "2a19dcace96dd07342f1d529505fdccf2baa35945e1da4282e5182c81a5d6f66",
       "return_code": 0,
-      "run_id": "phy-v2-production-cd1e5834-seed20260927-offline_rural_n78_vehicular",
+      "run_id": "phy-v2-production-tdd-metrics-62764dc-seed20260927-offline_rural_n78_vehicular",
       "source_config": "config/offline_rural_n78_vehicular.ini"
     },
     {
-      "elapsed_seconds": 8.24937130883336,
+      "elapsed_seconds": 13.362460242118686,
       "map_file": "macroscopic_fading_map_INDOOR_OPEN_OFFICE_3.5.json",
       "map_realization_id": "indoor_open_office-3.5-seed-527046780482870288-ddb33f87b526",
       "map_sha256": "cbad4a6995c1b4fb4ad21a93e56665ce22cbcd61b57370be62ec0861d1e75d27",
       "profile": "offline_indoor_hotspot_n78_pedestrian",
       "raw_logs_committed": false,
       "rendered_config": "docs/baselines/phy-v2-production-inputs/offline_indoor_hotspot_n78_pedestrian.ini",
-      "rendered_config_sha256": "e1d0d898a6f4c0bdd4f7b62c8302f37e9d07a6cb401dfa73f2539c454af34b7d",
+      "rendered_config_sha256": "1aef9f6d60ab9462979cd5db4525d35bb4bd9c50570fafeac7251d8391eab825",
       "return_code": 0,
-      "run_id": "phy-v2-production-cd1e5834-seed20260927-offline_indoor_hotspot_n78_pedestrian",
+      "run_id": "phy-v2-production-tdd-metrics-62764dc-seed20260927-offline_indoor_hotspot_n78_pedestrian",
       "source_config": "config/offline_indoor_hotspot_n78_pedestrian.ini"
     },
     {
-      "elapsed_seconds": 8.244303364306688,
+      "elapsed_seconds": 12.388441153801978,
       "map_file": "macroscopic_fading_map_URBAN_MICROCELL_26.json",
       "map_realization_id": "urban_microcell-26-seed-4596863232196585428-ea6438f9b43b",
       "map_sha256": "0780a035503344380b8375cf84837617e0c1aaac19bb0686885564c1b9f72d8c",
       "profile": "offline_umi_n258_fwa",
       "raw_logs_committed": false,
       "rendered_config": "docs/baselines/phy-v2-production-inputs/offline_umi_n258_fwa.ini",
-      "rendered_config_sha256": "f2565f7d35cd230b48ccd35b4fbbd189e4476b4881a342205012418e00fd3a7c",
+      "rendered_config_sha256": "0b9280a0e1b74588d8d2ff2a766e8b30b0532283afedcdf9d3b6f19e9e31215f",
       "return_code": 0,
-      "run_id": "phy-v2-production-cd1e5834-seed20260927-offline_umi_n258_fwa",
+      "run_id": "phy-v2-production-tdd-metrics-62764dc-seed20260927-offline_umi_n258_fwa",
       "source_config": "config/offline_umi_n258_fwa.ini"
     }
   ],
   "schema_version": 1,
   "seed": 20260927,
   "source_dirty": false,
-  "source_sha": "cd1e583407793a69ff558124f6dcb5b605f903e2"
+  "source_sha": "62764dc6957c9dadff3beecac4ac1c4e268a6ec3"
 }

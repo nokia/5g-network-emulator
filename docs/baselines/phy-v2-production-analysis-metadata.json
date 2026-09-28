@@ -7,7 +7,7 @@
     0.1,
     1.0
   ],
-  "source_manifest": "/home/pablop/devel/fikore/5g-network-emulator/results/phy-v2-production-maps/manifest.json",
-  "source_manifest_sha256": "e28f4269747640b28550250afb11ac6f333df64ccff066f8c6e1d1ef3040368c",
+  "source_manifest": "/home/pablop/devel/fikore/5g-network-emulator/results/phy-v2-production-tdd-metrics/manifest.json",
+  "source_manifest_sha256": "b5aed41c040face075bb88d7b319d03df12d414ce9d5f82752c8034eb07f510c",
   "warmup_s": 20.0
 }

@@ -15,6 +15,7 @@
 | PF metric and state | `pf_metric_test`; `pf_state_test`; `pf_scheduler_test` | Common alpha, 1 ms EWMA aging, zero-service update, fair homogeneous service passed |
 | PF migration | `pf_config_migration_test` | Legacy per-UE PF beta rejected |
 | Reranking/granularity | repeated runtime/fairness envelope | Grouped reranking materially reduced service gaps; detailed trade-off recorded |
+| TDD resource accounting | `tdd_resource_metrics_test`; per-TTI grid summaries | Directionally unavailable units excluded before empty/fill metrics |
 | Building/vehicle loss | `penetration_model_test`; controlled n258 high-loss profile; RMa vehicle profile | Formula, deterministic profile, and end-to-end behavior passed |
 | Canonical end-to-end profiles | Five 180 s runs, seed `20260927`, 20 s warm-up analysis | All completed; summaries and exact inputs committed |
 | Candidate/production parity | Identical analyzer applied to both batches | Maximum shared numeric delta was exactly zero |

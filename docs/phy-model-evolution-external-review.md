@@ -2,7 +2,7 @@
 
 **Status:** External technical-review manuscript
 **Model under test:** `feature/phy-model-v2`
-**Validated simulator source:** `cd1e583407793a69ff558124f6dcb5b605f903e2`
+**Validated simulator source:** `62764dc6957c9dadff3beecac4ac1c4e268a6ec3`
 **Runtime-benchmark source:** `38202afe9b31f9e8c63a5f09617850d3ab87b2f1`
 **Evidence protocol:** `docs/phy-model-v2-evidence-protocol.md`
 **Date:** 2026-09-28
@@ -481,8 +481,8 @@ limitation; they are not coverage predictions.
 |---|---|---:|---:|---:|---:|---:|---:|---:|
 | Indoor n78 | DL | 65.00 | 46.57 | 0 | 0.1% | 1.51 s | 86.6% | 22.8% |
 | Indoor n78 | UL | 90.00 | 45.20 | 0 | 3.4% | 43.75 s | 100.0% | 44.5% |
-| RMa n78 | DL | 120.01 | 62.38 | 1 | 25.1% | 92.10 s | 86.2% | 98.6% |
-| RMa n78 | UL | 120.01 | 27.01 | 0 | 30.6% | 43.85 s | 79.8% | 88.8% |
+| RMa n78 | DL | 120.01 | 62.38 | 1 | 25.1% | 92.10 s | 96.9% | 98.6% |
+| RMa n78 | UL | 120.01 | 27.01 | 0 | 30.6% | 43.85 s | 99.9% | 88.8% |
 | UMa n78 | DL | 180.01 | 108.75 | 5 | 16.8% | 110.57 s | 100.0% | 72.5% |
 | UMa n78 | UL | 70.00 | 14.38 | 1 | 37.6% | 160.00 s | 100.0% | 98.3% |
 | UMi n258 | DL | 500.02 | 500.02 | 0 | 0.0% | 0.00 s | 98.7% | 38.1% |
@@ -506,11 +506,12 @@ both outage/low-MCS periods and 20–30% zero-service 1 s windows. Indoor UL has
 no permanent outage but one 43.75 s gap, which requires follow-up under
 multiple mobility/traffic seeds.
 
-Third, fill below 100% does not imply structural TDD loss. The denominator
-already excludes slots for the opposite direction. Indoor DL can leave units
-unused under finite demand; RMa can have no queued positive-rate candidate on
-some units. The reason for each empty unit is now separable from duplexing and
-should be exposed directly in future monitoring.
+Third, fill below 100% does not imply structural TDD loss. Per-TTI summaries
+separate directionally unavailable units before the utilization denominator.
+RMa assigns 96.9% of available DL and 99.9% of available UL units despite its
+long per-UE gaps; the effect is distribution among UEs, not loss of the cell
+resource pool. Indoor DL leaves 13.4% unused under finite demand. Empty-unit
+reason should next distinguish no backlog from no positive-rate candidate.
 
 The combined original-baseline-to-V2 change is large and intentionally not
 attributed to maps alone:

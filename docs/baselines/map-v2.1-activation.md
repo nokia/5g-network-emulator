@@ -29,7 +29,8 @@ Thirty independent master seeds were evaluated for every catalog entry
 (630 realizations). The largest observed diagnostics were:
 
 - absolute bias of the ensemble-mean radial LOS probability: 0.038;
-- axial shadow-autocorrelation error at the nearest representable lag: 0.007;
+- error of the ensemble-mean axial shadow autocorrelation at the nearest
+  representable lag: 0.007;
 - absolute ensemble-mean opposite-edge correlation: 0.026.
 
 These are descriptive maxima, not predeclared population bounds. Pointwise

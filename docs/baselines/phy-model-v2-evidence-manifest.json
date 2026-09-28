@@ -36,7 +36,7 @@
     {
       "id": "map-v2.1-activation",
       "path": "docs/baselines/map-v2.1-activation.md",
-      "sha256": "00fc76acc80180dd3159d0d527b5d931579a260139e48780d98d3e820b0b1d2d"
+      "sha256": "ba0f2f15ab28f0dd934117edf83b3b1893b88efcf57cdae3b54305fa3927e1ea"
     },
     {
       "id": "map-v2.1-multiseed-summary",
@@ -56,7 +56,7 @@
     {
       "id": "map-v2.1-statistics-report",
       "path": "docs/baselines/map-v2-multiseed-validation.md",
-      "sha256": "a075077c85cbfa5ba987adfea0a84d2f956b231da784bac194ba74fc2dbc2519"
+      "sha256": "7e411828cabad34db33c42c0af236d616f92568f7f32ce56dc6d1cb223d8f4bc"
     },
     {
       "id": "map-v2.1-paired-profile-comparison",
@@ -161,7 +161,7 @@
     {
       "id": "manuscript",
       "path": "docs/phy-model-evolution-external-review.md",
-      "sha256": "d0d36f4b1313e357ae9d2e0685edaecbd02414787e9db8c84578b80bc0fe6a76"
+      "sha256": "af67977a02430cb2fcb34571d604474e12dfe7dc5ad2ae92f76e0d7bf0592a27"
     },
     {
       "id": "python-dependency-lock",

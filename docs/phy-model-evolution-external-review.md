@@ -28,8 +28,8 @@ seeded map realizations, five 180 s packet-level profiles, a controlled O2I
 stress pair, and repeated timing over 1–256 UEs. All promoted numeric map
 arrays are byte-reproducible from their v2.1 metadata. Within the inscribed
 map disks, the largest absolute bias of the 30-realization ensemble-mean
-radial LOS probability is 0.038; axial
-shadow-correlation error is 0.007, and
+radial LOS probability is 0.038; the largest ensemble-mean axial
+shadow-correlation error is 0.007, and the largest absolute ensemble-mean
 opposite-edge correlation after padded generation is 0.026. Grouped PF
 reranking materially reduces 64-UE maximum service gaps while long-run Jain
 fairness is already near one, with sub-millisecond P99 cost on
@@ -573,7 +573,8 @@ Across 630 maps:
 
 - largest absolute bias of the 30-realization ensemble-mean radial LOS
   probability within each map's inscribed disk was 0.038;
-- largest observed axial-correlation error at the sampled physical lag was 0.007;
+- largest absolute error of the ensemble-mean axial correlation at the sampled
+  physical lag was 0.007;
 - largest absolute ensemble-mean opposite-edge correlation was 0.026;
 - normalized shadow standard deviations equaled their configured values;
 - exact-frequency UMi 2.38 GHz lookup replaced nearest 3.5 GHz lookup.

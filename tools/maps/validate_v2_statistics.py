@@ -247,8 +247,9 @@ def markdown_report(
             f"{max_radial_bias:.3f}.",
             f"- Maximum absolute ensemble shadow-standard-deviation error: "
             f"{max_shadow_std_error:.3f} dB.",
-            f"- Maximum absolute axial-autocorrelation error at the nearest "
-            f"grid-representable lag: {max_autocorr_error:.3f}.",
+            f"- Maximum absolute error of the ensemble-mean axial "
+            f"autocorrelation at the nearest grid-representable lag: "
+            f"{max_autocorr_error:.3f}.",
             f"- Maximum absolute opposite-edge shadow correlation: "
             f"{max_edge_correlation:.3f}; this diagnoses circular FFT seams "
             "and is not an acceptance pass.",

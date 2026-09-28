@@ -81,7 +81,9 @@ N_{\mathrm{PRB}}
 Calculate per-PRB SINR, then use the scheduling-unit RBG size for the matching
 SINR-BLER/MCS table and multiply capacity by the RBG subcarrier count.
 
-Equivalent grouping of the same PRBs must not change the estimated SINR.
+Equivalent grouping of the same PRBs must not change deterministic per-PRB
+power/noise SINR. The current small-scale fading resolution follows scheduling
+units and is a separately documented approximation.
 
 ### 3.2 Interference recommendation
 

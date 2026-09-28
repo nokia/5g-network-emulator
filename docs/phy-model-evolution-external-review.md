@@ -25,14 +25,15 @@ environment state explicit.
 Validation combines unit invariants, byte reproduction, 630 independently
 seeded map realizations, five 180 s packet-level profiles, a controlled O2I
 stress pair, and repeated timing over 1–256 UEs. All promoted numeric map
-arrays are byte-reproducible from their v2.1 metadata. The largest observed
-radial LOS bias is 0.038, axial shadow-correlation error is 0.007, and
+arrays are byte-reproducible from their v2.1 metadata. Within the inscribed
+map disks, the largest observed radial LOS bias is 0.038; axial
+shadow-correlation error is 0.007, and
 opposite-edge correlation after padded generation is 0.026. Grouped PF
-reranking materially improves
-64-UE Jain fairness and maximum service gaps with sub-millisecond P99 cost on
+reranking materially reduces 64-UE maximum service gaps while long-run Jain
+fairness is already near one, with sub-millisecond P99 cost on
 the measured host, whereas distributed per-PRB 100/400 MHz grids exceed the
 real-time budget. Windowed delivery metrics show that per-TTI zero grants need
-not imply application-visible starvation, but UMa, RMa, and indoor UL retain
+not imply application-visible starvation, but UMa and RMa retain
 multi-second delivery gaps whose queue/scheduler/radio causes are not
 separable from current logs. These results establish internal
 consistency and reproducibility, not predictive validity. Multicell
@@ -45,7 +46,8 @@ This work makes four falsifiable contributions.
 
 1. **Resource-consistent link accounting.** Desired signal, thermal noise,
    aggregate interference, uplink power, and grant capacity share a per-PRB
-   reference. Equivalent grouping does not change estimated SINR.
+   reference. With stochastic fading disabled, equivalent grouping does not
+   change estimated per-PRB SINR.
 2. **Scheduler state with explicit temporal semantics.** PF achievable rate is
    refreshed by channel reporting, while service history is committed exactly
    once per active TTI using effective payload. Optional reranking uses only a
@@ -111,7 +113,7 @@ For numerology \(\mu\), subcarrier spacing is
 Given usable RF bandwidth \(B_{\mathrm{RF}}\), the modeled PRB count is
 
 \[
-N_{\mathrm{PRB}}
+N_{\mathrm{RB,car}}
 =\left\lfloor\frac{B_{\mathrm{RF}}}{12\Delta f}\right\rfloor.
 \]
 
@@ -129,6 +131,9 @@ The current grid uses configured usable-bandwidth approximations and does not
 apply a standards-table PRB cap. Grouped scheduling uses only complete RBGs;
 any remainder PRBs are not represented. Canonical profiles are tested
 explicitly rather than inferred to cover every NR bandwidth/numerology pair.
+Canonical evidence is TDD. V2 rejects asymmetric FDD because the current PHY
+shares one direction-independent grid descriptor; symmetric 0.5/0.5 FDD
+remains available.
 
 For TDD, the configured pattern determines the usable symbols for each
 direction. A DL-ineligible UL slot, an UL-ineligible DL slot, and configured
@@ -256,6 +261,21 @@ which both endpoints are indoors set facade penetration to `none`; they do not
 apply an outdoor wall a second time. Oxygen loss applies independently of UE
 environment type.
 
+For low loss, material weights are 0.3 standard glass and 0.7 concrete; for
+high loss they are 0.7 IRR glass and 0.3 concrete, with
+\(L_{\mathrm{glass}}=2+0.2f_{\mathrm{GHz}}\),
+\(L_{\mathrm{IRR}}=23+0.3f_{\mathrm{GHz}}\), and
+\(L_{\mathrm{concrete}}=5+4f_{\mathrm{GHz}}\) dB. A shared environment stream
+pre-generates 100 candidates
+\[
+d_j=\min(U_{j,1},U_{j,2})D_{\max},
+\]
+where \(D_{\max}=25\) m for UMi/UMa and 10 m for RMa. At first channel
+evaluation, the first \(d_j<d\) is selected (or the final candidate is clipped
+to \(d\)) and each direction freezes that same result. Explicit
+`outdoor|indoor|vehicle` states are preserved in every scenario; only
+`random` applies scenario probabilities.
+
 Vehicle loss is separate:
 
 \[
@@ -274,14 +294,14 @@ carrier PRBs:
 
 \[
 P_{\mathrm{DL,PRB}}
-=P_{\mathrm{DL,tot}}-10\log_{10}N_{\mathrm{PRB}}
+=P_{\mathrm{DL,tot}}-10\log_{10}N_{\mathrm{RB,car}}
 \quad[\mathrm{dBm}].
 \]
 
 Thermal noise is referenced to the same PRB:
 
 \[
-N_{\mathrm{PRB}}
+P_{N,\mathrm{PRB}}
 =N_0+NF+10\log_{10}(12\Delta f)
 \quad[\mathrm{dBm}],
 \]
@@ -332,9 +352,9 @@ linear power, \(F_b\) a small-scale term, \(v_i\) the selected rank, and
 \(\Delta_i\) a configured SINR offset. Resource-level SINR is
 
 \[
-N\!I_{\mathrm{PRB,dBm}}
+P_{N+I,\mathrm{PRB,dBm}}
 =10\log_{10}\!\left(
-1000\,[N_{\mathrm{PRB,W}}+I_{\mathrm{PRB,W}}]
+1000\,[P_{N,\mathrm{PRB,W}}+P_{I,\mathrm{PRB,W}}]
 \right),
 \]
 
@@ -344,7 +364,7 @@ N\!I_{\mathrm{PRB,dBm}}
 +G_{\mathrm{map}}(\mathbf{x}_i)-L_{\mathrm{add},i}
 +F_{i,b}
 -10\log_{10}v_i
--N\!I_{\mathrm{PRB,dBm}}
+-P_{N+I,\mathrm{PRB,dBm}}
 +\Delta_i.
 \]
 
@@ -355,6 +375,19 @@ LOS ABG loss. It has no neighbor geometry, load, beam, or scheduler state.
 The UL surrogate samples \([-23,+23]\) dBm on the per-PRB reference and omits
 interferer antenna gain and penetration; it must not be interpreted as a
 total-power UE model or calibrated received interference.
+
+When enabled, small-scale power gain is
+
+\[
+F_{i,b}=10\log_{10}\!\left(\frac{X^2+Y^2}{2}\right),
+\qquad X,Y\sim\mathcal N(0,1),
+\]
+
+which has unit mean in linear power. Independent keyed streams are used by
+direction. The implementation applies Rayleigh fading to both LOS and NLOS and
+holds/redraws it on coherence blocks expressed in scheduling units; changing
+grouping can therefore change stochastic sample resolution even though the
+deterministic PSD/SINR reference is invariant.
 
 ### 3.5 MCS, rank, and grant bits
 
@@ -398,7 +431,9 @@ post-processing layer SINR. Packet/queue handling maps nominal grant bits
 \(B_{i,b}\) to effective payload \(B^{\mathrm{eff}}_{i,b}\le B_{i,b}\) for
 new transmissions. Reported error throughput is queue/expiry accounting, not a
 calibrated radio-BLER outcome. The disabled HARQ retry path is excluded from
-the evidence and requires a grant-cap invariant before re-enablement.
+the evidence and requires a grant-cap invariant and actual grant-rank/RBG
+context before re-enablement; its current initialization uses UE antenna count,
+not selected rank.
 
 For rank above one, rank selection also observes SINR after the previous
 rank's equal-power penalty, without hysteresis; oscillation is possible.
@@ -458,7 +493,7 @@ second scheduling pass. Exact metric ties use a persistent round-robin cursor.
 | UL total power reused by independently considered grants | Nominal planning plus allocation-aware total-power finalization | 1–275 PRB power conservation and 23 dBm cap |
 | PF exponent and history embedded in per-UE/CQI behavior | Common \(\alpha\); 1 ms EWMA of effective service; fair ties | State, metric, migration, homogeneous-scheduler tests |
 | Same-TTI repeated winners in grouped grids | Configurable provisional allocation-unit reranking | Fairness/gap/runtime benchmark |
-| One-based layer count used as zero-based MCS table index | Bounded `layers - 1` index shared by MCS and HARQ; bounded RI threshold loop | Layer/rank index regression test |
+| One-based layer count used as zero-based table index | Bounded `layers - 1` conversion at PHY and disabled-HARQ call sites; bounded RI threshold loop | Layer/rank index regression test |
 | Unseeded, origin-ambiguous production maps | 21 deterministic v2 files, odd grid, binary LOS, manifest, exact n40 map | Two-catalog byte equality; origin test; 630-realization study |
 | O2I overloaded into one integer/map assumption | Explicit UE environment, building, and vehicle fields; indoor-gNB profiles omit facade loss | Unit formulas and controlled high-loss n258 pair |
 
@@ -534,7 +569,8 @@ change for one realization.
 
 Across 630 maps:
 
-- largest observed absolute radial LOS-probability bias was 0.038;
+- largest observed absolute radial LOS-probability bias within each map's
+  inscribed disk was 0.038;
 - largest observed axial-correlation error at the sampled physical lag was 0.007;
 - largest absolute ensemble-mean opposite-edge correlation was 0.026;
 - normalized shadow standard deviations equaled their configured values;
@@ -574,7 +610,7 @@ and maximum observed gaps of 70 ms DL and 30 ms UL. Labeling every zero TTI as
 application-visible starvation substantially over-reports the problem.
 
 Second, some long application-delivery gaps are observed. UMa has a high
-assignment ratio while several non-outage UEs still show gaps of 110–160 s.
+assignment ratio while individual non-outage UEs show gaps up to 160 s.
 RMa has low-MCS periods and substantial zero-delivery 1 s windows. These
 observations combine source state, queueing, scheduling, expiry, and radio
 state. They require
@@ -589,23 +625,21 @@ RMa assigns 96.0% of available DL and 99.9% of available UL units, but only
 mixed TDD-unavailable, empty, assigned, and useful units. Queue reservation and
 explicit empty/waste reasons remain required.
 
-The combined original-baseline-to-V2 change is large and intentionally not
-attributed to maps alone:
+For historical context only, the original baseline and V2 run differ in seed,
+code, profiles, PF, PHY, and maps. The figure is deliberately unpaired and
+must not be interpreted as an effect estimate:
 
-![Original baseline versus PHY Model V2](figures/phy-v2-throughput.svg)
+![Unpaired historical baseline and PHY Model V2 runs](figures/phy-v2-throughput.svg)
 
-For example, n40 DL rises from 14.93 to 46.18 Mbit/s and its maximum
-non-outage gap falls from 124.27 s to 0.28 s over the whole run. Conversely,
-RMa and indoor throughput fall after the combined power/noise/PF/profile/map
-changes. In the one-factor legacy-v1/v2.1 catalog pair, RMa DL rises 14.1%,
-while UMa DL falls 8.5%, indoor DL falls 2.0%, and n40 DL falls 2.5% for the
-fixed seed; n258 DL remains demand-saturated.
+The controlled catalog result is the one-factor legacy-v1/v2.1 pair: RMa DL
+rises 14.1%, while UMa DL falls 8.5%, indoor DL falls 2.0%, and n40 DL falls
+2.5% for the fixed seed; n258 DL remains demand-saturated.
 
 With common keyed fading/interference streams, the controlled high-loss n258
 pair reduced median-UE SINR by 38.15 dB DL and 37.57 dB UL. Throughput fell
 51.7% DL and 63.0% UL. This one-seed ablation isolates configured environment
 loss; the maximum per-UE standard deviation of the paired DL SINR delta was
-\(6.2\times10^{-6}\) dB. Equivalent gains remain an alignment abstraction, not
+below \(6.2\times10^{-6}\) dB. Equivalent gains remain an alignment abstraction, not
 beamforming.
 
 ### 6.3 PF reranking, fairness, and runtime
@@ -613,7 +647,7 @@ beamforming.
 At 64 homogeneous UEs, allocation-unit reranking improves grouped-grid
 fairness and continuity consistently:
 
-| Grid | Unit | Jain none → rerank | Maximum DL gap none → rerank | P99 runtime none → rerank |
+| Grid | Unit | Jain none → rerank | Maximum DL effective-service gap none → rerank | P99 runtime none → rerank |
 |---|---|---:|---:|---:|
 | 20 MHz, \(\mu=1\) | grouped | 0.9991 → 0.9999 | 102 → 19 TTIs | 199 → 191 µs |
 | 100 MHz, \(\mu=1\) | grouped | 0.9991 → 1.0000 | 103 → 13 TTIs | 365 → 395 µs |
@@ -627,7 +661,7 @@ fairness and continuity consistently:
 The functional columns use 500 warm-up plus 2,000 measured TTIs; timing uses
 ten runs of 100 individually timed TTIs after 20 warm-up TTIs. Long-run Jain
 fairness converges near one in both modes, while reranking materially reduces
-maximum delivery gaps, especially in grouped grids. Canonical grouped-RBG PF
+maximum MAC effective-service gaps, especially in grouped grids. Canonical grouped-RBG PF
 profiles therefore opt into reranking; the global default remains `none` for
 high-resolution per-PRB experiments.
 
@@ -636,12 +670,12 @@ Runtime is a property of the complete grid/population, not only reranking:
 ![Measured PF runtime envelope](figures/phy-v2-runtime.svg)
 
 On the measured, non-isolated host, grouped modes have zero observed 1 ms
-deadline misses through 64 UEs for every tested bandwidth. At 256 UEs, miss
-fractions are 0.1% at 20 MHz, 21.1–24.4% at 100 MHz, and 23.5–25.8% at
-400 MHz. Distributed per-PRB 20 MHz first shows misses at 64 UEs; 100 MHz
-already shows rare misses at one UE and exceeds 90% at 16 UEs, while every
-400 MHz TTI misses. At 256 UEs, per-PRB P99 reaches 21.51 ms for 100 MHz and
-42.36 ms for 400 MHz.
+compute-budget exceedances through 64 UEs for every tested bandwidth. At
+256 UEs, exceedance fractions are 0.1% at 20 MHz, 21.1–24.4% at 100 MHz, and
+23.5–25.8% at 400 MHz. Distributed per-PRB 20 MHz first exceeds the budget at
+64 UEs; 100 MHz already shows rare exceedances at one UE and exceeds 90% at
+16 UEs, while every 400 MHz TTI exceeds it. At 256 UEs, per-PRB P99 reaches
+21.51 ms for 100 MHz and 42.36 ms for 400 MHz.
 These are empirical host/case measurements, not a general real-time guarantee.
 
 ## 7. External validity and parameter realism
@@ -669,11 +703,13 @@ calibrated equipment table. In particular:
 - receiver implementation loss is represented only through scalar NF and the
   MCS threshold data.
 
-All five canonical profiles set fixed UL total power at 23 dBm. Fractional
-\(P_0+\alpha PL\) control has algebraic and UE-level finalization tests but no
-packet-level campaign in this evidence set. \(P_0\), numerology normalization,
-closed-loop terms, and the conducted/TRP/EIRP reference must be defined before
-using that mode for external claims.
+All canonical UE classes use fixed UL total-power mode. Study UEs use 23 dBm;
+RMa, UMa, and n40 background UEs also use 23 dBm, while indoor and n258
+background UEs use 10 dBm. Fractional \(P_0+\alpha PL\) control has algebraic
+and UE-level finalization tests but no packet-level campaign in this evidence
+set. \(P_0\), numerology normalization, closed-loop terms, and the
+conducted/TRP/EIRP reference must be defined before using that mode for
+external claims.
 
 Thermal density \(-174\ \mathrm{dBm/Hz}\) is physically conventional. The
 important correction is integrating it over the resource bandwidth rather
@@ -935,3 +971,9 @@ Phase 3 abstractions, not additional unvalidated detail.
     Experimentation and Prototyping,” *IEEE Network*, vol. 37, no. 4,
     pp. 48–55, 2023,
     <https://doi.org/10.1109/MNET.002.2200595>.
+22. 3GPP TS 38.300, *NR; NR and NG-RAN Overall Description; Stage-2*,
+    Release 18.
+23. 3GPP TS 38.321, *NR; Medium Access Control (MAC) Protocol
+    Specification*, Release 18.
+24. 3GPP TS 38.331, *NR; Radio Resource Control (RRC) Protocol
+    Specification*, Release 18.

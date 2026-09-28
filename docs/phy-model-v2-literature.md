@@ -9,6 +9,10 @@ institutional record, or the article itself. A reference supports only the
 specific statement listed below; it is not evidence that FikoRE implements the
 complete cited model.
 
+Numbering in this topical working set is local to this document. The
+manuscript's numbered bibliography is authoritative and intentionally includes
+the FikoRE thesis as a separate source.
+
 ## Normative and calibration references
 
 1. **3GPP TR 38.901 v18.1.0, Release 18**, *Study on channel model for
@@ -155,6 +159,18 @@ complete cited model.
     intended application-level boundary, and positioning that this V2 work
     refines rather than replaces.
 
+22. **3GPP TS 38.300, Release 18**, *NR; NR and NG-RAN Overall Description;
+    Stage-2*. Normative architecture reference for serving cells, carrier
+    aggregation, and cell-group behavior.
+
+23. **3GPP TS 38.321, Release 18**, *NR; Medium Access Control (MAC) Protocol
+    Specification*. Normative reference for one MAC entity, logical-channel
+    prioritization, serving-cell activation, grants, and HARQ entities.
+
+24. **3GPP TS 38.331, Release 18**, *NR; Radio Resource Control (RRC) Protocol
+    Specification*. Normative reference for PCell/SCell and serving-cell/BWP
+    configuration.
+
 ## Use in the paper
 
 - References 1–5 define terminology and dimensional constraints, not emulator
@@ -169,3 +185,4 @@ complete cited model.
 - References 18–20 support artifact manifests, controlled calibration, and
   reproducibility claims.
 - Reference 21 anchors the original FikoRE architecture and novelty boundary.
+- References 22–24 anchor the proposed NR carrier-aggregation state boundary.

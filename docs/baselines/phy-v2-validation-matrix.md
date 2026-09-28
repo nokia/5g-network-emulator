@@ -21,13 +21,14 @@
 | Canonical end-to-end profiles | Five 180 s runs, seed `20260927`, 20 s warm-up analysis | All completed; summaries and exact inputs committed |
 | Legacy/v2.1 map ablation | Same code/seed profiles with explicit legacy-v1 and padded-v2.1 catalogs | One-factor profile deltas committed |
 | Map ensemble | 30 master seeds × 21 catalog entries | 630 realizations; LOS, shadow, autocorrelation, link-gain CIs reported |
-| Runtime envelope | 10 repeats × 100 individually timed TTIs after 20 warm-up TTIs | 1,000 TTI samples/case; P50/P95/P99 and 1 ms miss fraction recorded |
+| Runtime envelope | 10 repeats × 100 individually timed TTIs after 20 warm-up TTIs | 1,000 TTI samples/case; P50/P95/P99/max and 1 ms compute-budget exceedance fraction recorded |
 | Longer PF function | 500 warm-up + 2,000 measured TTIs at 64 UEs | Both modes converge near Jain 1; reranking reduces maximum delivery gaps |
 | Complete build | `make test`; dashboard test; `make smoke` | Passed |
 
 ## Commands
 
 ```bash
+python3 -m pip install -r tools/requirements-phy-v2.txt
 make -j4 test
 make -j4 smoke
 python3 tools/maps/build_manifest.py --check
@@ -44,6 +45,21 @@ python3 tools/analyze_phy_v2_profiles.py \
   results/phy-v2-production-maps/manifest.json \
   --warmup-s 20 \
   --output results/phy-v2-production-analysis
+mkdir -p results/legacy-v1-maps-dc81da6
+git archive dc81da62f59ca93e36a02c36bdcecd45ec6cd2bd \
+  include/maps_scenarios \
+  | tar -x -C results/legacy-v1-maps-dc81da6 \
+      --strip-components=2
+python3 tools/run_phy_v2_profiles.py \
+  --seed 20260927 \
+  --duration-s 180 \
+  --map-dir results/legacy-v1-maps-dc81da6 \
+  --output results/phy-v2-legacy-paired
+python3 tools/run_phy_v2_profiles.py \
+  --profiles offline_umi_n258_fwa_high_loss \
+  --seed 20260927 \
+  --duration-s 180 \
+  --output results/phy-v2-o2i-high-loss
 python3 tools/benchmark_pf_granularity.py \
   --ue-counts 1,16,64,256 \
   --envelope-modes \

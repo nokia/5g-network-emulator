@@ -103,6 +103,8 @@ reply: unacknowledged events are retained and the same cursor safely replays the
 `max_object_events` bounds that replay log (65536 by default). Overflow aborts a
 barrier run; an asynchronous client must recover atomically with
 `{"op":"events","after":0,"resync":true}`.
+See [`docs/runtime-control-events.md`](docs/runtime-control-events.md) for the
+wire contract and cursor rules.
 
 The Python transport models that consume this interface live in
 [`transport/`](transport/README.md): TCP with Reno, CUBIC or Prague, the
@@ -115,6 +117,14 @@ A scenario can also be scripted with no network at all, through `timeline_file` 
 > Beware: under Round Robin (`metric_type: 5`) the scheduler ignores priority, so that
 > particular knob will appear to do nothing. Use `metric_type: 6` for priority
 > experiments.
+
+### Exit status
+
+`fikore` returns zero only after a normal completed run. Aborted and invalid
+runs use stable Unix-style statuses: 64 usage, 66 missing input, 70 fatal
+runtime/software, 74 lost control peer, 75 credit timeout, 76 control-protocol
+integrity failure (including event backlog), and 78 invalid configuration.
+SIGINT and SIGTERM retain their native signal status.
 
 ## Execution Warnings and Troubleshooting
 When running FikoRE in emulator mode, you must press Ctrl+C twice:

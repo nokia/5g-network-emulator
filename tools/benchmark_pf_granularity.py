@@ -130,15 +130,28 @@ ut_noise_figure: 9
 """
 
 
-def run_case(binary: Path, config: Path, steps: int) -> dict:
+def run_case(
+    binary: Path,
+    config: Path,
+    steps: int,
+    warmup_steps: int,
+) -> dict:
     completed = subprocess.run(
-        [str(binary), str(config), str(steps)],
+        [
+            str(binary),
+            str(config),
+            str(steps),
+            str(warmup_steps),
+        ],
         cwd=ROOT,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
-        check=True,
     )
+    if completed.returncode != 0:
+        raise RuntimeError(
+            f"return code {completed.returncode}: "
+            f"{completed.stdout[-500:]}")
     for line in reversed(completed.stdout.splitlines()):
         if line.startswith("BENCHMARK "):
             return json.loads(line.removeprefix("BENCHMARK "))
@@ -189,8 +202,13 @@ def markdown_table(rows: list[dict]) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--steps", type=int, default=50)
+    parser.add_argument("--warmup-steps", type=int, default=20)
     parser.add_argument("--repeats", type=int, default=2)
     parser.add_argument("--full", action="store_true")
+    parser.add_argument(
+        "--ue-counts",
+        help="comma-separated UE counts; overrides --full",
+    )
     parser.add_argument(
         "--envelope-modes",
         action="store_true",
@@ -207,7 +225,11 @@ def main() -> None:
     if not binary.is_file():
         raise SystemExit(f"build benchmark first: {binary}")
 
-    ue_counts = [1, 16, 64, 256] if args.full else [16, 64]
+    ue_counts = (
+        [int(value) for value in args.ue_counts.split(",")]
+        if args.ue_counts
+        else ([1, 16, 64, 256] if args.full else [16, 64])
+    )
     modes = (
         [(1, 0), (0, 1)]
         if args.envelope_modes
@@ -219,6 +241,7 @@ def main() -> None:
     config_dir.mkdir(parents=True, exist_ok=True)
     rows: list[dict] = []
     sample_rows: list[dict] = []
+    failure_rows: list[dict] = []
 
     for grid_name, ue_count, (time_mode, frequency_mode), reranking in itertools.product(
         GRID_PROFILES,
@@ -241,15 +264,35 @@ def main() -> None:
                 reranking,
             )
         )
-        samples = [
-            run_case(binary, config, args.steps)
-            for _ in range(args.repeats)
-        ]
+        samples = []
+        failure = None
+        for repeat in range(args.repeats):
+            try:
+                samples.append(
+                    run_case(
+                        binary,
+                        config,
+                        args.steps,
+                        args.warmup_steps,
+                    )
+                )
+            except RuntimeError as error:
+                failure = {
+                    "case": case_name,
+                    "repeat": repeat,
+                    "error": str(error),
+                }
+                failure_rows.append(failure)
+                break
+        if failure is not None:
+            print(case_name, "FAILED", failure["error"])
+            continue
         for repeat, sample in enumerate(samples):
             sample_rows.append(
                 {
                     "case": case_name,
                     "repeat": repeat,
+                    "warmup_steps": args.warmup_steps,
                     "steps": args.steps,
                     "us_per_tti": sample["us_per_tti"],
                 }
@@ -290,21 +333,38 @@ def main() -> None:
         print(case_name, row["us_per_tti"])
 
     csv_path = output / "results.csv"
-    with csv_path.open("w", newline="") as handle:
-        writer = csv.DictWriter(
-            handle, fieldnames=list(rows[0]), lineterminator="\n")
-        writer.writeheader()
-        writer.writerows(rows)
-    with (output / "runtime-samples.csv").open("w", newline="") as handle:
-        writer = csv.DictWriter(
-            handle, fieldnames=list(sample_rows[0]), lineterminator="\n")
-        writer.writeheader()
-        writer.writerows(sample_rows)
+    if rows:
+        with csv_path.open("w", newline="") as handle:
+            writer = csv.DictWriter(
+                handle, fieldnames=list(rows[0]), lineterminator="\n")
+            writer.writeheader()
+            writer.writerows(rows)
+    else:
+        csv_path.write_text("")
+    samples_path = output / "runtime-samples.csv"
+    if sample_rows:
+        with samples_path.open("w", newline="") as handle:
+            writer = csv.DictWriter(
+                handle, fieldnames=list(sample_rows[0]), lineterminator="\n")
+            writer.writeheader()
+            writer.writerows(sample_rows)
+    else:
+        samples_path.write_text("")
+    failures_path = output / "failures.csv"
+    if failure_rows:
+        with failures_path.open("w", newline="") as handle:
+            writer = csv.DictWriter(
+                handle, fieldnames=list(failure_rows[0]), lineterminator="\n")
+            writer.writeheader()
+            writer.writerows(failure_rows)
+    else:
+        failures_path.write_text("")
 
     report = [
         "# PF Granularity Benchmark",
         "",
-        f"Steps per sample: {args.steps}; repeats: {args.repeats}.",
+        f"Warm-up steps: {args.warmup_steps}; measured steps per sample: "
+        f"{args.steps}; repeats: {args.repeats}.",
         "",
         f"Host: `{socket.gethostname()}`; platform: `{platform.platform()}`.",
         "",
@@ -315,6 +375,12 @@ def main() -> None:
         "PRB per allocation unit.",
         "",
         markdown_table(rows),
+        "",
+        (
+            f"Failed cases: {len(failure_rows)}. See `failures.csv`."
+            if failure_rows
+            else "Failed cases: 0."
+        ),
         "",
     ]
     (output / "report.md").write_text("\n".join(report))
@@ -335,10 +401,12 @@ def main() -> None:
             "python": platform.python_version(),
         },
         "steps": args.steps,
+        "warmup_steps": args.warmup_steps,
         "repeats": args.repeats,
         "ue_counts": ue_counts,
         "modes": modes,
         "grids": GRID_PROFILES,
+        "failed_cases": len(failure_rows),
     }
     (output / "metadata.json").write_text(
         json.dumps(metadata, indent=2, sort_keys=True) + "\n")

@@ -28,17 +28,25 @@ double jain_index(const std::vector<float> &values)
 
 int main(int argc, char **argv)
 {
-    if (argc != 3)
+    if (argc != 3 && argc != 4)
     {
-        std::cerr << "Usage: pf_granularity_benchmark CONFIG STEPS\n";
+        std::cerr
+            << "Usage: pf_granularity_benchmark CONFIG STEPS "
+            << "[WARMUP_STEPS]\n";
         return 2;
     }
 
     const std::string config_path = argv[1];
     const unsigned int steps =
         static_cast<unsigned int>(std::strtoul(argv[2], nullptr, 10));
+    const unsigned int warmup_steps =
+        argc == 4
+            ? static_cast<unsigned int>(
+                  std::strtoul(argv[3], nullptr, 10))
+            : 0;
     simulator sim(config_path);
 
+    sim.run_steps(warmup_steps);
     const auto start = std::chrono::steady_clock::now();
     sim.run_steps(steps);
     const double wall_ms =
@@ -70,6 +78,7 @@ int main(int argc, char **argv)
     std::cout
         << "BENCHMARK {"
         << "\"steps\":" << steps
+        << ",\"warmup_steps\":" << warmup_steps
         << ",\"ues\":" << dl_throughputs.size()
         << ",\"wall_ms\":" << wall_ms
         << ",\"us_per_tti\":" << wall_ms * 1000.0 / steps

@@ -320,7 +320,7 @@ With table mode enabled, MCS is
 
 \[
 m_{i,b}
-=\max\{m:\Gamma_{i,b}\ge\theta_{m,q,v}\},
+=\max\{m:\Gamma_{i,b}\ge\theta_{m,n_b,\ell_{\mathrm{cfg}}}\},
 \]
 
 where thresholds depend on table, allocation-size class, and configured layer
@@ -718,12 +718,15 @@ validity.
 5. The PF runtime run is 120 TTIs including warm-up. It is adequate for
    execution percentiles and short-horizon continuity, not long-run utility
    convergence.
-6. Timing includes the measured emulator loop but excludes process/UE
+6. P95/P99 are empirical interpolated quantiles of ten process-level samples;
+   P99 is close to the observed maximum, not a high-confidence tail estimate.
+   The host was not CPU-isolated.
+7. Timing includes the measured emulator loop but excludes process/UE
    construction. Results apply only to the named host and bounded benchmark
    traffic.
-7. Equivalent scalar gains make the n258 profiles demand-saturated and hide
+8. Equivalent scalar gains make the n258 profiles demand-saturated and hide
    large SINR changes in aggregate throughput.
-8. Interference, MIMO, MCS/BLER, and HARQ lack a common held-out calibration
+9. Interference, MIMO, MCS/BLER, and HARQ lack a common held-out calibration
    oracle. Their interactions can dominate field throughput.
 
 ## 10. Recommendations

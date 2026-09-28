@@ -55,6 +55,7 @@ def config_text(
     frequency_mode: int,
     reranking: str,
 ) -> str:
+    target_mbps = max(10.0, 4000.0 / ue_count)
     return f"""[Global]
 duration: 1
 period: -1
@@ -74,8 +75,8 @@ cqi_period: 5
 ri_period: 5
 random_v: false
 traffic_type: 0
-ul_target: 100000
-dl_target: 100000
+ul_target: {target_mbps:g}
+dl_target: {target_mbps:g}
 var_perc: 0
 pkt_size: 12000
 mobility_type: 0
@@ -373,6 +374,10 @@ def main() -> None:
         "",
         "Frequency modes: `grouped` uses configured RBGs; `per_rb` uses one "
         "PRB per allocation unit.",
+        "",
+        "Offered traffic is approximately 4 Gbit/s in each direction per "
+        "case, divided equally across UEs. This maintains backlog without "
+        "the unbounded memory growth caused by a 100 Gbit/s target per UE.",
         "",
         markdown_table(rows),
         "",

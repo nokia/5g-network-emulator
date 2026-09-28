@@ -10,8 +10,8 @@ Both batches use the same simulator code, profile settings, traffic, mobility, s
 | offline_rural_n78_vehicular | UL | 25.58 | 26.28 | +2.7% | +0.24 dB | 0 -> 0 |
 | offline_uma_n78_pedestrian | DL | 113.49 | 103.80 | -8.5% | -5.45 dB | 4 -> 2 |
 | offline_uma_n78_pedestrian | UL | 16.21 | 13.37 | -17.5% | -3.00 dB | 0 -> 0 |
-| offline_umi_n258_fwa | DL | 500.02 | 500.02 | -0.0% | -14.56 dB | 0 -> 0 |
-| offline_umi_n258_fwa | UL | 160.14 | 157.24 | -1.8% | -13.20 dB | 0 -> 0 |
+| offline_umi_n258_fwa | DL | 500.02 | 500.02 | +0.0% | -14.56 dB | 0 -> 0 |
+| offline_umi_n258_fwa | UL | 159.83 | 157.05 | -1.7% | -13.20 dB | 0 -> 0 |
 | offline_umi_n40_npn | DL | 47.74 | 46.55 | -2.5% | +6.69 dB | 0 -> 0 |
 | offline_umi_n40_npn | UL | 25.51 | 24.29 | -4.8% | +2.65 dB | 0 -> 0 |
 

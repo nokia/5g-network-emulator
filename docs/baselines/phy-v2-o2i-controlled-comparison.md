@@ -4,7 +4,7 @@ The paired profiles use identical map, traffic, mobility, power, gains, schedule
 
 | Direction | Outdoor throughput | High-loss throughput | Delta | Median-UE SINR delta | Outage UEs |
 |---|---:|---:|---:|---:|---:|
-| DL | 500.02 | 241.44 | -51.7% | -38.15 dB | 0 -> 0 |
-| UL | 157.24 | 58.25 | -63.0% | -37.57 dB | 0 -> 0 |
+| DL | 500.02 | 235.16 | -53.0% | -38.15 dB | 0 -> 0 |
+| UL | 157.05 | 55.22 | -64.8% | -38.71 dB | 0 -> 0 |
 
 Equivalent scalar FWA gains remain an alignment abstraction, not a beamforming model. The paired result isolates configured environment loss but is still one stochastic seed.

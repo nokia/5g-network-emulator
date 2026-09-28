@@ -595,8 +595,8 @@ limitation; they are not coverage predictions.
 | RMa n78 | UL | 120.01 | 26.28 | 0 | 3.2% | 5.10 s | 99.9% / 57.3% | 85.0% |
 | UMa n78 | DL | 180.01 | 103.80 | 2 | 10.4% | 76.76 s | 99.0% / 99.0% | 73.5% |
 | UMa n78 | UL | 70.00 | 13.37 | 0 | 28.2% | 160.00 s | 100.0% / 17.8% | 100.0% |
-| UMi n258 | DL | 500.02 | 500.02 | 0 | 0.0% | 0.00 s | 98.8% / 98.8% | 38.1% |
-| UMi n258 | UL | 200.01 | 157.24 | 0 | 0.0% | 0.02 s | 100.0% / 28.2% | 21.7% |
+| UMi n258 | DL | 500.02 | 500.02 | 0 | 0.0% | 0.00 s | 99.5% / 99.5% | 39.5% |
+| UMi n258 | UL | 200.01 | 157.05 | 0 | 0.0% | 0.02 s | 100.0% / 28.8% | 22.1% |
 | UMi n40 | DL | 50.00 | 46.55 | 0 | 0.0% | 0.07 s | 100.0% / 100.0% | 71.9% |
 | UMi n40 | UL | 35.00 | 24.29 | 0 | 0.0% | 0.03 s | 100.0% / 83.8% | 76.5% |
 
@@ -636,8 +636,8 @@ rises 14.1%, while UMa DL falls 8.5%, indoor DL falls 2.0%, and n40 DL falls
 2.5% for the fixed seed; n258 DL remains demand-saturated.
 
 With common keyed fading/interference streams, the controlled high-loss n258
-pair reduced median-UE SINR by 38.15 dB DL and 37.57 dB UL. Throughput fell
-51.7% DL and 63.0% UL. This one-seed ablation isolates configured environment
+pair reduced median-UE SINR by 38.15 dB DL and 38.71 dB UL. Throughput fell
+53.0% DL and 64.8% UL. This one-seed ablation isolates configured environment
 loss; the maximum per-UE standard deviation of the paired DL SINR delta was
 below \(6.2\times10^{-6}\) dB. Equivalent gains remain an alignment abstraction, not
 beamforming.

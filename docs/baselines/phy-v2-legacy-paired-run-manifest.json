@@ -1,6 +1,6 @@
 {
-  "artifact_policy": "Rendered inputs use portable reconstructed legacy-map paths; map bytes are verified from the recorded Git commit. Raw logs remain local-only.",
-  "batch_id": "phy-v2-legacy-final2b-7cbed30-seed20260927",
+  "artifact_policy": "Portable rendered inputs and compact summaries are committed; raw logs remain local-only.",
+  "batch_id": "phy-v2-legacy-final3-2a6684c-seed20260927",
   "duration_s": 180,
   "environment": {
     "hostname": "pitahaya",
@@ -10,8 +10,8 @@
   "production_map_manifest_sha256": "0e3fe2f1b46584f786d2efa046bdd0bbbe8b17c1064d0fd239d971b96af269f1",
   "runs": [
     {
-      "elapsed_seconds": 7.264451344031841,
-      "executed_config_sha256": "33cde0c800e68cc5933250e6d7f48855d3fc4341a2c2f248df22deccd3cb259e",
+      "elapsed_seconds": 7.2583443890325725,
+      "executed_config_sha256": "44b99292db81237d954ce9ae61db52f7fe2f1652d2943b929d90d041a4726889",
       "map_file": "macroscopic_fading_map_URBAN_MICROCELL_3.5.json",
       "map_realization_id": null,
       "map_sha256": "705e419149890ecdaff432e9db2c880db32f60fddf33f8a24ea33a72022fa1ae",
@@ -20,14 +20,14 @@
       "profile": "offline_umi_n40_npn",
       "raw_logs_committed": false,
       "rendered_config": "docs/baselines/phy-v2-legacy-paired-inputs/offline_umi_n40_npn.ini",
-      "rendered_config_sha256": "2ab8fc73d4841b0b86b54544983d47bdea036486d5aefad9ca88bd8c8567125a",
+      "rendered_config_sha256": "44715f71366827c261b8f79a49c8d4c33d4a0dd3f090537a101ef57ef47fdcc4",
       "return_code": 0,
-      "run_id": "phy-v2-legacy-final2b-7cbed30-seed20260927-offline_umi_n40_npn",
+      "run_id": "phy-v2-legacy-final3-2a6684c-seed20260927-offline_umi_n40_npn",
       "source_config": "config/offline_umi_n40_npn.ini"
     },
     {
-      "elapsed_seconds": 12.457196248695254,
-      "executed_config_sha256": "ac8ad75e8f760172eb0d90cd35ad41a28f28a3fefd751da764007b0973e5e42d",
+      "elapsed_seconds": 12.501970788929611,
+      "executed_config_sha256": "6bba92a4c350c9ac67e285781a44990c4f772438eb5fa5a2007b92e6e9463319",
       "map_file": "macroscopic_fading_map_URBAN_MACROCELL_3.5.json",
       "map_realization_id": null,
       "map_sha256": "d2cab4d0c90e1bd67e1bbd53b8220ca7805a5e4591a96829ad64b7f5695cac82",
@@ -36,14 +36,14 @@
       "profile": "offline_uma_n78_pedestrian",
       "raw_logs_committed": false,
       "rendered_config": "docs/baselines/phy-v2-legacy-paired-inputs/offline_uma_n78_pedestrian.ini",
-      "rendered_config_sha256": "e4d6eb41b3c6ba80d6b9f0255d5ca9706c97776e951740b0e937a5de71c6c610",
+      "rendered_config_sha256": "6a4a6f8c34b2f55f5c2ddc94cbff0ace0120d9da0db72643b558612994f17496",
       "return_code": 0,
-      "run_id": "phy-v2-legacy-final2b-7cbed30-seed20260927-offline_uma_n78_pedestrian",
+      "run_id": "phy-v2-legacy-final3-2a6684c-seed20260927-offline_uma_n78_pedestrian",
       "source_config": "config/offline_uma_n78_pedestrian.ini"
     },
     {
-      "elapsed_seconds": 91.25365285202861,
-      "executed_config_sha256": "6a96880d94c9c384eb20e4fbd29348f12133a6d98f050b73c91812fd01147c9c",
+      "elapsed_seconds": 92.29325526207685,
+      "executed_config_sha256": "7ffd0a4c1fd059faac0aa52ca4c95ea62a9b98b5b5f01a3db1267c4e370f0d23",
       "map_file": "macroscopic_fading_map_RURAL_MACROCELL_3.5.json",
       "map_realization_id": null,
       "map_sha256": "3d89a1fa6d94397807f8bd46f602b719c16531992bc5112b68802cede348c3db",
@@ -52,14 +52,14 @@
       "profile": "offline_rural_n78_vehicular",
       "raw_logs_committed": false,
       "rendered_config": "docs/baselines/phy-v2-legacy-paired-inputs/offline_rural_n78_vehicular.ini",
-      "rendered_config_sha256": "a5bb1d8d90e96d960560e99c0240190ead62a8bccab51212cad09125f03b396f",
+      "rendered_config_sha256": "41917c3fa1dd7d9da2ff40f09022449f784a37001440c8b7b78a487840138d9f",
       "return_code": 0,
-      "run_id": "phy-v2-legacy-final2b-7cbed30-seed20260927-offline_rural_n78_vehicular",
+      "run_id": "phy-v2-legacy-final3-2a6684c-seed20260927-offline_rural_n78_vehicular",
       "source_config": "config/offline_rural_n78_vehicular.ini"
     },
     {
-      "elapsed_seconds": 9.263365566264838,
-      "executed_config_sha256": "a7ae63807c408f3dd234c931c0c4f87c22888d90f84789837888ec494c94f44b",
+      "elapsed_seconds": 9.271328194066882,
+      "executed_config_sha256": "5d23ecae6c840ebd4b442c2c49e5fc44b68a61f8b7c1bbabf162bac76983adcd",
       "map_file": "macroscopic_fading_map_INDOOR_OPEN_OFFICE_3.5.json",
       "map_realization_id": null,
       "map_sha256": "1c2f8e45fcd86f80bba2119b92c15defaf09edf5c4da5200e6315450380a6bce",
@@ -68,14 +68,14 @@
       "profile": "offline_indoor_hotspot_n78_pedestrian",
       "raw_logs_committed": false,
       "rendered_config": "docs/baselines/phy-v2-legacy-paired-inputs/offline_indoor_hotspot_n78_pedestrian.ini",
-      "rendered_config_sha256": "78f827910e044c1b191b0e05688e7f087b181985f1c73a630c490c1fd79ecbf9",
+      "rendered_config_sha256": "b8dbad1071886d331f3bb632716d2a7ceb8782f45aea1f00d0cc3e66095d5fed",
       "return_code": 0,
-      "run_id": "phy-v2-legacy-final2b-7cbed30-seed20260927-offline_indoor_hotspot_n78_pedestrian",
+      "run_id": "phy-v2-legacy-final3-2a6684c-seed20260927-offline_indoor_hotspot_n78_pedestrian",
       "source_config": "config/offline_indoor_hotspot_n78_pedestrian.ini"
     },
     {
-      "elapsed_seconds": 9.239214017055929,
-      "executed_config_sha256": "b7731a937385bbfc2223fc35a47f72c1ccfb9867fad0e75b957b1c3523aebc19",
+      "elapsed_seconds": 9.263921385165304,
+      "executed_config_sha256": "de7d898cc9e23f0848068b55f44fe29ebbfff19fa5c605c42dec59a10b05d5df",
       "map_file": "macroscopic_fading_map_URBAN_MICROCELL_26.json",
       "map_realization_id": null,
       "map_sha256": "c9e9ba7a50b51ff1b9f090df2568b646c0a848b585bba08608f3dd798ab9a2ec",
@@ -84,14 +84,14 @@
       "profile": "offline_umi_n258_fwa",
       "raw_logs_committed": false,
       "rendered_config": "docs/baselines/phy-v2-legacy-paired-inputs/offline_umi_n258_fwa.ini",
-      "rendered_config_sha256": "a09ac3e64923cfec858e4e9a65aadcf9a73b56ae58da6daecb5838d7bb9b1602",
+      "rendered_config_sha256": "21147848ddc92eba748a5bf0726db96fcf7c227efcf5422484bc1214f58ca8be",
       "return_code": 0,
-      "run_id": "phy-v2-legacy-final2b-7cbed30-seed20260927-offline_umi_n258_fwa",
+      "run_id": "phy-v2-legacy-final3-2a6684c-seed20260927-offline_umi_n258_fwa",
       "source_config": "config/offline_umi_n258_fwa.ini"
     }
   ],
   "schema_version": 1,
   "seed": 20260927,
   "source_dirty": false,
-  "source_sha": "7cbed30592232f44667f01384a4ce03dbf889c10"
+  "source_sha": "2a6684c47137e3ddb187e4278727e8ed7f489a98"
 }

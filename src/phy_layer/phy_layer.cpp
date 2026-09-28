@@ -88,7 +88,11 @@ void phy_layer::init_amc(int _modulation_m, int _cqi_m, int _cqi_p)
 void phy_layer::init_rank(int _period, int _n_antennas,int _mimo_layers)
 {
     ri_period = _period;
-    max_ri = std::min(_n_antennas,_mimo_layers);
+    max_ri = std::max(
+        1,
+        std::min(
+            std::min(_n_antennas, _mimo_layers),
+            NUM_RI_VALUES));
     current_ri = max_ri;
     layers = max_ri;
 }

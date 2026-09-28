@@ -47,7 +47,8 @@ def test_time_starts_at_zero_and_advances_monotonically():
     backend.submit_request(0, "a", 50 * 1024)
     times = [backend.advance().time_s for _ in range(5)]
     assert times == sorted(times)
-    assert abs(times[0] - 0.010) < 1e-9, times[0]
+    assert times[0] == 0.0
+    assert times[1:] == [0.01, 0.02, 0.03, 0.04]
 
 
 def test_concurrent_requests_on_one_ue_share_the_link():

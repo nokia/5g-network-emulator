@@ -134,6 +134,7 @@ class TransportBackend:
         self._retired_retransmitted: dict[int, int] = {}
         self._next_flow = 1
         self._windows = 0
+        self._initial = True
         self._closed = False
         self._telemetry_baseline: dict[int, dict] = {}
         self._windows_by_ue: dict[int, SharedWindow] = {}
@@ -181,6 +182,9 @@ class TransportBackend:
     def advance(self) -> NetworkStep:
         if self._closed:
             raise RuntimeError("the backend is closed")
+        if self._initial:
+            self._initial = False
+            return NetworkStep(time_s=0.0, events=[], is_final=False)
         for _ in range(self.cfg.window_ttis):
             self.runner.tick()
         self._windows += 1

@@ -9,17 +9,20 @@ seeds; `MANIFEST.json` records embedded metadata, statistics, and byte hashes.
 
 Production v2 properties:
 
-- maintained Python generator version `2.0.0`;
-- map semantic version `2.0.0`;
+- maintained Python generator version `2.1.0`;
+- map semantic version `2.1.0`;
 - odd 291×291 grids with one explicit centre cell;
 - correlated binary LOS state;
 - corrected UMa UE-height LOS term;
+- padded FFT embedding and center cropping to remove periodic edge seams;
 - unchanged approved ABG coefficient values;
 - deterministic compact JSON serialization.
 
-The production arrays exactly match the 21 owner-approved candidate arrays.
-Only the metadata changed when their status moved from pending activation to
-production.
+Version 2.0 initially promoted the owner-approved candidate arrays. Adversarial
+validation then found a periodic opposite-edge seam caused by same-size FFT
+filtering. The owner approved padded regeneration; version 2.1 therefore
+changes all numeric arrays while preserving coefficients, seeds, dimensions,
+and the other approved semantics.
 
 ## Historical lineage
 
@@ -38,7 +41,7 @@ The raw design archive and measurement datasets are not vendored here.
 
 ## Known divergent files
 
-| Map | Original MATLAB hash prefix | Handoff hash prefix | Current hash prefix |
+| Map | Original MATLAB hash prefix | Handoff hash prefix | Legacy-v1 hash prefix |
 |---|---|---|---|
 | `RURAL_MACROCELL_3.5` | `468207af4f3a` | `b18f7b896d7b` | `3d89a1fa6d94` |
 | `URBAN_MICROCELL_3.5` | `f5c3369d8c7d` | `f5c3369d8c7d` | `705e41914989` |
@@ -76,6 +79,10 @@ The signed design review in `map-o2i-design-review.md` approves:
 - exact 2.38 GHz lookup for the canonical n40 profile;
 - one shipped deterministic realization per scenario-frequency pair;
 - separate runtime ownership of building and vehicle penetration.
+
+The shopping-mall LOS probability is retained as a legacy FikoRE heuristic;
+TR 38.901 does not define that fixed shopping-mall expression. Its provenance
+remains pending and is labelled in map metadata.
 
 Source-fit distance ranges and site-specific calibration remain limitations,
 not inferred properties of a large generated square. Rayleigh-only

@@ -41,18 +41,20 @@ The v2 schema is the production contract for deterministic generation.
     "realization_id": "urban_microcell-2.38-seed-42-parameterhash",
     "generator": {
       "name": "fikore-map-generator",
-      "version": "2.0.0"
+      "version": "2.1.0"
     },
     "grid_origin": "explicit-center-cell",
     "pathloss_family": "ABG",
-    "semantic_version": "2.0.0",
+    "semantic_version": "2.1.0",
     "los_abg": {"alpha": 2.27, "beta": 27.02, "gamma": 2.0},
     "nlos_abg": {"alpha": 2.8, "beta": 31.4, "gamma": 2.7},
     "los_shadow_sigma_db": 4.3,
     "nlos_shadow_sigma_db": 6.8,
     "los_decorrelation_m": 10.0,
     "nlos_decorrelation_m": 13.0,
-    "los_state_model": "correlated-gaussian-cdf-threshold"
+    "los_state_model": "correlated-gaussian-cdf-threshold",
+    "los_probability_model": "3gpp-tr-38.901-v18.1.0-clause-7.4.2-umi",
+    "coefficient_validity_range": "not-encoded"
   },
   "cell_number": 291,
   "cell_size": 5.0,

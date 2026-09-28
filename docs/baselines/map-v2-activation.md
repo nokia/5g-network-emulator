@@ -1,5 +1,9 @@
 # Production V2 Map Activation Record
 
+**Historical status:** This records the initial v2.0 activation. It was
+superseded by v2.1 after adversarial validation found and corrected periodic
+FFT edge seams.
+
 ## Decision
 
 All 21 owner-reviewed v2 maps were activated on 2026-09-28, including the RMa

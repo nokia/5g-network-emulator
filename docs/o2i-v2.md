@@ -38,8 +38,8 @@ migration and emits a warning.
   fading.
 - Runtime UE state owns facade penetration, indoor depth, and vehicle
   penetration.
-- O2I values are drawn once from the UE's deterministic random stream and
-  remain stable for the session.
+- O2I values are drawn once from a UE-shared deterministic environment stream,
+  are identical in DL and UL, and remain stable for the session.
 
 ## Indoor scenarios
 
@@ -72,6 +72,8 @@ Loss is clamped at zero and does not include building indoor-depth loss.
 
 ## Reproducibility
 
-UE penetration draws derive from the configured global seed and UE/direction
-random stream. Runs with the same configuration and seed reproduce the same
-penetration values.
+UE penetration draws derive from the configured global seed and a keyed
+UE-shared environment stream. Fast fading, interference, and distance-CQI
+draws use separate keyed streams, so enabling penetration does not shift their
+sequences. Runs with the same configuration and seed reproduce the same
+values.

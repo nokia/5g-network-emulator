@@ -268,7 +268,7 @@ def pipeline_figure() -> None:
         "Per-PRB power,\nnoise, interference",
         "SINR → MCS,\nCQI, rank",
         "Nominal bits\n+ PF metric",
-        "Grant,\npacket/HARQ",
+        "Grant,\npacket/queue",
         "Effective bits\n+ TTI EWMA",
     ]
     fig, ax = plt.subplots(figsize=(12.0, 2.5))

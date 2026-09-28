@@ -295,4 +295,10 @@ The owner should approve or revise:
 All eleven design items were approved on 2026-09-27. The owner subsequently
 approved activation of all 21 deterministic v2 maps, including the material RMa
 change and exact 2.38 GHz UMi lookup. The promoted numeric arrays are identical
-to the reviewed candidate arrays.
+to the reviewed v2.0 candidate arrays.
+
+An adversarial-review amendment on 2026-09-28 found that same-size FFT
+filtering made opposite map edges periodic neighbors. The owner approved
+padded circulant embedding with centre cropping. V2.1 therefore regenerates
+all arrays while retaining the approved coefficient, LOS-state, origin,
+frequency, and seed policies.

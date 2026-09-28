@@ -30,9 +30,10 @@ arrays exactly reproduce the reviewed candidates. Map LOS bias is at most
 0.008 at the nearest grid-representable lag. Grouped PF reranking materially improves
 64-UE Jain fairness and maximum service gaps with sub-millisecond P99 cost on
 the measured host, whereas distributed per-PRB 100/400 MHz grids exceed the
-real-time budget. Windowed service metrics show that apparent per-TTI
-starvation is often harmless, but UMa, RMa, and indoor UL retain multi-second
-gaps that are genuine model outcomes. These results establish internal
+real-time budget. Windowed delivery metrics show that per-TTI zero grants need
+not imply application-visible starvation, but UMa, RMa, and indoor UL retain
+multi-second delivery gaps whose queue/scheduler/radio causes are not
+separable from current logs. These results establish internal
 consistency and reproducibility, not predictive validity. Multicell
 interference, beam state, carrier aggregation, calibrated MIMO, and
 link-to-system error prediction remain open design decisions.
@@ -61,13 +62,23 @@ PHY. The deliberately selected ABG path-loss family is preserved. Its external
 validity, and that of the current MCS/BLER and MIMO abstractions, remains an
 open calibration problem.
 
+The original FikoRE publication positions the system as a modifiable RAN
+emulator for application experimentation rather than a standards-calibration
+simulator [21]. This work refines that existing architecture; its contribution
+is audited resource/temporal semantics and reproducible evidence, not a new
+general-purpose simulator. 5G-LENA and Simu5G provide broader system-level NR
+models and calibration precedents [19], [20], while the Vienna methodology
+demonstrates the missing link-to-system validation step [18].
+
 ## 2. Emulator scope and processing boundary
 
 FikoRE executes one application-facing MAC step every
 \(\Delta t=1\ \mathrm{ms}\). It carries generated or captured packets through
-traffic, queue, scheduling, packet-error, HARQ, and delay-expiry logic. The
-physical abstraction supplies resource-level rates and error context; it does
-not synthesize IQ samples, reference signals, decoding, or channel matrices.
+traffic, queue, scheduling, grant consumption, and delay-expiry logic. HARQ
+timing/buffer scaffolding exists, but the compiled V2 branch disables the
+BLER-driven retransmission decision. The physical abstraction supplies
+resource-level rates; it does not synthesize IQ samples, reference signals,
+decoding, or channel matrices.
 
 ![PHY Model V2 processing pipeline](figures/phy-v2-pipeline.svg)
 
@@ -78,13 +89,13 @@ The intended operating boundary is:
 - resource-grid scheduling with selectable frequency/time aggregation;
 - scalar antenna gains and threshold-based rank;
 - actual packet queues and effective delivered payload;
-- reproducible accelerated offline execution and a measured, configuration-
-  dependent real-time envelope.
+- reproducible accelerated offline execution and configuration-dependent
+  per-TTI timing measurements.
 
 This boundary is narrower than 3GPP calibration simulators and wider than a
 static link-budget calculator. In particular, packet demand can leave resources
 unused even when radio capacity exists, and an allocated grant can carry less
-effective payload because of packet size, errors, HARQ, or queue state.
+effective payload because of packet size, queue state, or expiry.
 
 ## 3. Formal model
 
@@ -100,10 +111,7 @@ Given usable RF bandwidth \(B_{\mathrm{RF}}\), the modeled PRB count is
 
 \[
 N_{\mathrm{PRB}}
-=\min\!\left(
-\left\lfloor\frac{B_{\mathrm{RF}}}{12\Delta f}\right\rfloor,
-N_{\mathrm{PRB,max}}(\mu)
-\right).
+=\left\lfloor\frac{B_{\mathrm{RF}}}{12\Delta f}\right\rfloor.
 \]
 
 A frequency allocation unit contains \(n_b\) PRBs and therefore
@@ -116,6 +124,11 @@ N_{\mathrm{dec}}
 =N_{\mathrm{freq\ units}}N_{\mathrm{time\ units}}.
 \]
 
+The current grid uses configured usable-bandwidth approximations and does not
+apply a standards-table PRB cap. Grouped scheduling uses only complete RBGs;
+any remainder PRBs are not represented. Canonical profiles are tested
+explicitly rather than inferred to cover every NR bandwidth/numerology pair.
+
 For TDD, the configured pattern determines the usable symbols for each
 direction. A DL-ineligible UL slot, an UL-ineligible DL slot, and configured
 transition symbols are intentional duplexing structure, not unassigned
@@ -127,7 +140,9 @@ U_d=
      {N_{\mathrm{available\ units},d}},
 \]
 
-where the denominator contains only logged opportunities for direction \(d\).
+where the denominator contains physically available units for direction \(d\);
+per-TTI summaries record structurally unavailable, empty, assigned, and
+effective-payload units separately.
 
 ### 3.2 Deterministic macroscopic gain
 
@@ -136,7 +151,8 @@ LOS state \(q\in\{\mathrm{L},\mathrm{N}\}\),
 
 \[
 PL_q(d,f)
-=10\alpha_q\log_{10}\!\left(\frac{d}{1\ \mathrm{m}}\right)
+=10\alpha_q\log_{10}\!\left(
+\frac{\max(d,1\ \mathrm{m})}{1\ \mathrm{m}}\right)
 +\beta_q
 +10\gamma_q\log_{10}\!\left(\frac{f}{1\ \mathrm{GHz}}\right),
 \]
@@ -155,7 +171,8 @@ is the Gudmundson form
 \rho_q(\Delta r)=\exp\!\left(-\frac{|\Delta r|}{d_{\mathrm{cor},q}}\right).
 \]
 
-V2 generates a correlated Gaussian field \(Z(\mathbf{x})\), transforms it to
+V2.1 generates a correlated Gaussian field \(Z(\mathbf{x})\) by embedding the
+target covariance in a grid twice as wide and cropping its center, transforms it to
 \(U(\mathbf{x})=\Phi(Z(\mathbf{x}))\), and selects the binary LOS state
 
 \[
@@ -174,9 +191,12 @@ G_{\mathrm{map}}(\mathbf{x})
 \]
 
 The LOS marginal follows the retained scenario equations from TR 38.901
-[1], including the corrected UMa dependence on UE height. This does not make
-the complete map a TR 38.901 channel realization: path loss remains the
-measurement-derived ABG family selected in the 2025 redesign.
+[1], including the corrected UMa dependence on UE height, except for the
+shopping-mall profile, which is explicitly labelled as a legacy FikoRE
+heuristic with pending provenance. UMa height is a fixed map-generation
+parameter (1.5 m in the production catalog), not runtime per-UE state. This
+does not make the complete map a TR 38.901 channel realization: path loss
+remains the measurement-derived ABG family selected in the 2025 redesign.
 
 V2 uses an odd 291×291 grid. For cell spacing \(c\), runtime coordinates map to
 
@@ -186,7 +206,10 @@ i_y=\frac{y}{c}+\frac{N-1}{2},
 \]
 
 followed by bilinear interpolation. Thus \((0,0)\) is one explicit center cell.
-V1 files retain their historical origin rule when explicitly selected.
+Binary LOS semantics apply at generated nodes; off-grid interpolation blends
+already-selected dB gains and is therefore an effective-gain field, not a
+categorical LOS decision. V1 files retain their historical origin rule when
+explicitly selected.
 
 ### 3.3 Runtime penetration and additional loss
 
@@ -215,14 +238,20 @@ terms use the material-mixture form
 
 \[
 L_{\mathrm{wall}}
-=5-10\log_{10}
-\left(\sum_m p_m10^{-L_m(f)/10}\right)+X_\sigma,
+=\max\!\left[
+0,\,
+5-10\log_{10}
+\left(\sum_m p_m10^{-L_m(f)/10}\right)+X_\sigma
+\right],
 \]
 
 with \(\sigma=4.4\ \mathrm{dB}\) and \(6.5\ \mathrm{dB}\), respectively,
-and one deterministic per-UE draw. Indoor-scenario profiles in which both
-endpoints are indoors set facade penetration to `none`; they do not apply an
-outdoor wall a second time.
+and one deterministic UE-shared draw. Indoor depth, building loss, and vehicle
+loss are shared by DL and UL. Separate keyed streams isolate environment,
+fast-fading, interference, and distance-CQI draws. Indoor-scenario profiles in
+which both endpoints are indoors set facade penetration to `none`; they do not
+apply an outdoor wall a second time. Oxygen loss applies independently of UE
+environment type.
 
 Vehicle loss is separate:
 
@@ -259,7 +288,8 @@ where canonical profiles use \(N_0=-174\ \mathrm{dBm/Hz}\).
 For fractional uplink control, the nominal per-PRB power is
 
 \[
-P_{\mathrm{nom,PRB}}=P_0+\alpha PL_{\mathrm{pc}}(d),
+P_{\mathrm{nom,PRB}}
+=P_0+\alpha PL_{\mathrm{pc}}(\max[d-d_{\mathrm{in}},1\ \mathrm{m}]),
 \]
 
 and for \(M_i\) granted PRBs,
@@ -282,11 +312,14 @@ the complete map/O2I realization. Both choices must remain visible because the
 10 dBm floor and control-path simplification are not universal NR behavior.
 
 The scheduler first evaluates UL candidates using nominal power corrected by
-the previous TTI allocation when power-limited. After all current UL
-assignments are known, it recomputes \(P_{i,\mathrm{PRB}}\), SINR, MCS, and
-grant bits. It does not reschedule in that TTI. This two-stage rule prevents
-each independently considered grant from reusing the UE's complete 23 dBm
-budget.
+the most recently finalized allocation when power-limited. There is one such
+state per UE: in localized mode it comes from the previous TTI, while later
+distributed time groups inherit the preceding group's state. After all
+assignments in the current time group are known, the emulator recomputes
+\(P_{i,\mathrm{PRB}}\), SINR, MCS, and grant bits. It does not reschedule.
+This prevents each independently considered grant from reusing the complete
+23 dBm budget, but remains an order-dependent heuristic rather than a joint
+power/scheduling optimum.
 
 Let \(I_{\mathrm{PRB}}\) be configured aggregate co-channel interference in
 linear power, \(F_b\) a small-scale term, \(v_i\) the selected rank, and
@@ -345,8 +378,11 @@ The current rank abstraction is threshold-based in mean SINR, capped by UE
 antenna count and configured layer count; UL rank is one. The selected MCS
 threshold family remains tied to configured layers rather than dynamically
 changing rank. The model neither represents a channel matrix nor predicts
-post-processing layer SINR. Packet/HARQ handling then maps nominal grant bits
-\(B_{i,b}\) to effective payload \(B^{\mathrm{eff}}_{i,b}\le B_{i,b}\).
+post-processing layer SINR. Packet/queue handling maps nominal grant bits
+\(B_{i,b}\) to effective payload \(B^{\mathrm{eff}}_{i,b}\le B_{i,b}\) for
+new transmissions. Reported error throughput is queue/expiry accounting, not a
+calibrated radio-BLER outcome. The disabled HARQ retry path is excluded from
+the evidence and requires a grant-cap invariant before re-enablement.
 
 ### 3.6 Proportional-fair state and reranking
 
@@ -435,10 +471,12 @@ excluded the first 20 seconds:
 An additional n258 pair changed only
 `outdoor + no penetration` to `indoor + high-loss penetration`.
 
-An outage UE has MCS below zero in at least 99% of eligible post-warm-up
-samples. Starvation is not counted per TTI. For non-outage UEs with positive
-offered traffic, the analysis uses non-overlapping 10 ms, 100 ms, and 1 s
-zero-service windows and each UE's maximum service gap.
+An outage UE has MCS below zero in at least 99% of post-warm-up radio samples.
+Starvation is not inferred from a zero-grant TTI. For non-outage UEs, the
+analysis uses non-overlapping 10 ms, 100 ms, and 1 s zero-delivery windows and
+each UE's maximum observed delivery gap inside contiguous positive-offer
+segments. Queue backlog is not logged, so these are application-delivery—not
+scheduler-starvation—metrics.
 
 ### 5.3 Runtime
 
@@ -482,7 +520,7 @@ limitation; they are not coverage predictions.
 
 ### 6.2 Five packet-level profiles
 
-| Profile | Dir. | Offered | Delivered | Outage UEs | Zero-service 1 s | Maximum UE gap | Grid fill | Payload/grant |
+| Profile | Dir. | Offered | Delivered | Outage UEs | Zero-delivery 1 s | Maximum UE delivery gap | Grid assigned/effective | Payload/grant |
 |---|---|---:|---:|---:|---:|---:|---:|---:|
 | Indoor n78 | DL | 65.00 | 46.22 | 0 | 0.1% | 1.51 s | 86.2% | 22.6% |
 | Indoor n78 | UL | 90.00 | 44.50 | 0 | 3.6% | 44.81 s | 100.0% | 44.1% |
@@ -500,16 +538,17 @@ Rates are Mbit/s.
 Three conclusions follow.
 
 First, a zero grant in an individual TTI is normal. UMi n40 has many 10 ms
-zero-service windows (4.5% DL and 32.8% UL), yet no 1 s DL windows, only 0.2%
-1 s UL windows, and maximum gaps below 40 ms. Labeling every zero TTI as
-starvation substantially over-reports the problem.
+zero-delivery windows, yet almost no 1 s zero-delivery windows and maximum
+observed gaps below 40 ms in the current run. Labeling every zero TTI as
+application-visible starvation substantially over-reports the problem.
 
-Second, some long gaps are real. UMa is fully allocated while several
-non-outage UEs still experience gaps of 110–160 s; this is a scheduling/channel
-heterogeneity outcome, not a plotting error or unused TDD capacity. RMa has
-both outage/low-MCS periods and 20–30% zero-service 1 s windows. Indoor UL has
-no permanent outage but one 44.81 s gap, which requires follow-up under
-multiple mobility/traffic seeds.
+Second, some long application-delivery gaps are observed. UMa has a high
+assignment ratio while several non-outage UEs still show gaps of 110–160 s.
+RMa has both outage/low-MCS periods and substantial zero-delivery 1 s windows;
+indoor UL has no permanent outage but one long gap. These observations combine
+source state, queueing, scheduling, expiry, and radio state. They require
+backlog/eligibility/reason instrumentation and multiple seeds before causal
+classification.
 
 Third, fill below 100% does not imply structural TDD loss. Per-TTI summaries
 separate directionally unavailable units before the utilization denominator.
@@ -826,3 +865,8 @@ Phase 3 abstractions, not additional unvalidated detail.
 20. G. Nardini *et al.*, “Simu5G—An OMNeT++ Library for End-to-End
     Performance Evaluation of 5G Networks,” *IEEE Access*, vol. 8, 2020,
     <https://doi.org/10.1109/ACCESS.2020.3028550>.
+21. D. González Morín, M. J. López-Morales, P. Pérez, A. García Armada, and
+    Á. Villegas, “FikoRE: 5G and Beyond RAN Emulator for Application Level
+    Experimentation and Prototyping,” *IEEE Network*, vol. 37, no. 4,
+    pp. 48–55, 2023,
+    <https://doi.org/10.1109/MNET.002.2200595>.

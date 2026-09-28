@@ -13,7 +13,7 @@ complete cited model.
 
 1. **3GPP TR 38.901 v18.1.0, Release 18**, *Study on channel model for
    frequencies from 0.5 to 100 GHz*. Use Clauses 7.3 for antenna modeling,
-   7.4.2 for O2I penetration, 7.4.3 for LOS probability, and 7.6.3 for spatial
+   7.4.2 for LOS probability, 7.4.3 for O2I penetration, and 7.6.3 for spatial
    consistency. Stable ETSI document:
    <https://www.etsi.org/deliver/etsi_tr/138900_138999/138901/18.01.00_60/tr_138901v180100p.pdf>.
 
@@ -147,6 +147,14 @@ complete cited model.
     <https://doi.org/10.1109/ACCESS.2020.3028550>. Provides another
     application-to-PHY abstraction boundary and scenario-validation reference.
 
+21. D. González Morín, M. J. López-Morales, P. Pérez, A. García Armada, and
+    Á. Villegas, “FikoRE: 5G and Beyond RAN Emulator for Application Level
+    Experimentation and Prototyping,” *IEEE Network*, vol. 37, no. 4,
+    pp. 48–55, 2023,
+    <https://doi.org/10.1109/MNET.002.2200595>. Defines the original emulator,
+    intended application-level boundary, and positioning that this V2 work
+    refines rather than replaces.
+
 ## Use in the paper
 
 - References 1–5 define terminology and dimensional constraints, not emulator
@@ -160,3 +168,4 @@ complete cited model.
   threshold replacement.
 - References 18–20 support artifact manifests, controlled calibration, and
   reproducibility claims.
+- Reference 21 anchors the original FikoRE architecture and novelty boundary.

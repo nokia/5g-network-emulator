@@ -8,6 +8,7 @@
 - Runtime: 119.75 seconds
 - Confidence intervals: two-sided 95% intervals over independent realizations; intervals are pointwise, not simultaneous, and spatial cells are not treated as replicates.
 - Coverage proxy: fraction of map cells with map-only, pre-interference full-channel DL SNR >= 0 dB.
+- Radial LOS bins cover the inscribed disk out to the map apothem; corner cells are excluded from radial diagnostics.
 
 ## Per-map summary
 

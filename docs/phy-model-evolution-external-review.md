@@ -3,7 +3,7 @@
 **Status:** External technical-review manuscript
 **Model under test:** `feature/phy-model-v2`
 **Validated simulator source:** `7cbed30592232f44667f01384a4ce03dbf889c10`
-**Runtime-benchmark source:** `aaceffcc59b0a933a1fb0dbd4ef344924360b31f`
+**Runtime-benchmark source:** `c943af3acf412092b9e95843802d4aebf6dfa1fc`
 **Evidence protocol:** `docs/phy-model-v2-evidence-protocol.md`
 **Date:** 2026-09-28
 
@@ -649,12 +649,12 @@ fairness and continuity consistently:
 
 | Grid | Unit | Jain none → rerank | Maximum DL effective-service gap none → rerank | P99 runtime none → rerank |
 |---|---|---:|---:|---:|
-| 20 MHz, \(\mu=1\) | grouped | 0.9991 → 0.9999 | 102 → 19 TTIs | 199 → 191 µs |
-| 100 MHz, \(\mu=1\) | grouped | 0.9991 → 1.0000 | 103 → 13 TTIs | 365 → 395 µs |
-| 400 MHz, \(\mu=3\) | grouped | 0.9995 → 1.0000 | 83 → 22 TTIs | 354 → 387 µs |
-| 20 MHz, \(\mu=1\) | per-PRB | 0.9991 → 1.0000 | 106 → 15 TTIs | 1050 → 1122 µs |
-| 100 MHz, \(\mu=1\) | per-PRB | 0.9993 → 1.0000 | 112 → 48 TTIs | 5640 → 6008 µs |
-| 400 MHz, \(\mu=3\) | per-PRB | 0.9998 → 1.0000 | 83 → 56 TTIs | 13190 → 13613 µs |
+| 20 MHz, \(\mu=1\) | grouped | 0.9990 → 0.9999 | 96 → 18 TTIs | 195 → 199 µs |
+| 100 MHz, \(\mu=1\) | grouped | 0.9990 → 1.0000 | 96 → 6 TTIs | 376 → 418 µs |
+| 400 MHz, \(\mu=3\) | grouped | 0.9994 → 1.0000 | 81 → 6 TTIs | 377 → 400 µs |
+| 20 MHz, \(\mu=1\) | per-PRB | 0.9990 → 1.0000 | 96 → 2 TTIs | 1073 → 1119 µs |
+| 100 MHz, \(\mu=1\) | per-PRB | 0.9990 → 1.0000 | 96 → 1 TTI | 6218 → 6229 µs |
+| 400 MHz, \(\mu=3\) | per-PRB | 0.9997 → 1.0000 | 83 → 0 TTIs | 13494 → 13547 µs |
 
 ![PF reranking fairness and service gaps](figures/phy-v2-reranking.svg)
 
@@ -671,11 +671,11 @@ Runtime is a property of the complete grid/population, not only reranking:
 
 On the measured, non-isolated host, grouped modes have zero observed 1 ms
 compute-budget exceedances through 64 UEs for every tested bandwidth. At
-256 UEs, exceedance fractions are 0.1% at 20 MHz, 21.1–24.4% at 100 MHz, and
-23.5–25.8% at 400 MHz. Distributed per-PRB 20 MHz first exceeds the budget at
-64 UEs; 100 MHz already shows rare exceedances at one UE and exceeds 90% at
+256 UEs, exceedance fractions are 0.0–0.4% at 20 MHz, 22.8–23.2% at 100 MHz,
+and 22.4–29.6% at 400 MHz. Distributed per-PRB 20 MHz first exceeds the budget at
+64 UEs; 100 MHz shows 0.1% exceedance at one UE and about 97% at
 16 UEs, while every 400 MHz TTI exceeds it. At 256 UEs, per-PRB P99 reaches
-21.51 ms for 100 MHz and 42.36 ms for 400 MHz.
+21.95 ms for 100 MHz and 44.66 ms for 400 MHz.
 These are empirical host/case measurements, not a general real-time guarantee.
 
 ## 7. External validity and parameter realism

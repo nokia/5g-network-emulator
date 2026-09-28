@@ -2,7 +2,7 @@
 
 Warm-up steps: 20; measured steps per sample: 100; repeats: 10.
 
-P50/P95/P99 are computed from individually timed warmed-up TTIs across all repeats. A deadline miss is a TTI above 1,000 us.
+P50/P95/P99/max are computed from individually timed warmed-up TTIs across all repeats. A compute-budget exceedance is a TTI above 1,000 us.
 
 Host: `pitahaya`; platform: `Linux-5.15.0-58-generic-x86_64-with-glibc2.35`.
 
@@ -12,55 +12,55 @@ Frequency modes: `grouped` uses configured RBGs; `per_rb` uses one PRB per alloc
 
 Offered traffic is approximately 4 Gbit/s in each direction per case, divided equally across UEs. This maintains backlog without the unbounded memory growth caused by a 100 Gbit/s target per UE.
 
-| grid | ues | time_mode | frequency_mode | reranking | decisions_per_tti | us_per_tti_p50 | us_per_tti_p95 | us_per_tti_p99 | deadline_miss_pct | dl_total_mbps | dl_jain | dl_max_service_gap_ttis |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 20mhz_mu1 | 1 | localized | grouped | none | 6 | 29.941 | 37.372 | 42.251 | 0.0 | 61.632 | 1 | 1 |
-| 20mhz_mu1 | 1 | localized | grouped | allocation_unit | 6 | 34.45 | 44.045 | 47.561 | 0.0 | 61.632 | 1 | 1 |
-| 20mhz_mu1 | 1 | distributed | per_rb | none | 100 | 89.734 | 117.383 | 127.16 | 0.0 | 64.192 | 1 | 1 |
-| 20mhz_mu1 | 1 | distributed | per_rb | allocation_unit | 100 | 88.401 | 111.361 | 119.309 | 0.0 | 64.192 | 1 | 1 |
-| 20mhz_mu1 | 16 | localized | grouped | none | 6 | 48.842 | 65.904 | 74.254 | 0.0 | 61.632 | 0.9957 | 27 |
-| 20mhz_mu1 | 16 | localized | grouped | allocation_unit | 6 | 50.861 | 68.162 | 74.532 | 0.0 | 61.632 | 0.99988 | 6 |
-| 20mhz_mu1 | 16 | distributed | per_rb | none | 100 | 203.683 | 280.854 | 318.305 | 0.0 | 64.192 | 0.99442 | 26 |
-| 20mhz_mu1 | 16 | distributed | per_rb | allocation_unit | 100 | 256.462 | 336.482 | 377.34 | 0.0 | 64.192 | 0.99999 | 2 |
-| 20mhz_mu1 | 64 | localized | grouped | none | 6 | 112.517 | 172.212 | 198.669 | 0.0 | 61.632 | 0.93476 | 102 |
-| 20mhz_mu1 | 64 | localized | grouped | allocation_unit | 6 | 115.417 | 171.867 | 190.703 | 0.0 | 61.632 | 0.99842 | 19 |
-| 20mhz_mu1 | 64 | distributed | per_rb | none | 100 | 594.292 | 921.8 | 1050.435 | 2.4 | 64.192 | 0.93996 | 106 |
-| 20mhz_mu1 | 64 | distributed | per_rb | allocation_unit | 100 | 689.521 | 989.433 | 1122.02 | 4.7 | 64.192 | 0.99955 | 15 |
-| 20mhz_mu1 | 256 | localized | grouped | none | 6 | 369.193 | 629.519 | 760.253 | 0.1 | 61.309 | 0.3094 | 117 |
-| 20mhz_mu1 | 256 | localized | grouped | allocation_unit | 6 | 378.757 | 629.234 | 757.971 | 0.1 | 61.632 | 0.96276 | 70 |
-| 20mhz_mu1 | 256 | distributed | per_rb | none | 100 | 2549.14 | 3812.911 | 4292.032 | 100.0 | 64.163 | 0.31668 | 117 |
-| 20mhz_mu1 | 256 | distributed | per_rb | allocation_unit | 100 | 2638.85 | 3908.618 | 4352.557 | 100.0 | 64.192 | 0.99555 | 55 |
-| 100mhz_mu1 | 1 | localized | grouped | none | 17 | 39.965 | 51.799 | 58.432 | 0.0 | 349.256 | 1 | 1 |
-| 100mhz_mu1 | 1 | localized | grouped | allocation_unit | 17 | 39.499 | 50.401 | 55.434 | 0.0 | 349.256 | 1 | 1 |
-| 100mhz_mu1 | 1 | distributed | per_rb | none | 546 | 664.808 | 822.352 | 920.584 | 0.3 | 350.491 | 1 | 1 |
-| 100mhz_mu1 | 1 | distributed | per_rb | allocation_unit | 546 | 672.809 | 834.562 | 900.031 | 0.1 | 350.491 | 1 | 1 |
-| 100mhz_mu1 | 16 | localized | grouped | none | 17 | 79.043 | 115.249 | 123.322 | 0.0 | 349.22 | 0.99569 | 27 |
-| 100mhz_mu1 | 16 | localized | grouped | allocation_unit | 17 | 88.096 | 129.933 | 140.003 | 0.0 | 349.256 | 0.99999 | 3 |
-| 100mhz_mu1 | 16 | distributed | per_rb | none | 546 | 1235.44 | 1663.175 | 1857.385 | 97.1 | 350.488 | 0.99523 | 35 |
-| 100mhz_mu1 | 16 | distributed | per_rb | allocation_unit | 546 | 1285.62 | 1779.32 | 2041.42 | 91.6 | 350.488 | 0.99958 | 20 |
-| 100mhz_mu1 | 64 | localized | grouped | none | 17 | 194.345 | 343.876 | 364.87 | 0.0 | 347.878 | 0.94502 | 103 |
-| 100mhz_mu1 | 64 | localized | grouped | allocation_unit | 17 | 217.684 | 361.941 | 394.911 | 0.0 | 349.256 | 0.99985 | 13 |
-| 100mhz_mu1 | 64 | distributed | per_rb | none | 546 | 3494.805 | 5054.333 | 5640.034 | 100.0 | 350.467 | 0.92496 | 105 |
-| 100mhz_mu1 | 64 | distributed | per_rb | allocation_unit | 546 | 3716.015 | 5558.198 | 6007.9 | 100.0 | 350.467 | 0.98266 | 48 |
-| 100mhz_mu1 | 256 | localized | grouped | none | 17 | 725.582 | 1350.322 | 1541.855 | 21.1 | 342.512 | 0.35414 | 117 |
-| 100mhz_mu1 | 256 | localized | grouped | allocation_unit | 17 | 798.514 | 1456.682 | 1666.945 | 24.4 | 348.137 | 0.9965 | 44 |
-| 100mhz_mu1 | 256 | distributed | per_rb | none | 546 | 12784.3 | 19120.875 | 21508.299 | 100.0 | 350.258 | 0.36771 | 117 |
-| 100mhz_mu1 | 256 | distributed | per_rb | allocation_unit | 546 | 12504.45 | 18799.685 | 21182.324 | 100.0 | 350.274 | 0.86913 | 97 |
-| 400mhz_mu3 | 1 | localized | grouped | none | 15 | 48.826 | 60.714 | 68.451 | 0.0 | 1159.39 | 1 | 0 |
-| 400mhz_mu3 | 1 | localized | grouped | allocation_unit | 15 | 51.276 | 61.078 | 66.585 | 0.0 | 1159.39 | 1 | 0 |
-| 400mhz_mu3 | 1 | distributed | per_rb | none | 2000 | 5055.375 | 6619.197 | 7173.823 | 100.0 | 1146.85 | 1 | 0 |
-| 400mhz_mu3 | 1 | distributed | per_rb | allocation_unit | 2000 | 5024.035 | 6700.032 | 7351.942 | 100.0 | 1146.85 | 1 | 0 |
-| 400mhz_mu3 | 16 | localized | grouped | none | 15 | 91.752 | 121.976 | 134.941 | 0.0 | 1152.36 | 0.99781 | 24 |
-| 400mhz_mu3 | 16 | localized | grouped | allocation_unit | 15 | 103.735 | 130.647 | 141.878 | 0.0 | 1153.88 | 0.99996 | 7 |
-| 400mhz_mu3 | 16 | distributed | per_rb | none | 2000 | 4860.395 | 6295.718 | 7043.81 | 100.0 | 1146.91 | 0.99205 | 16 |
-| 400mhz_mu3 | 16 | distributed | per_rb | allocation_unit | 2000 | 4756.535 | 5758.071 | 6236.328 | 100.0 | 1146.88 | 0.99496 | 15 |
-| 400mhz_mu3 | 64 | localized | grouped | none | 15 | 228.965 | 334.822 | 353.834 | 0.0 | 1135.92 | 0.96213 | 83 |
-| 400mhz_mu3 | 64 | localized | grouped | allocation_unit | 15 | 257.734 | 366.568 | 387.342 | 0.0 | 1141.01 | 0.99938 | 22 |
-| 400mhz_mu3 | 64 | distributed | per_rb | none | 2000 | 10638.35 | 12670.545 | 13190.019 | 100.0 | 1146.85 | 0.9568 | 56 |
-| 400mhz_mu3 | 64 | distributed | per_rb | allocation_unit | 2000 | 10857.7 | 12857.91 | 13612.739 | 100.0 | 1146.97 | 0.95821 | 56 |
-| 400mhz_mu3 | 256 | localized | grouped | none | 15 | 816.947 | 1406.813 | 1628.472 | 23.5 | 992.703 | 0.55079 | 117 |
-| 400mhz_mu3 | 256 | localized | grouped | allocation_unit | 15 | 832.567 | 1411.094 | 1675.03 | 25.8 | 1026.03 | 0.99359 | 66 |
-| 400mhz_mu3 | 256 | distributed | per_rb | none | 2000 | 32686.45 | 39471.185 | 40576.093 | 100.0 | 1145.08 | 0.5268 | 117 |
-| 400mhz_mu3 | 256 | distributed | per_rb | allocation_unit | 2000 | 33611.7 | 40409.36 | 42355.892 | 100.0 | 1144.9 | 0.56569 | 117 |
+| grid | ues | time_mode | frequency_mode | reranking | decisions_per_tti | us_per_tti_p50 | us_per_tti_p95 | us_per_tti_p99 | us_per_tti_max | compute_budget_exceedance_pct | dl_total_mbps | dl_jain | dl_max_service_gap_ttis |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 20mhz_mu1 | 1 | localized | grouped | none | 6 | 29.465 | 39.245 | 49.824 | 60.222 | 0.0 | 66.291 | 1 | 1 |
+| 20mhz_mu1 | 1 | localized | grouped | allocation_unit | 6 | 31.199 | 39.971 | 43.933 | 55.434 | 0.0 | 66.291 | 1 | 1 |
+| 20mhz_mu1 | 1 | distributed | per_rb | none | 100 | 88.912 | 110.874 | 119.849 | 135.063 | 0.0 | 69.12 | 1 | 1 |
+| 20mhz_mu1 | 1 | distributed | per_rb | allocation_unit | 100 | 88.04 | 112.801 | 125.916 | 145.273 | 0.0 | 69.12 | 1 | 1 |
+| 20mhz_mu1 | 16 | localized | grouped | none | 6 | 50.66 | 70.652 | 78.093 | 105.057 | 0.0 | 66.291 | 0.98699 | 27 |
+| 20mhz_mu1 | 16 | localized | grouped | allocation_unit | 6 | 52.794 | 72.58 | 82.53 | 112.26 | 0.0 | 66.291 | 0.99974 | 5 |
+| 20mhz_mu1 | 16 | distributed | per_rb | none | 100 | 222.472 | 305.714 | 350.139 | 383.549 | 0.0 | 69.056 | 0.98664 | 26 |
+| 20mhz_mu1 | 16 | distributed | per_rb | allocation_unit | 100 | 275.276 | 380.206 | 432.065 | 483.787 | 0.0 | 69.013 | 0.99988 | 2 |
+| 20mhz_mu1 | 64 | localized | grouped | none | 6 | 117.019 | 180.894 | 194.794 | 227.035 | 0.0 | 66.547 | 0.93982 | 99 |
+| 20mhz_mu1 | 64 | localized | grouped | allocation_unit | 6 | 114.559 | 179.117 | 199.209 | 287.189 | 0.0 | 66.291 | 0.9958 | 18 |
+| 20mhz_mu1 | 64 | distributed | per_rb | none | 100 | 613.5 | 973.488 | 1072.915 | 1214 | 3.6 | 69.024 | 0.91477 | 100 |
+| 20mhz_mu1 | 64 | distributed | per_rb | allocation_unit | 100 | 689.693 | 1006.851 | 1119.399 | 1203.7 | 5.5 | 69.056 | 0.99963 | 8 |
+| 20mhz_mu1 | 256 | localized | grouped | none | 6 | 393.413 | 664.389 | 778.802 | 985.357 | 0.0 | 66.205 | 0.27381 | 100 |
+| 20mhz_mu1 | 256 | localized | grouped | allocation_unit | 6 | 409.974 | 742.207 | 915.337 | 1160.38 | 0.4 | 66.376 | 0.91861 | 69 |
+| 20mhz_mu1 | 256 | distributed | per_rb | none | 100 | 2535.64 | 3883.76 | 4519.381 | 5093.83 | 100.0 | 69.046 | 0.27835 | 100 |
+| 20mhz_mu1 | 256 | distributed | per_rb | allocation_unit | 100 | 2737.27 | 4106.633 | 4637.372 | 6163.37 | 100.0 | 69.088 | 0.99528 | 44 |
+| 100mhz_mu1 | 1 | localized | grouped | none | 17 | 43.171 | 55.414 | 61.588 | 68.489 | 0.0 | 376.086 | 1 | 1 |
+| 100mhz_mu1 | 1 | localized | grouped | allocation_unit | 17 | 44.353 | 57.947 | 65.433 | 91.291 | 0.0 | 376.086 | 1 | 1 |
+| 100mhz_mu1 | 1 | distributed | per_rb | none | 546 | 655.033 | 806.354 | 871.558 | 1051.84 | 0.1 | 377.004 | 1 | 1 |
+| 100mhz_mu1 | 1 | distributed | per_rb | allocation_unit | 546 | 665.187 | 819.855 | 898.182 | 1019.21 | 0.1 | 377.004 | 1 | 1 |
+| 100mhz_mu1 | 16 | localized | grouped | none | 17 | 77.871 | 118.18 | 128.306 | 140.814 | 0.0 | 375.572 | 0.98803 | 27 |
+| 100mhz_mu1 | 16 | localized | grouped | allocation_unit | 17 | 88.04 | 133.893 | 144.862 | 210.024 | 0.0 | 375.572 | 0.99989 | 3 |
+| 100mhz_mu1 | 16 | distributed | per_rb | none | 546 | 1247.58 | 1682.858 | 1879.121 | 2163.57 | 97.1 | 377.101 | 0.97899 | 35 |
+| 100mhz_mu1 | 16 | distributed | per_rb | allocation_unit | 546 | 1354.885 | 1836.388 | 2065.003 | 2241.91 | 97.3 | 376.887 | 0.99111 | 12 |
+| 100mhz_mu1 | 64 | localized | grouped | none | 17 | 194.78 | 354.58 | 376.113 | 414.036 | 0.0 | 376.086 | 0.93717 | 100 |
+| 100mhz_mu1 | 64 | localized | grouped | allocation_unit | 17 | 223.364 | 385.403 | 417.865 | 432.161 | 0.0 | 376.086 | 0.99962 | 11 |
+| 100mhz_mu1 | 64 | distributed | per_rb | none | 546 | 3624.085 | 5408.613 | 6218.08 | 8250.93 | 100.0 | 376.897 | 0.89979 | 100 |
+| 100mhz_mu1 | 64 | distributed | per_rb | allocation_unit | 546 | 3773.78 | 5643.78 | 6228.943 | 6524.17 | 100.0 | 377.058 | 0.96132 | 48 |
+| 100mhz_mu1 | 256 | localized | grouped | none | 17 | 747.712 | 1417.903 | 1649.995 | 2029.05 | 23.2 | 373.038 | 0.29829 | 100 |
+| 100mhz_mu1 | 256 | localized | grouped | allocation_unit | 17 | 780.433 | 1492.234 | 1715.658 | 2144.05 | 22.8 | 375.401 | 0.96741 | 38 |
+| 100mhz_mu1 | 256 | distributed | per_rb | none | 546 | 12027.3 | 18431.855 | 21060.913 | 21955.1 | 100.0 | 377.07 | 0.3244 | 100 |
+| 100mhz_mu1 | 256 | distributed | per_rb | allocation_unit | 546 | 12563.75 | 19554.5 | 21950.625 | 24286.7 | 100.0 | 377.133 | 0.91595 | 91 |
+| 400mhz_mu3 | 1 | localized | grouped | none | 15 | 48.566 | 58.33 | 67.571 | 77.755 | 0.0 | 1249.01 | 1 | 0 |
+| 400mhz_mu3 | 1 | localized | grouped | allocation_unit | 15 | 48.251 | 58.912 | 65.465 | 79.449 | 0.0 | 1249.01 | 1 | 0 |
+| 400mhz_mu3 | 1 | distributed | per_rb | none | 2000 | 5410.61 | 7085.852 | 7853.593 | 10802.1 | 100.0 | 1233.48 | 1 | 0 |
+| 400mhz_mu3 | 1 | distributed | per_rb | allocation_unit | 2000 | 5333.265 | 7018.127 | 7650.78 | 8228.76 | 100.0 | 1233.48 | 1 | 0 |
+| 400mhz_mu3 | 16 | localized | grouped | none | 15 | 94.046 | 125.97 | 138.101 | 157.175 | 0.0 | 1246.57 | 0.99468 | 24 |
+| 400mhz_mu3 | 16 | localized | grouped | allocation_unit | 15 | 110.151 | 141.325 | 156.703 | 430.778 | 0.0 | 1245.66 | 0.99983 | 4 |
+| 400mhz_mu3 | 16 | distributed | per_rb | none | 2000 | 4992.4 | 6431.479 | 7210.819 | 8093.91 | 100.0 | 1232.82 | 0.98135 | 16 |
+| 400mhz_mu3 | 16 | distributed | per_rb | allocation_unit | 2000 | 4858.425 | 5872.963 | 6325.085 | 7338.22 | 100.0 | 1232.89 | 0.99432 | 15 |
+| 400mhz_mu3 | 64 | localized | grouped | none | 15 | 228.423 | 345.176 | 377.307 | 394.219 | 0.0 | 1242.7 | 0.92353 | 83 |
+| 400mhz_mu3 | 64 | localized | grouped | allocation_unit | 15 | 255.584 | 372.741 | 399.965 | 442.38 | 0.0 | 1248.56 | 0.99375 | 18 |
+| 400mhz_mu3 | 64 | distributed | per_rb | none | 2000 | 10466.9 | 12587.585 | 13493.553 | 13866.7 | 100.0 | 1233.21 | 0.97905 | 56 |
+| 400mhz_mu3 | 64 | distributed | per_rb | allocation_unit | 2000 | 10728.55 | 12930.82 | 13547.185 | 15128.2 | 100.0 | 1233.15 | 0.97937 | 56 |
+| 400mhz_mu3 | 256 | localized | grouped | none | 15 | 803.807 | 1466.483 | 1741.979 | 1914.67 | 22.4 | 1163.34 | 0.5199 | 100 |
+| 400mhz_mu3 | 256 | localized | grouped | allocation_unit | 15 | 860.584 | 1513.339 | 1772.455 | 2152.28 | 29.6 | 1204.7 | 0.9859 | 66 |
+| 400mhz_mu3 | 256 | distributed | per_rb | none | 2000 | 32909.65 | 40158.04 | 41623.354 | 44516.4 | 100.0 | 1232.77 | 0.49466 | 100 |
+| 400mhz_mu3 | 256 | distributed | per_rb | allocation_unit | 2000 | 34267.95 | 43087.11 | 44661.062 | 50279.2 | 100.0 | 1232.75 | 0.54132 | 100 |
 
 Failed cases: 0.

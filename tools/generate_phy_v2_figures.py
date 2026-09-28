@@ -266,12 +266,13 @@ def pipeline_figure() -> None:
         "Position,\nscenario, seed",
         "V2 map\n+ O2I/vehicle",
         "Per-PRB power,\nnoise, interference",
-        "SINR → MCS,\nCQI, rank",
-        "Nominal bits\n+ PF metric",
+        "Nominal SINR,\nMCS, rank",
+        "PF planning\n+ reranking",
+        "UL final power\n+ rate recompute",
         "Grant,\npacket/queue",
         "Effective bits\n+ TTI EWMA",
     ]
-    fig, ax = plt.subplots(figsize=(12.0, 2.5))
+    fig, ax = plt.subplots(figsize=(13.5, 2.5))
     ax.set_xlim(0, len(stages))
     ax.set_ylim(0, 1)
     ax.axis("off")

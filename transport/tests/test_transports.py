@@ -7,6 +7,7 @@ import sys
 
 from fikore_transport.backend import (BackendConfig, DownloadCompleted,
                                       TransportBackend)
+from fikore_transport.cc import Cubic
 from fikore_transport.ideal import IdealReceiver, IdealSender, SharedWindow
 from fikore_transport.link import LoopbackConfig, LoopbackLink
 from fikore_transport.runner import Flow, Runner
@@ -61,6 +62,17 @@ def test_the_window_is_shared_between_objects_of_one_ue():
     assert peak <= 128 * 1024, f"three objects together exceeded the window: {peak}"
 
 
+def test_ideal_slot_share_is_fixed_and_not_iteration_ordered():
+    runner = Runner(link())
+    window = SharedWindow(12_000)
+    senders = [IdealSender(i, runner.clock, runner.sched, MSS, window)
+               for i in range(1, 4)]
+    for sender in senders:
+        sender.app_write(100_000)
+    sent = [sum(item.size for item in sender.send_window()) for sender in senders]
+    assert sent == [3000, 3000, 3000], sent
+
+
 def test_without_recovery_a_lossy_transfer_never_completes():
     lk = link(queue=16 * 1024)
     runner = Runner(lk)
@@ -79,7 +91,8 @@ def test_ideal_beats_tcp_by_wasting_the_radio():
     results = {}
     for transport in ("tcp", "ideal"):
         lk = link()
-        backend = TransportBackend(lk, BackendConfig(mss=MSS, transport=transport))
+        backend = TransportBackend(lk, BackendConfig(
+            mss=MSS, transport=transport, retain_request_history=True))
         backend.submit_request(0, "seg", 300 * 1024)
         finished = None
         for _ in range(400):
@@ -95,6 +108,18 @@ def test_ideal_beats_tcp_by_wasting_the_radio():
     assert results["ideal"][0] <= results["tcp"][0], "the injection rule is optimistic"
     assert results["ideal"][1] > results["tcp"][1] * 5, (
         "and it pays for it in wasted transmissions", results)
+
+
+def test_cubic_curve_is_computed_in_packets_not_bytes():
+    cubic = Cubic(mss=MSS, cwnd=100 * MSS, ssthresh=0)
+    cubic._update(1.0)
+    cubic._update(2.0)       # target = 100 + C * 1^3 = 100.4 packets
+    assert 200 < cubic.cnt < 300, cubic.cnt
+
+    below_last_max = Cubic(mss=MSS, cwnd=80 * MSS, ssthresh=0)
+    below_last_max.w_last_max = 100
+    below_last_max._update(1.0)
+    assert below_last_max.origin_point == 100
 
 
 # -- open loop ---------------------------------------------------------------------
@@ -133,7 +158,20 @@ def test_udp_over_the_capacity_loses_and_reports_it():
     runner.run_until(700)
     assert sink.lost > 0
     assert 0.6 < sink.loss_ratio < 0.85, sink.report()
-    assert sink.received + sink.lost == sink.highest_seq + 1
+    assert sink.received + sink.lost == source.stats.datagrams_sent
+
+
+def test_udp_counts_trailing_and_all_packet_losses():
+    lk = link(rate_bps=5e6, queue=0)
+    runner = Runner(lk)
+    flow, source, sink = udp_flow(1, runner.clock, runner.sched, rate_mbps=1.0,
+                                  duration_ttis=20)
+    runner.add_flow(flow)
+    runner.run_until(30)
+    assert source.stats.datagrams_sent > 0
+    assert sink.received == 0
+    assert sink.lost == source.stats.datagrams_sent
+    assert sink.loss_ratio == 1.0
 
 
 if __name__ == "__main__":

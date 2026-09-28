@@ -15,6 +15,8 @@ MSS = 1500
 
 
 def build(**kw):
+    kw.setdefault("retain_request_history", True)
+    kw.setdefault("retain_arrivals", True)
     link = LoopbackLink(LoopbackConfig(rate_bps=20e6, owd_ttis=10, mss=MSS,
                                        queue_bytes=128 * 1024))
     return TransportBackend(link, BackendConfig(mss=MSS, **kw))
@@ -49,6 +51,21 @@ def test_time_starts_at_zero_and_advances_monotonically():
     assert times == sorted(times)
     assert times[0] == 0.0
     assert times[1:] == [0.01, 0.02, 0.03, 0.04]
+
+
+def test_final_window_is_clamped_and_emitted_once():
+    backend = build(window_ttis=10, horizon_ttis=15)
+    first = backend.advance()
+    second = backend.advance()
+    final = backend.advance()
+    assert (first.time_s, second.time_s, final.time_s) == (0.0, 0.01, 0.015)
+    assert not first.is_final and not second.is_final and final.is_final
+    try:
+        backend.advance()
+    except RuntimeError as exc:
+        assert "final" in str(exc)
+    else:
+        raise AssertionError("backend advanced after its final NetworkStep")
 
 
 def test_concurrent_requests_on_one_ue_share_the_link():
@@ -103,6 +120,16 @@ def test_close_is_idempotent_and_control_is_accepted():
     backend.close()
 
 
+def test_unknown_transport_is_rejected_not_silently_run_as_tcp():
+    backend = build(transport="typo")
+    try:
+        backend.submit_request(0, "seg", 1000)
+    except ValueError as exc:
+        assert "unsupported transport" in str(exc)
+    else:
+        raise AssertionError("unknown transport silently selected TCP")
+
+
 def test_completed_objects_do_not_remain_in_the_per_tti_flow_registry():
     backend = build()
     for index in range(100):
@@ -117,6 +144,37 @@ def test_completed_objects_do_not_remain_in_the_per_tti_flow_registry():
         assert not backend._active_requests
     # History remains available to callers without being visited on every slot.
     assert len(backend.requests) == 100
+
+
+def test_default_backend_drops_heavy_history_but_never_reuses_an_id():
+    link = LoopbackLink(LoopbackConfig(rate_bps=20e6, owd_ttis=10, mss=MSS,
+                                       queue_bytes=128 * 1024))
+    backend = TransportBackend(link, BackendConfig(mss=MSS))
+    backend.submit_request(0, "seg", 30 * 1024)
+    for _ in range(100):
+        if any(isinstance(event, DownloadCompleted)
+               for event in backend.advance().events):
+            break
+    assert not backend.requests
+    assert not backend.runner.arrivals
+    try:
+        backend.submit_request(0, "seg", 1000)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("a completed request id was reused")
+
+
+def test_ack_over_link_flow_retires_after_its_ack_tail():
+    backend = build(ack_over_link=True)
+    backend.submit_request(0, "seg", 30 * 1024)
+    for _ in range(200):
+        backend.advance()
+        if backend.requests[(0, "seg")].closed and not backend.runner.flows:
+            break
+    assert backend.requests[(0, "seg")].closed
+    assert not backend.runner.flows
+    assert not backend._retiring_flows
 
 
 if __name__ == "__main__":

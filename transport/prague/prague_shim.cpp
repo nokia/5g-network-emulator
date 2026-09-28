@@ -1,3 +1,9 @@
+/**********************************************
+* Copyright 2026 Nokia
+* Licensed under the BSD 3-Clause Clear License
+* SPDX-License-Identifier: BSD-3-Clause-Clear
+**********************************************/
+
 // A C ABI around L4S's reference Prague, with its clock replaced by the simulation's.
 //
 // Nothing here is an algorithm. `prague_cc.cpp` is 500 lines of deliberately

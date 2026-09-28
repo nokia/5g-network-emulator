@@ -88,7 +88,7 @@ class Reno(Classic):
 
 @dataclass
 class Cubic(Classic):
-    """CUBIC as in ns.py, with the Linux constants and TCP friendliness kept."""
+    """CUBIC with byte-valued public cwnd and packet-valued cubic state."""
 
     C: float = 0.4
     beta: float = 0.2
@@ -129,31 +129,34 @@ class Cubic(Classic):
             self.cwnd_cnt += 1
 
     def _update(self, now_s: float) -> None:
+        window = self.cwnd / self.mss
         self.ack_cnt += 1
         if self.epoch_start <= 0:
             self.epoch_start = now_s
-            if self.cwnd < self.w_last_max:
-                self.K = ((self.w_last_max - self.cwnd) / self.C) ** (1.0 / 3)
+            if window < self.w_last_max:
+                self.K = ((self.w_last_max - window) / self.C) ** (1.0 / 3)
+                self.origin_point = self.w_last_max
             else:
                 self.K = 0.0
-                self.origin_point = self.cwnd
+                self.origin_point = window
             self.ack_cnt = 1
-            self.w_tcp = self.cwnd
+            self.w_tcp = window
         t = now_s + self.d_min_s - self.epoch_start
         target = self.origin_point + self.C * (t - self.K) ** 3
-        self.cnt = self.cwnd / (target - self.cwnd) if target > self.cwnd else 100 * self.cwnd
+        self.cnt = window / (target - window) if target > window else 100 * window
         if self.tcp_friendliness:
-            self.w_tcp += 3 * self.beta / (2 - self.beta) * (self.ack_cnt / self.cwnd)
+            self.w_tcp += 3 * self.beta / (2 - self.beta) * (self.ack_cnt / window)
             self.ack_cnt = 0
-            if self.w_tcp > self.cwnd:
-                self.cnt = min(self.cnt, self.cwnd / (self.w_tcp - self.cwnd))
+            if self.w_tcp > window:
+                self.cnt = min(self.cnt, window / (self.w_tcp - window))
 
     def on_dupacks(self, count: int) -> None:
         if count == 3 and not self.in_recovery:
             self.epoch_start = 0.0
-            self.w_last_max = (self.cwnd * (2 - self.beta) / 2
-                               if self.fast_convergence and self.cwnd < self.w_last_max
-                               else self.cwnd)
+            window = self.cwnd / self.mss
+            self.w_last_max = (window * (2 - self.beta) / 2
+                               if self.fast_convergence and window < self.w_last_max
+                               else window)
             self.ssthresh = max(2 * self.mss, self.cwnd * (1 - self.beta))
             self.cwnd = self.ssthresh + 3 * self.mss
             self.in_recovery = True

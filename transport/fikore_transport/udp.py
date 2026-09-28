@@ -107,6 +107,7 @@ class UdpSink:
         self.received = 0
         self.bytes_received = 0
         self.ce_marks = 0
+        self.lost_outcomes = 0
         self.highest_seq = -1
         self.owd_us: list[int] = []
         self.jitter_us = 0.0
@@ -117,20 +118,18 @@ class UdpSink:
 
     @property
     def lost(self) -> int:
-        """Gaps below the highest sequence seen. Reordering would overstate it,
-        and the emulator delivers in order, so it does not."""
-        return max(self.highest_seq + 1 - self.received, 0)
+        """Terminal non-delivery outcomes reported by the link."""
+        return self.lost_outcomes
 
     @property
     def loss_ratio(self) -> float:
-        expected = self.highest_seq + 1
-        return self.lost / expected if expected > 0 else 0.0
+        sent = self.source.stats.datagrams_sent
+        return self.lost / sent if sent > 0 else 0.0
 
     def on_arrival(self, arrival: Arrival):
         self.source.on_outcome()
         if arrival.fate != "delivered":
-            # The sink is not told this; it is only here because the link reports
-            # every outcome. It counts nothing, and the loss shows up as a gap.
+            self.lost_outcomes += 1
             return None
         self.received += 1
         self.bytes_received += arrival.size

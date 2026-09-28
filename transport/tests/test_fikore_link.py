@@ -21,7 +21,7 @@ from pathlib import Path
 
 from fikore_transport.backend import (BackendConfig, DownloadCompleted,
                                       TransportBackend)
-from fikore_transport.cc import Cubic
+from fikore_transport.cc import Cubic, Reno
 from fikore_transport.emulator import Emulator, EmulatorConfig
 from fikore_transport.fikore_link import FikoreLink
 from fikore_transport.link import Transmit
@@ -35,7 +35,8 @@ class Skipped(Exception):
     """Not a failure. There is no emulator on this machine."""
 
 
-def build_link(n_ues=1, duration_s=6.0, delay_budget_s=0.3, **kw):
+def build_link(n_ues=1, duration_s=6.0, delay_budget_s=0.3,
+               ue_id_map=None, **kw):
     if not os.path.exists(BINARY) or not os.path.exists(BASE_INI):
         raise Skipped(f"no emulator at {BINARY}; set FIKORE_DIR to run these")
     work = tempfile.mkdtemp(prefix="fikore-test-")
@@ -44,7 +45,7 @@ def build_link(n_ues=1, duration_s=6.0, delay_budget_s=0.3, **kw):
                          duration_s=duration_s, work_dir=EMU, n_ues=n_ues,
                          delay_budget_s=delay_budget_s,
                          log_path=os.path.join(work, "emulator.log"), **kw)
-    link = FikoreLink(Emulator(cfg), flow_to_ue={})
+    link = FikoreLink(Emulator(cfg), flow_to_ue={}, ue_id_map=ue_id_map)
     link._work_dir = work
     return link
 
@@ -57,7 +58,10 @@ def teardown(link, backend=None):
 def run_backend(link, requests, max_windows, **kw):
     """Submit one request per (ue, id, size) and advance until all complete."""
     kw.setdefault("rwnd", 256 * 1024)
-    backend = TransportBackend(link, BackendConfig(window_ttis=10, cc_factory=Cubic,
+    kw.setdefault("retain_request_history", True)
+    kw.setdefault("retain_arrivals", True)
+    cc_factory = kw.pop("cc_factory", Cubic)
+    backend = TransportBackend(link, BackendConfig(window_ttis=10, cc_factory=cc_factory,
                                                    **kw))
     for ue, name, size in requests:
         backend.submit_request(ue, name, size)
@@ -146,7 +150,8 @@ def test_two_ues_share_the_cell_and_both_make_progress():
     try:
         backend = TransportBackend(link, BackendConfig(window_ttis=10,
                                                        rwnd=256 * 1024,
-                                                       cc_factory=Cubic))
+                                                       cc_factory=Cubic,
+                                                       retain_request_history=True))
         backend.submit_request(0, "a", 300 * 1024)
         backend.submit_request(1, "b", 300 * 1024)
         flows = [backend.requests[(0, "a")].flow, backend.requests[(1, "b")].flow]
@@ -174,13 +179,27 @@ def test_two_ues_share_the_cell_and_both_make_progress():
         teardown(link, backend)
 
 
+def test_sparse_external_ue_ids_map_to_dense_emulator_ids():
+    link = build_link(n_ues=2, ue_id_map={1: 0, 3: 1})
+    try:
+        backend, done = run_backend(
+            link, [(1, "one", 100 * 1024), (3, "three", 100 * 1024)], 300)
+        assert set(done) == {"one", "three"}
+        assert (1, "dl") in link.last_state
+        assert (3, "dl") in link.last_state
+        assert (0, "dl") not in link.last_state
+        assert accounted(link) == link.submitted_bytes
+    finally:
+        teardown(link, backend)
+
+
 def test_loss_is_reported_with_a_cause_and_the_transfer_still_completes():
     """A delay budget far below the standing queue makes the emulator discard,
     which is the only path on which the fate and the cause are decided."""
     link = build_link(duration_s=12.0, delay_budget_s=0.02)
     try:
         backend, done = run_backend(link, [(0, "bulk", 3 * 1024 * 1024)], 1100,
-                                    rwnd=512 * 1024)
+                                    rwnd=256 * 1024, cc_factory=Reno)
         lost = [a for a in backend.runner.arrivals if a.fate != "delivered"]
         assert lost, "the delay budget did not manage to lose anything"
         assert all(a.cause for a in lost), "a loss with no cause"
@@ -267,6 +286,26 @@ def test_event_cursor_replays_until_the_client_acknowledges_it():
         sock.close()
         emulator.close()
         shutil.rmtree(work, ignore_errors=True)
+
+
+def test_event_sequence_gap_is_rejected_before_accounting():
+    link = build_link()
+    try:
+        bad = {"cursor": 2, "events": [{
+            "seq": 2, "target": "ue/0", "dir": "dl", "tag": 1,
+            "delivered_bytes": 1500,
+        }]}
+        try:
+            link._arrivals_from_events(bad, 0)
+        except RuntimeError as exc:
+            assert "sequence gap" in str(exc)
+        else:
+            raise AssertionError("missing event sequence was acknowledged")
+        assert link._event_cursor == 0
+        assert link.event_accounted_bytes == 0
+    finally:
+        teardown(link)
+
 
 def test_async_event_overflow_requires_an_atomic_resync():
     if not os.path.exists(BINARY) or not os.path.exists(BASE_INI):

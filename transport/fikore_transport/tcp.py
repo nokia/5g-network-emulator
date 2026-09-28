@@ -181,9 +181,7 @@ class TcpSender:
             if nxt is None:
                 break
             seq, size, is_rtx = nxt
-            # A full segment waits for room; a short final one goes as it is, so the
-            # tail of a transfer is not held back by a window that will never open.
-            if budget < size and not (not is_rtx and self._is_final_segment(size)):
+            if budget < size:
                 break
             if is_rtx:
                 sent = self.unacked[seq]
@@ -222,11 +220,10 @@ class TcpSender:
                 self.snd_nxt = self._order[at] if at < len(self._order) else self.snd_high
                 return self._next_to_send()
             return (self.snd_nxt, sent.size, True)
-        size = self.mss if self.app_unlimited else min(self.mss, self.app_available)
+        receive_room = max(self.snd_una + self.rwnd - self.snd_high, 0)
+        available = self.mss if self.app_unlimited else min(self.mss, self.app_available)
+        size = min(available, receive_room)
         return (self.snd_high, size, False) if size > 0 else None
-
-    def _is_final_segment(self, size: int) -> bool:
-        return not self.app_unlimited and size == self.app_available
 
     def _budget(self) -> float:
         """Bytes this slot may put into the network: window room, and pacing.
@@ -237,7 +234,11 @@ class TcpSender:
         host connected to a 20 Mbps link can produce. The rate is Linux's, two times
         the window per round trip while probing and 1.25 afterwards.
         """
-        room = max(min(self.cc.cwnd, float(self.rwnd)) - self.in_flight, 0.0)
+        congestion_room = max(self.cc.cwnd - self.in_flight, 0.0)
+        # SACKed bytes leave RFC 6675's congestion-control pipe but still occupy
+        # the receiver window until the cumulative acknowledgement advances.
+        receive_room = max(self.snd_una + self.rwnd - self.snd_high, 0.0)
+        room = min(congestion_room, receive_room)
         rate = self.cc.pacing_rate_bps()
         if rate is None:
             if self.pacing == "off" or self.srtt_us is None:
@@ -363,7 +364,7 @@ class TcpSender:
         in the past as soon as one timeout has happened, and the sender then times
         out once per slot instead of once per RTO.
         """
-        if not self.unacked:
+        if self.cancelled or not self.unacked:
             Scheduler.cancel(self._rto_timer)
             self._rto_timer = None
             return
@@ -375,7 +376,7 @@ class TcpSender:
 
     def _on_rto(self) -> None:
         self._rto_timer = None
-        if not self.unacked:
+        if self.cancelled or not self.unacked:
             return
         self.stats.rto_events += 1
         self.rto_us = min(self.rto_us * 2, MAX_RTO_US)

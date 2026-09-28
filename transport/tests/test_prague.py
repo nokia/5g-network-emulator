@@ -91,8 +91,9 @@ def test_prague_recovers_the_pipe_after_a_timeout():
 def test_prague_drives_the_backend_unchanged():
     link = LoopbackLink(LoopbackConfig(rate_bps=50e6, owd_ttis=10, mss=MSS,
                                        queue_bytes=512 * 1024, ce_threshold_ttis=2))
-    backend = TransportBackend(link, BackendConfig(mss=MSS, cc_factory=Prague,
-                                                   ecn="ect1"))
+    backend = TransportBackend(link, BackendConfig(
+        mss=MSS, cc_factory=Prague, ecn="ect1",
+        retain_request_history=True))
     backend.submit_request(0, "seg-1", 512 * 1024)
     completed = None
     for _ in range(600):

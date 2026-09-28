@@ -35,10 +35,18 @@ class SharedWindow:
         self.limit = limit_bytes
         self.in_flight = 0
         self.active = 0
+        self._share_tti = -1
+        self._share_bytes = 0
 
-    def share(self) -> int:
-        free = max(self.limit - self.in_flight, 0)
-        return free // max(self.active, 1)
+    def share(self, tti: int, mss: int) -> int:
+        # Every sender sees the same slot-start share. Recomputing from shrinking
+        # free space made the result depend on Runner's flow iteration order.
+        if tti != self._share_tti:
+            free = max(self.limit - self.in_flight, 0)
+            raw = free // max(self.active, 1)
+            self._share_bytes = raw // mss * mss
+            self._share_tti = tti
+        return self._share_bytes
 
     def take(self, nbytes: int) -> None:
         self.in_flight += nbytes
@@ -114,7 +122,7 @@ class IdealSender:
     def send_window(self) -> list[Transmit]:
         if self.cancelled:
             return []
-        budget = self.window.share()
+        budget = self.window.share(self.clock.tti, self.mss)
         out: list[Transmit] = []
         while budget > 0:
             size = self.mss if self.app_unlimited else min(self.mss, self.app_available)

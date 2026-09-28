@@ -75,6 +75,8 @@ def main() -> int:
         if key in config
     }
     ue_ids = {session["ue_id"] for session in config["sessions"]}
+    ue_id_map = {external: physical
+                 for physical, external in enumerate(sorted(ue_ids))}
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
 
@@ -89,7 +91,7 @@ def main() -> int:
             delay_budget_s=30.0,
             log_path=str(Path(tmp) / "emulator.log"),
         ))
-        link = FikoreLink(emulator, flow_to_ue={})
+        link = FikoreLink(emulator, flow_to_ue={}, ue_id_map=ue_id_map)
         backend = TransportBackend(link, BackendConfig(
             window_ttis=10,
             horizon_ttis=int(float(config["duration_s"]) * 1000),

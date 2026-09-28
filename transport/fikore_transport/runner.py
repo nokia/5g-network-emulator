@@ -37,7 +37,8 @@ class Flow:
 
 
 class Runner:
-    def __init__(self, link: Link, clock: Clock | None = None) -> None:
+    def __init__(self, link: Link, clock: Clock | None = None,
+                 retain_arrivals: bool = True) -> None:
         self.clock = clock or Clock()
         self.sched = Scheduler(self.clock)
         self.link = link
@@ -45,6 +46,7 @@ class Runner:
         self._ack_registry: dict[int, Ack] = {}
         self._next_ack_id = 1
         self.arrivals: list[Arrival] = []
+        self.retain_arrivals = retain_arrivals
 
     def add_flow(self, flow: Flow) -> None:
         self.flows[flow.sender.flow] = flow
@@ -64,7 +66,8 @@ class Runner:
     def tick(self) -> None:
         tti = self.clock.tti
         for arrival in self.link.step(tti):
-            self.arrivals.append(arrival)
+            if self.retain_arrivals:
+                self.arrivals.append(arrival)
             self._on_arrival(arrival)
 
         self.sched.run_slot(tti)

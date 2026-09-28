@@ -117,6 +117,8 @@ class BackendConfig:
     transport: str = "tcp"
     ideal_window_bytes: int = 128 * 1024
     ideal_recover: bool = True
+    retain_request_history: bool = False
+    retain_arrivals: bool = False
 
 
 class TransportBackend:
@@ -126,15 +128,17 @@ class TransportBackend:
         self.cfg = cfg or BackendConfig()
         self.link = link
         self.cfg.mss = getattr(link, "mss", self.cfg.mss)
-        self.runner = Runner(link)
+        self.runner = Runner(link, retain_arrivals=self.cfg.retain_arrivals)
         self.requests: dict[tuple[int, str], _Request] = {}
+        self._seen_requests: set[tuple[int, str]] = set()
         self._active_requests: set[tuple[int, str]] = set()
-        self._by_flow: dict[int, _Request] = {}
+        self._retiring_flows: dict[int, _Request] = {}
         self._known_ues: set[int] = set()
         self._retired_retransmitted: dict[int, int] = {}
         self._next_flow = 1
         self._windows = 0
         self._initial = True
+        self._final_emitted = False
         self._closed = False
         self._telemetry_baseline: dict[int, dict] = {}
         self._windows_by_ue: dict[int, SharedWindow] = {}
@@ -143,7 +147,7 @@ class TransportBackend:
 
     def submit_request(self, ue_id: int, request_id: str, bytes_total: int) -> None:
         key = (ue_id, request_id)
-        if key in self.requests:
+        if key in self._seen_requests:
             raise ValueError(f"request {request_id} is already live on ue {ue_id}")
         flow_id = self._next_flow
         self._next_flow += 1
@@ -157,19 +161,21 @@ class TransportBackend:
                                  self.cfg.mss, window, direction=self.cfg.direction,
                                  ecn=self.cfg.ecn, recover=self.cfg.ideal_recover)
             receiver = IdealReceiver(flow_id, self.cfg.mss, sender)
-        else:
+        elif self.cfg.transport == "tcp":
             cc = self.cfg.cc_factory(mss=self.cfg.mss, cwnd=10 * self.cfg.mss)
             sender = TcpSender(flow_id, cc, self.runner.clock, self.runner.sched,
                                self.cfg.mss, direction=self.cfg.direction,
                                ecn=self.cfg.ecn, rwnd=self.cfg.rwnd)
             receiver = TcpReceiver(flow_id, self.cfg.mss)
+        else:
+            raise ValueError(f"unsupported transport: {self.cfg.transport}")
         flow = Flow(sender, receiver, ack_over_link=self.cfg.ack_over_link)
         self.runner.add_flow(flow)
         sender.app_write(bytes_total)
         request = _Request(ue_id, request_id, bytes_total, flow)
         self.requests[key] = request
+        self._seen_requests.add(key)
         self._active_requests.add(key)
-        self._by_flow[flow_id] = request
         self._known_ues.add(ue_id)
 
     def cancel_request(self, ue_id: int, request_id: str) -> None:
@@ -182,20 +188,26 @@ class TransportBackend:
     def advance(self) -> NetworkStep:
         if self._closed:
             raise RuntimeError("the backend is closed")
+        if self._final_emitted:
+            raise RuntimeError("backend already emitted its final NetworkStep")
         if self._initial:
             self._initial = False
             return NetworkStep(time_s=0.0, events=[], is_final=False)
-        for _ in range(self.cfg.window_ttis):
+        horizon = self.cfg.horizon_ttis
+        remaining = (self.cfg.window_ttis if horizon is None
+                     else max(horizon - self.runner.clock.tti, 0))
+        for _ in range(min(self.cfg.window_ttis, remaining)):
             self.runner.tick()
         self._windows += 1
 
         now_s = self.runner.clock.s
         events: list[NetworkEvent] = list(self._request_events(now_s))
+        self._cleanup_retiring_flows()
         if self._windows % self.cfg.telemetry_every_windows == 0:
             events.extend(self._telemetry_events(now_s))
 
-        horizon = self.cfg.horizon_ttis
         is_final = horizon is not None and self.runner.clock.tti >= horizon
+        self._final_emitted = is_final
         return NetworkStep(time_s=now_s, events=events, is_final=is_final)
 
     def close(self) -> None:
@@ -242,18 +254,25 @@ class TransportBackend:
     def _retire(self, key: tuple[int, str], request: _Request) -> None:
         self._active_requests.discard(key)
         flow_id = request.flow.sender.flow
-        self._by_flow.pop(flow_id, None)
-        # ACKs sent over the link may still be queued after application delivery.
-        # Keep those uncommon flows registered until the backend closes; model-local
-        # ACKs retain their sender in the scheduled callback and need no registry.
-        if not request.flow.ack_over_link:
+        self._retiring_flows[flow_id] = request
+        if not self.cfg.retain_request_history:
+            self.requests.pop(key, None)
+
+    def _cleanup_retiring_flows(self) -> None:
+        for flow_id, request in list(self._retiring_flows.items()):
+            flow = request.flow
+            if flow.in_network != 0:
+                continue
+            if not request.cancelled and not flow.sender.complete():
+                continue
             self.runner.remove_flow(flow_id)
             unregister = getattr(self.link, "unregister_flow", None)
             if unregister is not None:
                 unregister(flow_id)
-        retransmitted = request.flow.sender.stats.retransmits * self.cfg.mss
-        self._retired_retransmitted[request.ue_id] = (
-            self._retired_retransmitted.get(request.ue_id, 0) + retransmitted)
+            retransmitted = flow.sender.stats.retransmits * self.cfg.mss
+            self._retired_retransmitted[request.ue_id] = (
+                self._retired_retransmitted.get(request.ue_id, 0) + retransmitted)
+            del self._retiring_flows[flow_id]
 
     def _telemetry_events(self, now_s: float) -> Iterable[NetworkEvent]:
         state = getattr(self.link, "last_state", None)

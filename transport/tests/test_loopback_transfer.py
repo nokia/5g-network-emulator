@@ -10,10 +10,10 @@ import os
 import sys
 
 from fikore_transport.cc import Cubic, Reno
-from fikore_transport.clock import Clock
+from fikore_transport.clock import Clock, Scheduler
 from fikore_transport.link import LoopbackConfig, LoopbackLink
 from fikore_transport.runner import Flow, Runner
-from fikore_transport.tcp import TcpReceiver, TcpSender
+from fikore_transport.tcp import Ack, TcpReceiver, TcpSender
 
 MSS = 1500
 
@@ -42,6 +42,25 @@ def test_transfer_completes_and_conserves_bytes():
     unique = {a.seq: a.size for a in runner.arrivals
               if a.fate == "delivered" and a.kind == "data"}
     assert sum(unique.values()) == size, "every byte must arrive exactly once"
+
+
+def test_receive_window_counts_sacked_bytes_until_cumulative_ack():
+    clock = Clock()
+    sender = TcpSender(1, Reno(mss=MSS), clock, Scheduler(clock), MSS, rwnd=3000)
+    sender.app_write(6000)
+    first = sender.send_window()
+    assert sum(segment.size for segment in first) == 3000
+    sender.on_ack(Ack(1, 0, 0, sacks=((1500, 3000),)))
+    assert sender.in_flight == 1500          # congestion pipe excludes SACKed data
+    assert sender.send_window() == []        # receive window still contains both
+
+
+def test_receive_window_smaller_than_mss_splits_the_segment():
+    clock = Clock()
+    sender = TcpSender(1, Reno(mss=MSS), clock, Scheduler(clock), MSS, rwnd=1000)
+    sender.app_write(1500)
+    first = sender.send_window()
+    assert [segment.size for segment in first] == [1000]
 
 
 def test_throughput_approaches_the_bottleneck():

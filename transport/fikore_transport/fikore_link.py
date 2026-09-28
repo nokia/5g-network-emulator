@@ -70,9 +70,15 @@ class FikoreLink:
     """Transport-facing view of a running emulator."""
 
     def __init__(self, emulator: Emulator, flow_to_ue: dict[int, int],
-                 state_every_ttis: int = 10, use_events: bool = True) -> None:
+                 state_every_ttis: int = 10, use_events: bool = True,
+                 ue_id_map: dict[int, int] | None = None) -> None:
         self.emulator = emulator
         self.flow_to_ue = flow_to_ue
+        self.ue_id_map = dict(ue_id_map or {})
+        if len(set(self.ue_id_map.values())) != len(self.ue_id_map):
+            raise ValueError("UE mapping must be one-to-one")
+        self._physical_to_external = {physical: external
+                                      for external, physical in self.ue_id_map.items()}
         self.mss = emulator.cfg.pkt_size_bits // 8
 
         self.sock = emulator.connect()
@@ -96,6 +102,7 @@ class FikoreLink:
         self.use_events = use_events
         self.round_trips = 0
         self.received_bytes = 0
+        self.event_accounted_bytes = 0.0
         self.max_events_per_reply = 0
         self.ce_by_ue: dict[tuple[int, Direction], int] = {}
         # Byte accounting of what this link was asked to carry, for whoever wants to
@@ -112,7 +119,7 @@ class FikoreLink:
     # -- Link interface -----------------------------------------------------------
 
     def register_flow(self, flow: int, ue: int) -> None:
-        self.flow_to_ue[flow] = ue
+        self.flow_to_ue[flow] = self.ue_id_map.get(ue, ue)
 
     def unregister_flow(self, flow: int) -> None:
         self.flow_to_ue.pop(flow, None)
@@ -120,7 +127,8 @@ class FikoreLink:
     def set_params(self, ue: int, params: dict[str, float]) -> None:
         """Queued rather than sent: every command of a slot goes in one message,
         applied at the same quiescent point."""
-        self._queued_sets.append({"target": f"ue/{ue}", "set": dict(params)})
+        physical = self.ue_id_map.get(ue, ue)
+        self._queued_sets.append({"target": f"ue/{physical}", "set": dict(params)})
 
     def submit(self, items: list[Transmit], at_tti: int) -> None:
         if not items:
@@ -246,13 +254,15 @@ class FikoreLink:
     def _arrivals_from(self, result: list[dict], tti: int) -> list[Arrival]:
         out: list[Arrival] = []
         for entry in result:
-            ue = int(str(entry["target"]).split("/")[1])
+            physical = int(str(entry["target"]).split("/")[1])
+            external = self._physical_to_external.get(physical, physical)
             for direction in ("dl", "ul"):
                 state = entry.get("state", {}).get(direction, {})
-                self.last_state[(ue, direction)] = state
-                self.ce_by_ue[(ue, direction)] = int(state.get("ce_packets_total", 0))
+                self.last_state[(external, direction)] = state
+                self.ce_by_ue[(external, direction)] = int(
+                    state.get("ce_packets_total", 0))
                 for raw_tag, counters in (state.get("objects") or {}).items():
-                    arrival = self._terminal(int(raw_tag), counters, ue, tti)
+                    arrival = self._terminal(int(raw_tag), counters, physical, tti)
                     if arrival is not None:
                         out.append(arrival)
         # The object map comes back in the emulator's hash order, so without this
@@ -274,9 +284,21 @@ class FikoreLink:
         if cursor < self._event_cursor:
             raise RuntimeError(f"event cursor moved backwards: {cursor} after "
                                f"{self._event_cursor}")
+        events = result.get("events", [])
+        expected_seq = self._event_cursor + 1
+        for event in events:
+            if int(event.get("seq", -1)) != expected_seq:
+                raise RuntimeError(
+                    f"event sequence gap: expected {expected_seq}, got {event}")
+            expected_seq += 1
+        if cursor != expected_seq - 1:
+            raise RuntimeError(
+                f"event cursor {cursor} does not match last sequence "
+                f"{expected_seq - 1}")
 
         for entry in result.get("state", []):
-            ue = int(str(entry["target"]).split("/")[1])
+            physical = int(str(entry["target"]).split("/")[1])
+            ue = self._physical_to_external.get(physical, physical)
             for direction in ("dl", "ul"):
                 state = entry.get(direction)
                 if state is None:
@@ -285,7 +307,6 @@ class FikoreLink:
                 self.ce_by_ue[(ue, direction)] = int(state.get("ce_packets_total", 0))
 
         out: list[Arrival] = []
-        events = result.get("events", [])
         self.max_events_per_reply = max(self.max_events_per_reply, len(events))
         for event in events:
             tag = int(event["tag"])
@@ -304,6 +325,11 @@ class FikoreLink:
             for key in ("delivered_bytes", "expired_bytes", "queue_dropped_bytes",
                         "radio_dropped_bytes", "ce_bytes"):
                 counters[key] = counters.get(key, 0.0) + float(event.get(key, 0.0))
+            self.event_accounted_bytes += (
+                float(event.get("delivered_bytes", 0.0))
+                + float(event.get("expired_bytes", 0.0))
+                + float(event.get("queue_dropped_bytes", 0.0))
+                + float(event.get("radio_dropped_bytes", 0.0)))
             counters["dropped_bytes"] = (counters["queue_dropped_bytes"]
                                          + counters["radio_dropped_bytes"])
             arrival = self._terminal(tag, counters, ue, tti)
@@ -330,8 +356,13 @@ class FikoreLink:
         # loss of unknown cause is better than an object that never closes.
         total_dropped = float(counters.get("dropped_bytes", 0.0))
         unattributed = total_dropped - lost["queue_dropped_bytes"] - lost["radio_dropped_bytes"]
-        if delivered + total_dropped + lost["expired_bytes"] + EPS_BYTES < pending.size:
+        accounted = delivered + total_dropped + lost["expired_bytes"]
+        if accounted + EPS_BYTES < pending.size:
             return None
+        if accounted > pending.size + EPS_BYTES:
+            raise RuntimeError(
+                f"tag {tag} accounted {accounted} bytes for a "
+                f"{pending.size}-byte object")
 
         del self._outstanding[tag]
         self._to_forget.append((ue, tag))

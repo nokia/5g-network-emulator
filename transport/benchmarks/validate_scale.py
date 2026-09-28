@@ -52,6 +52,7 @@ def make_backend(work: Path, duration_s: float, n_ues: int,
         rwnd=rwnd,
         cc_factory=cc_factory,
         ecn=ecn,
+        retain_request_history=True,
         telemetry_every_windows=100,
     ))
     return link, backend

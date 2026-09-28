@@ -49,6 +49,14 @@ class Runner:
     def add_flow(self, flow: Flow) -> None:
         self.flows[flow.sender.flow] = flow
 
+    def remove_flow(self, flow_id: int) -> None:
+        """Stop visiting a terminal flow on every future TTI.
+
+        Already scheduled acknowledgement/timer callbacks retain the objects they
+        need; the runner registry exists only for per-slot dispatch and arrivals.
+        """
+        self.flows.pop(flow_id, None)
+
     def run_until(self, last_tti: int) -> None:
         while self.clock.tti <= last_tti:
             self.tick()

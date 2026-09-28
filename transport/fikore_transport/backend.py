@@ -128,7 +128,10 @@ class TransportBackend:
         self.cfg.mss = getattr(link, "mss", self.cfg.mss)
         self.runner = Runner(link)
         self.requests: dict[tuple[int, str], _Request] = {}
+        self._active_requests: set[tuple[int, str]] = set()
         self._by_flow: dict[int, _Request] = {}
+        self._known_ues: set[int] = set()
+        self._retired_retransmitted: dict[int, int] = {}
         self._next_flow = 1
         self._windows = 0
         self._closed = False
@@ -164,7 +167,9 @@ class TransportBackend:
         sender.app_write(bytes_total)
         request = _Request(ue_id, request_id, bytes_total, flow)
         self.requests[key] = request
+        self._active_requests.add(key)
         self._by_flow[flow_id] = request
+        self._known_ues.add(ue_id)
 
     def cancel_request(self, ue_id: int, request_id: str) -> None:
         request = self.requests.get((ue_id, request_id))
@@ -210,9 +215,8 @@ class TransportBackend:
     # -- events -------------------------------------------------------------------
 
     def _request_events(self, now_s: float) -> Iterable[NetworkEvent]:
-        for request in list(self.requests.values()):
-            if request.closed:
-                continue
+        for key in list(self._active_requests):
+            request = self.requests[key]
             delivered = request.flow.receiver.rcv_nxt
             if delivered != request.reported_bytes:
                 request.reported_bytes = delivered
@@ -225,23 +229,42 @@ class TransportBackend:
                     request.closed = True
                     yield DownloadCancelled(request.ue_id, request.request_id,
                                             delivered, now_s)
+                    self._retire(key, request)
             elif delivered >= request.bytes_total:
                 request.closed = True
                 yield DownloadCompleted(request.ue_id, request.request_id, now_s)
+                self._retire(key, request)
+
+    def _retire(self, key: tuple[int, str], request: _Request) -> None:
+        self._active_requests.discard(key)
+        flow_id = request.flow.sender.flow
+        self._by_flow.pop(flow_id, None)
+        # ACKs sent over the link may still be queued after application delivery.
+        # Keep those uncommon flows registered until the backend closes; model-local
+        # ACKs retain their sender in the scheduled callback and need no registry.
+        if not request.flow.ack_over_link:
+            self.runner.remove_flow(flow_id)
+            unregister = getattr(self.link, "unregister_flow", None)
+            if unregister is not None:
+                unregister(flow_id)
+        retransmitted = request.flow.sender.stats.retransmits * self.cfg.mss
+        self._retired_retransmitted[request.ue_id] = (
+            self._retired_retransmitted.get(request.ue_id, 0) + retransmitted)
 
     def _telemetry_events(self, now_s: float) -> Iterable[NetworkEvent]:
         state = getattr(self.link, "last_state", None)
-        for ue_id in sorted({r.ue_id for r in self.requests.values()}):
+        for ue_id in sorted(self._known_ues):
             yield NetworkTelemetryReceived(ue_id, now_s,
                                            self._telemetry_for(ue_id, state, now_s))
 
     def _telemetry_for(self, ue_id: int, state: dict | None,
                        now_s: float) -> NetworkTelemetry:
-        live = [r for r in self.requests.values() if r.ue_id == ue_id and not r.closed]
+        live = [self.requests[key] for key in self._active_requests
+                if key[0] == ue_id]
         srtts = [r.flow.sender.srtt_us for r in live if r.flow.sender.srtt_us]
         rtt_ms = sum(srtts) / len(srtts) / 1000.0 if srtts else None
-        retransmitted = sum(r.flow.sender.stats.retransmits * self.cfg.mss
-                            for r in self.requests.values() if r.ue_id == ue_id)
+        retransmitted = self._retired_retransmitted.get(ue_id, 0) + sum(
+            r.flow.sender.stats.retransmits * self.cfg.mss for r in live)
         if state is None:
             return NetworkTelemetry(rtt_ms=rtt_ms, retransmitted_bytes=retransmitted)
 

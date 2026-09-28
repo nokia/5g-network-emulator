@@ -40,10 +40,10 @@ from .emulator import PROTO, Emulator
 from .link import Arrival, Cause, Direction, Transmit
 
 # The counters are carried as bits divided by eight, so a whole segment can come
-# back a hair under its own size. A byte of slack closes an object that is complete
-# without closing one that still has a fragment in flight: fragments are packets,
-# and the smallest packet is far larger than this.
-EPS_BYTES = 1.0
+# back a hair under its own size. The emulator's BIT_ROUND_MARGIN is 0.99 bits,
+# therefore the byte-side tolerance must be no larger than 0.99 / 8. A whole byte
+# closed tags while a legitimate 0.25-byte residual was still due on the next TTI.
+EPS_BYTES = 0.99 / 8.0
 
 # The emulator's name for each way of losing a byte, in the order the fate is
 # decided. `dropped_bytes` is the sum of the two below it and is only read as a
@@ -96,6 +96,7 @@ class FikoreLink:
         self.use_events = use_events
         self.round_trips = 0
         self.received_bytes = 0
+        self.max_events_per_reply = 0
         self.ce_by_ue: dict[tuple[int, Direction], int] = {}
         # Byte accounting of what this link was asked to carry, for whoever wants to
         # check that the run conserved bytes without going back to the emulator.
@@ -112,6 +113,9 @@ class FikoreLink:
 
     def register_flow(self, flow: int, ue: int) -> None:
         self.flow_to_ue[flow] = ue
+
+    def unregister_flow(self, flow: int) -> None:
+        self.flow_to_ue.pop(flow, None)
 
     def set_params(self, ue: int, params: dict[str, float]) -> None:
         """Queued rather than sent: every command of a slot goes in one message,
@@ -281,7 +285,9 @@ class FikoreLink:
                 self.ce_by_ue[(ue, direction)] = int(state.get("ce_packets_total", 0))
 
         out: list[Arrival] = []
-        for event in result.get("events", []):
+        events = result.get("events", [])
+        self.max_events_per_reply = max(self.max_events_per_reply, len(events))
+        for event in events:
             tag = int(event["tag"])
             pending = self._outstanding.get(tag)
             if pending is None:

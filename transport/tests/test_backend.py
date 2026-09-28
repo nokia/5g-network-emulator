@@ -102,6 +102,22 @@ def test_close_is_idempotent_and_control_is_accepted():
     backend.close()
 
 
+def test_completed_objects_do_not_remain_in_the_per_tti_flow_registry():
+    backend = build()
+    for index in range(100):
+        backend.submit_request(0, f"seg-{index}", 30 * 1024)
+        for _ in range(100):
+            events = backend.advance().events
+            if any(isinstance(event, DownloadCompleted) for event in events):
+                break
+        else:
+            raise AssertionError(f"seg-{index} did not complete")
+        assert not backend.runner.flows
+        assert not backend._active_requests
+    # History remains available to callers without being visited on every slot.
+    assert len(backend.requests) == 100
+
+
 if __name__ == "__main__":
     failed = 0
     for name, fn in sorted(list(globals().items())):

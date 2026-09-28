@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -33,6 +34,18 @@ def check(path_text: str, expected: str) -> None:
             f"expected {expected}, got {actual}")
 
 
+def check_git_blob(commit: str, path_text: str, expected: str) -> None:
+    payload = subprocess.check_output(
+        ["git", "show", f"{commit}:{path_text}"],
+        cwd=ROOT,
+    )
+    actual = hashlib.sha256(payload).hexdigest()
+    if actual != expected:
+        raise ValueError(
+            f"git blob hash mismatch for {commit}:{path_text}: "
+            f"expected {expected}, got {actual}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
@@ -43,6 +56,17 @@ def main() -> None:
     for key in ("production_catalog", "production_manifest"):
         artifact = manifest["map_generation"][key]
         check(artifact["path"], artifact["sha256"])
+        checked += 1
+
+    map_manifest_path = (
+        ROOT / manifest["map_generation"]["production_manifest"]["path"]
+    )
+    map_manifest = json.loads(map_manifest_path.read_text())
+    for entry in map_manifest["maps"]:
+        check(
+            f"include/maps_scenarios/{entry['file']}",
+            entry["sha256"],
+        )
         checked += 1
 
     for profile in manifest["canonical_profiles"]:
@@ -66,6 +90,18 @@ def main() -> None:
                     run["rendered_config"],
                     run["rendered_config_sha256"],
                 )
+                checked += 1
+                if "map_source_git_commit" in run:
+                    check_git_blob(
+                        run["map_source_git_commit"],
+                        run["map_source_git_path"],
+                        run["map_sha256"],
+                    )
+                else:
+                    check(
+                        f"include/maps_scenarios/{run['map_file']}",
+                        run["map_sha256"],
+                    )
                 checked += 1
 
     identifiers = set()

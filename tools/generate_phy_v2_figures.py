@@ -83,7 +83,7 @@ def throughput_figure() -> None:
     )
     ax.set_ylabel("Delivered throughput (Mbit/s)")
     ax.set_xticks(list(positions), labels, rotation=38, ha="right")
-    ax.set_title("Combined baseline-to-V2 characterization")
+    ax.set_title("Unpaired historical baseline and V2 runs")
     ax.legend(frameon=False)
     ax.grid(axis="y", alpha=0.25)
     save(fig, "phy-v2-throughput.svg")

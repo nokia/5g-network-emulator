@@ -2,7 +2,9 @@
 #include <cmath>
 #include <initializer_list>
 #include <random>
+#include <stdexcept>
 
+#include <phy_layer/phy_l_definitions.h>
 #include <phy_layer/power_model.h>
 
 namespace
@@ -15,6 +17,21 @@ bool near(float actual, float expected, float tolerance = 1e-3f)
 
 int main()
 {
+    assert(near(get_overhead(3.5e9, TX_DL), 0.14f));
+    assert(near(get_overhead(3.5e9, TX_UL), 0.08f));
+    assert(near(get_overhead(26.0e9, TX_DL), 0.18f));
+    assert(near(get_overhead(26.0e9, TX_UL), 0.10f));
+    bool unsupported_gap_rejected = false;
+    try
+    {
+        (void)get_overhead(10.0e9, TX_DL);
+    }
+    catch (const std::invalid_argument &)
+    {
+        unsupported_gap_rejected = true;
+    }
+    assert(unsupported_gap_rejected);
+
     assert(near(downlink_power_per_prb_dbm(46.0f, 100), 26.0f));
     assert(near(
         thermal_noise_per_prb_dbm(-174.0f, 9.0f, 1),

@@ -183,7 +183,8 @@ def markdown_table(rows: list[dict]) -> str:
         "us_per_tti_p50",
         "us_per_tti_p95",
         "us_per_tti_p99",
-        "deadline_miss_pct",
+        "us_per_tti_max",
+        "compute_budget_exceedance_pct",
         "dl_total_mbps",
         "dl_jain",
         "dl_max_service_gap_ttis",
@@ -327,7 +328,8 @@ def main() -> None:
                 percentile(runtime_samples, 0.95), 3),
             "us_per_tti_p99": round(
                 percentile(runtime_samples, 0.99), 3),
-            "deadline_miss_pct": round(
+            "us_per_tti_max": round(max(runtime_samples), 3),
+            "compute_budget_exceedance_pct": round(
                 100.0
                 * sum(value > 1000.0 for value in runtime_samples)
                 / len(runtime_samples),
@@ -381,8 +383,9 @@ def main() -> None:
         f"Warm-up steps: {args.warmup_steps}; measured steps per sample: "
         f"{args.steps}; repeats: {args.repeats}.",
         "",
-        "P50/P95/P99 are computed from individually timed warmed-up TTIs "
-        "across all repeats. A deadline miss is a TTI above 1,000 us.",
+        "P50/P95/P99/max are computed from individually timed warmed-up TTIs "
+        "across all repeats. A compute-budget exceedance is a TTI above "
+        "1,000 us.",
         "",
         f"Host: `{socket.gethostname()}`; platform: `{platform.platform()}`.",
         "",

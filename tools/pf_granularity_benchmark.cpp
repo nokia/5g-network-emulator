@@ -47,6 +47,16 @@ int main(int argc, char **argv)
     simulator sim(config_path);
 
     sim.run_steps(warmup_steps);
+    std::vector<float> initial_dl_bits;
+    std::vector<float> initial_ul_bits;
+    for (ue &terminal : *sim.ue_list())
+    {
+        initial_dl_bits.push_back(
+            terminal.get_delivered_bits_total(TX_DL));
+        initial_ul_bits.push_back(
+            terminal.get_delivered_bits_total(TX_UL));
+        terminal.reset_scheduler_statistics();
+    }
     std::vector<double> tti_us;
     tti_us.reserve(steps);
     double wall_us = 0.0;
@@ -66,14 +76,26 @@ int main(int argc, char **argv)
     std::vector<float> ul_throughputs;
     int max_dl_gap = 0;
     int max_ul_gap = 0;
+    size_t ue_index = 0;
     for (ue &terminal : *sim.ue_list())
     {
-        dl_throughputs.push_back(terminal.get_avg_tp(TX_DL));
-        ul_throughputs.push_back(terminal.get_avg_tp(TX_UL));
+        const float measurement_seconds =
+            static_cast<float>(steps) * 0.001f;
+        dl_throughputs.push_back(
+            (terminal.get_delivered_bits_total(TX_DL)
+             - initial_dl_bits[ue_index])
+            / measurement_seconds
+            / 1e6f);
+        ul_throughputs.push_back(
+            (terminal.get_delivered_bits_total(TX_UL)
+             - initial_ul_bits[ue_index])
+            / measurement_seconds
+            / 1e6f);
         max_dl_gap =
             std::max(max_dl_gap, terminal.get_max_service_gap_ttis(TX_DL));
         max_ul_gap =
             std::max(max_ul_gap, terminal.get_max_service_gap_ttis(TX_UL));
+        ue_index++;
     }
 
     double dl_total = 0.0;

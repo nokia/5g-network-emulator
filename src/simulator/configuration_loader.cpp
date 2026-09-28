@@ -774,6 +774,14 @@ bool configuration_loader::get_threading()
 
 mac_config configuration_loader::get_mac_config()
 {
+    if (
+        duplexing_type == FDD
+        && std::fabs(ratio_DL_UL - 0.5f) > 1e-6f)
+    {
+        throw std::invalid_argument(
+            "asymmetric FDD bandwidth is not supported; "
+            "use ratio_DL_UL: 0.5 or TDD");
+    }
     return mac_config(mimo_layers, numerology, n_re_freq, n_ofdm_syms, bandwidth, scheduling_mode,
                       scheduling_type, scheduling_config, metric_type,
                       duplexing_type, ratio_DL_UL, pf_alpha, pf_time_window_ms,

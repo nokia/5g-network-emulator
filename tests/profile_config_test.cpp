@@ -2,6 +2,7 @@
 #include <cmath>
 #include <fstream>
 #include <list>
+#include <stdexcept>
 #include <string>
 
 #include <common/direction.h>
@@ -102,6 +103,11 @@ void check_profile(const expected_profile &expected)
 
 int main()
 {
+    configuration_loader defaults;
+    assert(defaults.get_mac_config().mimo_layers == 1);
+    ue_full_config default_ue;
+    assert(default_ue.ue_c.ue_m.n_antennas == 1);
+
     const expected_profile profiles[] = {
         {
             "config/offline_umi_n40_npn.ini",
@@ -265,6 +271,26 @@ int main()
         explicit_loader.get_scenario_config().map_file
         == "results/maps-v2-candidates/"
            "macroscopic_fading_map_URBAN_MICROCELL_2.38.json");
+
+    const std::string asymmetric_fdd_path =
+        "build/tests/profile_config_asymmetric_fdd.ini";
+    std::ofstream asymmetric_fdd(asymmetric_fdd_path);
+    asymmetric_fdd
+        << "[MACLayer]\n"
+        << "duplexing_type: 1\n"
+        << "ratio_DL_UL: 0.3\n";
+    asymmetric_fdd.close();
+    bool asymmetric_rejected = false;
+    try
+    {
+        configuration_loader asymmetric_loader(asymmetric_fdd_path);
+        (void)asymmetric_loader.get_mac_config();
+    }
+    catch (const std::invalid_argument &)
+    {
+        asymmetric_rejected = true;
+    }
+    assert(asymmetric_rejected);
 
     return 0;
 }

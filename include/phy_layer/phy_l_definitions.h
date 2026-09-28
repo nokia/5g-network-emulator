@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <math.h>
+#include <stdexcept>
 #include <vector>
 #include <common/direction.h>
 
@@ -162,20 +163,28 @@ static int get_rbg_sndex(int size)
     return 0;
 }
 
-#define F1_LIMIT 7000000000
+#define FR1_MAX_HZ 7125000000.0
+#define FR2_MIN_HZ 24250000000.0
 #define F2_DL 0.18
 #define F1_DL 0.14
 #define F2_UL 0.10
 #define F1_UL 0.08
 
-static float get_overhead(int f, int tx){
+static float get_overhead(double frequency_hz, int tx){
+    if (
+        frequency_hz > FR1_MAX_HZ
+        && frequency_hz < FR2_MIN_HZ)
+    {
+        throw std::invalid_argument(
+            "frequency lies in the unsupported FR1/FR2 gap");
+    }
     if(tx == TX_DL)
     {
-        if(f > F1_LIMIT) return F2_DL; 
+        if(frequency_hz >= FR2_MIN_HZ) return F2_DL;
         else return F1_DL;
     }
     else{
-        if(f > F1_LIMIT) return F2_UL;
+        if(frequency_hz >= FR2_MIN_HZ) return F2_UL;
         else return F1_UL; 
     }
 }

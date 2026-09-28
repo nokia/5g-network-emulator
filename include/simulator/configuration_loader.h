@@ -116,7 +116,7 @@ std::string getBaseMapPath();
 // PHY LAYER
 //
 
-#define MIMO_LAYERS_DEFAULT 4
+#define MIMO_LAYERS_DEFAULT 1
 #define ENB_TX_POWER_DEFAULT 40.0
 #define MODULATION_DEFAULT MODULATION_256
 #define TARGET_BER_DEFAULT 0.00005
@@ -164,7 +164,7 @@ std::string getBaseMapPath();
 #define SIM_UE 1
 #define REAL_UE 0
 
-#define N_ANTENNAS_DEFAULT 2
+#define N_ANTENNAS_DEFAULT 1
 
 #define UE_HEIGHT_DEFAULT 1.5
 

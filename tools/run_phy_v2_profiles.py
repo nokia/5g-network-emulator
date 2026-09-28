@@ -137,13 +137,15 @@ def main() -> None:
     if unknown:
         raise SystemExit(f"unknown profiles: {unknown}")
     output = args.output.resolve()
-    if output.exists():
+    try:
+        output.mkdir(parents=True, exist_ok=False)
+    except FileExistsError:
         raise SystemExit(
             f"refusing to reuse evidence output directory: {output}")
     input_dir = output / "inputs"
     stdout_dir = output / "stdout"
-    input_dir.mkdir(parents=True, exist_ok=True)
-    stdout_dir.mkdir(parents=True, exist_ok=True)
+    input_dir.mkdir()
+    stdout_dir.mkdir()
 
     production_manifest = json.loads(
         (ROOT / "include" / "maps_scenarios" / "MANIFEST.json").read_text())
@@ -157,7 +159,9 @@ def main() -> None:
         source = ROOT / "config" / f"{profile}.ini"
         run_id = f"{batch_id}-{profile}"
         log_dir = ROOT / "logs" / run_id
-        if log_dir.exists():
+        try:
+            log_dir.mkdir(parents=True, exist_ok=False)
+        except FileExistsError:
             raise SystemExit(
                 f"refusing to append to existing run log directory: {log_dir}")
         expected_map = EXPECTED_MAPS[profile]

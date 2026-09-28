@@ -162,6 +162,19 @@ public:
     {
         return scheduler_max_service_gap_ttis[tx_dir];
     }
+    float get_delivered_bits_total(int tx_dir) const
+    {
+        return tx_dir == TX_DL
+                   ? pdcp_dl.delivered_bits_total()
+                   : pdcp_ul.delivered_bits_total();
+    }
+    void reset_scheduler_statistics()
+    {
+        scheduler_current_service_gap_ttis[TX_DL] = 0;
+        scheduler_current_service_gap_ttis[TX_UL] = 0;
+        scheduler_max_service_gap_ttis[TX_DL] = 0;
+        scheduler_max_service_gap_ttis[TX_UL] = 0;
+    }
     void step();
     void add_current_t(double _current_t){current_t = _current_t; }
 

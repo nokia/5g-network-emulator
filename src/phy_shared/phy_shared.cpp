@@ -77,32 +77,10 @@ int phy_shared::compute_outdoor_to_indoor()
 
 int phy_shared::verify_outdoor_to_indoor()
 {
-    switch (scenario)
-    {
-    case 0: // URBAN_MICROCELL (UMI)
-    case 1: // URBAN_MACROCELL (UMA)
-        // Valid values: OUTDOOR (10), IN_BUILDING (11)
-        if (o2i == IN_BUILDING || o2i == OUTDOOR)
-            return o2i;
-        break;
-
-    case 2: // RURAL_MACROCELL (RMA)
-        // Valid values: OUTDOOR (10), IN_BUILDING (11), IN_CAR (12)
-        if (o2i == OUTDOOR || o2i == IN_BUILDING || o2i == IN_CAR)
-            return o2i;
-        break;
-
-    case 3: // INDOOR_HOTSPOT
-    case 4: // INDOOR_FACTORY
-        // Both endpoints are inside the indoor scenario. IN_BUILDING records the UE
-        // location but does not imply an exterior-wall loss.
-        if (o2i == OUTDOOR || o2i == IN_BUILDING)
-            return o2i;
-        break;
-
-    default:
-        break;
-    }
+    // Explicit canonical environment states are never rewritten based on the
+    // scenario. The scenario-specific probabilities apply only to `random`.
+    if (o2i == OUTDOOR || o2i == IN_BUILDING || o2i == IN_CAR)
+        return o2i;
 
     return compute_outdoor_to_indoor();
 }

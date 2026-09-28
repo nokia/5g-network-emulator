@@ -71,11 +71,16 @@ def service_gaps(
     samples: list[tuple[float, float, float]],
     warmup_s: float,
     end_s: float,
+    sample_interval_s: float | None = None,
 ) -> list[float]:
     if not samples:
         return []
     timestamps = [sample[0] for sample in samples]
-    interval = sampled_interval(timestamps)
+    interval = (
+        sample_interval_s
+        if sample_interval_s is not None
+        else sampled_interval(timestamps)
+    )
     served = [
         timestamp
         for timestamp, delivered, generated in samples
@@ -187,6 +192,8 @@ def parse_ue(
             for timestamp, received, offered, _ in samples
         ]
         active_segments = positive_offer_segments(active_samples)
+        traffic_interval = sampled_interval(
+            [sample[0] for sample in active_samples])
         gaps = (
             []
             if outage
@@ -198,10 +205,9 @@ def parse_ue(
                     segment[0][0],
                     min(
                         end_s,
-                        segment[-1][0]
-                        + sampled_interval(
-                            [sample[0] for sample in segment]),
+                        segment[-1][0] + traffic_interval,
                     ),
+                    traffic_interval,
                 )
             ]
         )

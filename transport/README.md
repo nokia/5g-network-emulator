@@ -108,6 +108,27 @@ fairness reflects the different per-UE radio realizations rather than transport
 starvation. The live registries remain bounded even though request history keeps
 all 5554 completed objects for reporting.
 
+### SFV player integration
+
+`benchmarks/validate_sfv.py` substitutes this backend underneath Michi's generic
+SFV-VQEG v0.7.2 Python–Node bridge; the JavaScript player sees only
+`NetworkStep` and returns opaque requests/cancellations.
+
+- The repository's exact 0.2 s mock example produces the same request IDs, sizes,
+  states and delivered bytes over FikoRE for both UEs. B1 wastage is identical;
+  B2 differs by 261 bytes at the cutoff because delivery timing is no longer the
+  deterministic mock budget.
+- Over 5 s, B1 requests no future-video media before the swipe; B2 prefetches
+  segments 0 and 1 of videos 2 and 3. All 1,095,975 submitted bytes terminate
+  and are conserved.
+- With both UEs capped at 1 Mbps, swipes produce four and six cancelled requests.
+  Every cancellation tail is non-negative, and delivered plus in-flight bytes
+  exactly equals the 319,426 bytes submitted at cutoff.
+
+The measured compatibility summary is
+`benchmarks/results/sfv-pilot.json`. The third-party repositories remain
+unmodified; the bridge is loaded only by this optional validation tool.
+
 Prague against the same bottleneck, over the deterministic link so that the two
 runs differ in nothing but the controller (50 Mbps, 20 ms, 512 KB queue, CE above
 2 ms of queueing delay):

@@ -6,6 +6,9 @@
 
 #pragma once
 
+#include <stdexcept>
+#include <string>
+
 // Stable process statuses, following the traditional BSD sysexits meanings without
 // depending on <sysexits.h> (which is common on Unix but not part of C++ or POSIX).
 enum class run_exit_code : int
@@ -64,3 +67,15 @@ inline run_exit_code run_stop_exit_code(run_stop_reason reason)
     default: return run_exit_code::software;
     }
 }
+
+class run_failure : public std::runtime_error
+{
+public:
+    run_failure(run_exit_code code, const std::string &message)
+        : std::runtime_error(message), code_(code) {}
+
+    run_exit_code code() const { return code_; }
+
+private:
+    run_exit_code code_;
+};

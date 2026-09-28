@@ -35,25 +35,41 @@ void control_manager::init(const control_config &cfg, std::vector<ue> *ue_list, 
     cell_ = cell;
     const float period_ms = cell.period_ms;
 
-    if (!cfg.enabled || cfg.transport == "none")
+    if (!cfg.enabled)
     {
         enabled_ = false;
         return;
     }
+    if (cfg.transport == "none")
+        throw run_failure(run_exit_code::config,
+                          "[Control] enabled needs a transport");
+    if (cfg.sync_mode != "async" && cfg.sync_mode != "barrier")
+        throw run_failure(run_exit_code::config,
+                          "unknown control sync_mode: " + cfg.sync_mode);
+    if (cfg.on_timeout != "abort" && cfg.on_timeout != "continue")
+        throw run_failure(run_exit_code::config,
+                          "unknown control on_timeout: " + cfg.on_timeout);
+    if (cfg.on_peer_loss != "abort" && cfg.on_peer_loss != "continue")
+        throw run_failure(run_exit_code::config,
+                          "unknown control on_peer_loss: " + cfg.on_peer_loss);
+    if (cfg.credit_timeout_ms <= 0 || cfg.max_cmds_per_tick <= 0
+        || cfg.max_object_events <= 0)
+        throw run_failure(run_exit_code::config,
+                          "control limits and timeouts must be positive");
 
     if (cfg.transport == "file")
     {
         if (cfg.timeline_file == "none" || cfg.timeline_file.empty())
         {
             LOG_ERROR_I("control_manager::init") << " transport: file needs a timeline_file" << END();
-            enabled_ = false;
-            return;
+            throw run_failure(run_exit_code::config,
+                              "transport file needs timeline_file");
         }
         std::unique_ptr<transport_file> t(new transport_file(cfg.timeline_file));
         if (!t->ok())
         {
-            enabled_ = false;
-            return;
+            throw run_failure(run_exit_code::no_input,
+                              "cannot open control timeline: " + cfg.timeline_file);
         }
         transport_.reset(t.release());
     }
@@ -62,16 +78,16 @@ void control_manager::init(const control_config &cfg, std::vector<ue> *ue_list, 
         std::unique_ptr<transport_socket> t(new transport_socket(cfg));
         if (!t->ok())
         {
-            enabled_ = false;
-            return;
+            throw run_failure(run_exit_code::io_error,
+                              "cannot create control socket");
         }
         transport_.reset(t.release());
     }
     else
     {
         LOG_ERROR_I("control_manager::init") << " unknown transport: " << cfg.transport << END();
-        enabled_ = false;
-        return;
+        throw run_failure(run_exit_code::config,
+                          "unknown control transport: " + cfg.transport);
     }
 
     // Index by UE id. ue_handler::init() has already run, so both the vector and the
@@ -111,7 +127,8 @@ void control_manager::init(const control_config &cfg, std::vector<ue> *ue_list, 
     {
         journal_.open(cfg.journal_file, std::ios::out | std::ios::trunc);
         if (!journal_.is_open())
-            LOG_ERROR_I("control_manager::init") << " cannot open journal_file: " << cfg.journal_file << END();
+            throw run_failure(run_exit_code::io_error,
+                              "cannot open control journal: " + cfg.journal_file);
     }
 
     transport_open_ = true;
@@ -321,6 +338,7 @@ void control_manager::apply_due(double sim_t, std::int64_t tti)
     {
         command c = sched_.top().cmd;
         sched_.pop();
+        if (!transport_->command_is_current(c)) continue;
         apply(c, sim_t, tti);
         write_journal(c, sim_t, tti);
         last_applied_tti_ = tti;
@@ -457,6 +475,7 @@ void control_manager::apply(const command &c, double sim_t, std::int64_t tti)
 {
     ack a;
     a.id = c.id;
+    a.connection_generation = c.connection_generation;
     a.tti = tti;
     a.t = sim_t;
 

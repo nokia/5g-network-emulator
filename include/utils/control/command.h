@@ -55,6 +55,9 @@ struct command
     double at_t = -1.0;
     std::int64_t at_tti = -1;
     std::uint64_t id = 0;
+    // Internal socket generation, never serialized. Commands and acknowledgements
+    // must not cross from a disconnected controller into its successor.
+    std::uint64_t connection_generation = 0;
 
     // Only meaningful for grant.
     std::int64_t until_tti = -1;
@@ -84,6 +87,7 @@ struct ack_error
 struct ack
 {
     std::uint64_t id = 0;
+    std::uint64_t connection_generation = 0; // internal, not serialized
     bool ok = true;
     std::int64_t tti = 0;
     double t = 0.0;

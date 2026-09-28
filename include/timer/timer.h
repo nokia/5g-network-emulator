@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <chrono>
 #include <functional>
 #include <thread>
@@ -89,10 +90,7 @@ public:
 
     void wait_finished()
     {
-        while(!finished)
-        {
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-        }
+        if(tickthread.joinable()) tickthread.join();
     }
     
     unsigned int get_current_ts()
@@ -103,7 +101,6 @@ public:
 private: 
     void ticker()
     {
-        finished = false; 
         std::chrono::steady_clock::time_point t = std::chrono::steady_clock::now();
         int count = 0; 
         int diff_prev = 0;
@@ -131,12 +128,10 @@ private:
         if(do_wait) LOG_INFO_I("timer::ticker") << "Simulation time: " << goal*US2S << " - actual time: " << time_span.count() << END(); 
         else  LOG_INFO_I("timer::ticker") << "Simulation time: " << count*TTI_S << " - actual time: " << time_span.count() << END(); 
         LOG_INFO_I("timer::ticker")  << "Total iterations: " << count << " mean step time: " << time_span.count()/count << END(); 
-        finished = true; 
    }
 
     void ticker_inf()
     {
-        finished = false; 
         std::chrono::steady_clock::time_point t = std::chrono::steady_clock::now();
         int count = 0; 
         while(run)
@@ -164,7 +159,6 @@ private:
         if(do_wait)  LOG_INFO_I("timer::ticker") << "Simulation time: " << goal*US2S << " - actual time: " << time_span.count() << END(); 
          LOG_INFO_I("timer::ticker") << "Simulation time: " << count*TTI_S << " - actual time: " << time_span.count() << END(); 
          LOG_INFO_I("timer::ticker") << "Total iterations: " << count << " mean step time: " << time_span.count()/count << END(); 
-        finished = true;
     }
 private: 
 
@@ -175,8 +169,7 @@ private:
 
     unsigned int current_ts = 0; 
     unsigned int previous_ts = 0; 
-    bool run = false; 
+    std::atomic<bool> run{false};
     int goal = 0; 
-    bool finished = false; 
     bool do_wait = false; 
 };

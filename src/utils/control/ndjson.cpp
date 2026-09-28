@@ -54,8 +54,10 @@ command_op parse_op(const std::string &s)
 namespace ndjson
 {
 bool parse_line(const std::string &line, std::uint64_t fallback_id,
-                std::vector<command> &out, std::string &error)
+                std::vector<command> &out, std::string &error,
+                std::uint64_t *message_id)
 {
+    if (message_id != nullptr) *message_id = fallback_id;
     json msg;
     try
     {
@@ -87,6 +89,8 @@ bool parse_line(const std::string &line, std::uint64_t fallback_id,
         }
 
         const std::uint64_t id = msg.contains("id") ? msg["id"].get<std::uint64_t>() : fallback_id;
+        if (message_id != nullptr) *message_id = id;
+        std::vector<command> parsed;
 
         std::vector<json> items;
         if (msg.contains("cmds"))
@@ -214,8 +218,9 @@ bool parse_line(const std::string &line, std::uint64_t fallback_id,
                 return false;
             }
 
-            out.push_back(c);
+            parsed.push_back(c);
         }
+        out.insert(out.end(), parsed.begin(), parsed.end());
     }
     catch (const std::exception &e)
     {

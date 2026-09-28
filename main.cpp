@@ -43,6 +43,11 @@ int main(int argc, char** argv)
         sim.print_traffic();
         return sim.exit_code();
     }
+    catch (const run_failure &e)
+    {
+        std::cerr << "FikoRE startup failed: " << e.what() << "\n";
+        return exit_status(e.code());
+    }
     catch (const std::invalid_argument &e)
     {
         std::cerr << "Invalid configuration: " << e.what() << "\n";

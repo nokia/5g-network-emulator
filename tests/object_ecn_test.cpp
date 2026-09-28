@@ -118,6 +118,19 @@ void test_the_events_cursor_is_explicit()
     assert(!ndjson::parse_line("{\"id\":6,\"cmds\":[{\"op\":\"events\"}]}",
                                6, cmds, error));
     assert(error == "events needs an after cursor");
+
+    // A bad command at the end of an envelope must not leak earlier commands into
+    // the caller's inbox. The socket reports the envelope id, not its line number.
+    cmds.clear();
+    error.clear();
+    std::uint64_t message_id = 0;
+    assert(!ndjson::parse_line(
+        "{\"id\":99,\"cmds\":["
+        "{\"op\":\"inject\",\"target\":\"ue/0\",\"tag\":1,\"dl.bytes\":1000},"
+        "{\"op\":\"events\"}]}",
+        7, cmds, error, &message_id));
+    assert(cmds.empty());
+    assert(message_id == 99);
 }
 
 // An object that declares ECT(1) and overfeeds the cell is marked rather than dropped,

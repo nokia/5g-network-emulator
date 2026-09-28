@@ -60,6 +60,17 @@ def test_fatal_runtime_error_is_software(work: Path) -> None:
     assert result.returncode == 70, result.stderr + result.stdout
 
 
+def test_invalid_control_policy_is_config_error(work: Path) -> None:
+    result = run(render(work / "bad-control.ini", sync_mode="sometimes"))
+    assert result.returncode == 78, result.stderr + result.stdout
+
+
+def test_control_socket_setup_failure_is_io_error(work: Path) -> None:
+    result = run(render(work / "bad-socket.ini",
+                        address="/no/such/fikore/directory/control.sock"))
+    assert result.returncode == 74, result.stderr + result.stdout
+
+
 def test_credit_timeout_is_tempfail(work: Path) -> None:
     result = run(render(work / "timeout.ini", duration=0.1, period=-1,
                         sync_mode="barrier", credit_timeout_ms=20,
@@ -109,6 +120,8 @@ def main() -> int:
         test_missing_config_is_noinput,
         test_malformed_config_is_config_error,
         test_fatal_runtime_error_is_software,
+        test_invalid_control_policy_is_config_error,
+        test_control_socket_setup_failure_is_io_error,
         test_credit_timeout_is_tempfail,
         test_lost_control_peer_is_io_error,
     ]

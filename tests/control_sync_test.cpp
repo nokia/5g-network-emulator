@@ -251,6 +251,32 @@ void test_timeout_abort_requests_stop()
 
     c.disconnect();
 }
+
+// Commands belong to the connection that submitted them. A future command from a
+// disconnected async controller must neither mutate state nor send its ack to the
+// controller that connects afterwards.
+void test_scheduled_command_does_not_cross_a_reconnection()
+{
+    write_config("async", -1, 400, "abort");
+    simulator sim(CONFIG);
+    const float original = (*sim.ue_list())[0].overrides().priority;
+
+    client first;
+    assert(first.connect_and_handshake());
+    first.write_line(
+        "{\"id\":77,\"at_tti\":10,\"cmds\":["
+        "{\"target\":\"ue/0\",\"set\":{\"priority\":9}}]}");
+    first.disconnect();
+    std::this_thread::sleep_for(std::chrono::milliseconds(400));
+
+    client second;
+    assert(second.connect_and_handshake());
+    sim.run_steps(11);
+    assert((*sim.ue_list())[0].overrides().priority == original);
+    second.set_read_timeout(100);
+    assert(second.read_line().empty());
+    second.disconnect();
+}
 }
 
 // A message carrying more commands than max_cmds_per_tick used to stall the barrier for
@@ -307,6 +333,7 @@ int main()
     test_lost_peer_aborts_by_default();
     test_barrier_is_refused_in_real_time();
     test_timeout_abort_requests_stop();
+    test_scheduled_command_does_not_cross_a_reconnection();
     std::remove(CONFIG);
     return 0;
 }

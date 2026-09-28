@@ -40,12 +40,13 @@ public:
 
     bool peer_alive() const override;
     bool peer_ever_connected() const override;
+    bool command_is_current(const command &c) const override;
 
 private:
     void serve();
     bool handshake(int fd);
-    void handle_lines(int fd, std::string &buffer);
-    void send_line(int fd, const std::string &line);
+    void handle_lines(int fd, std::uint64_t generation, std::string &buffer);
+    bool send_line(int fd, const std::string &line);
 
 private:
     control_config cfg_;
@@ -53,6 +54,8 @@ private:
     std::string unix_path_;
 
     std::atomic<int> client_fd_{-1};
+    std::atomic<std::uint64_t> active_generation_{0};
+    std::uint64_t next_generation_ = 1; // socket thread only
     std::mutex write_mtx_;
 
     std::mutex inbox_mtx_;

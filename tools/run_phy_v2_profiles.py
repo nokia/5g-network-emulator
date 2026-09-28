@@ -84,6 +84,7 @@ def render_config(
 
 def selected_map(stdout: str) -> str | None:
     clean = ANSI.sub("", stdout)
+    fallback = None
     for line in clean.splitlines():
         for marker in ("Selected explicit map ", "Selected map "):
             if marker in line:
@@ -91,8 +92,8 @@ def selected_map(stdout: str) -> str | None:
         if "Map path:" in line:
             return line.rsplit("Map path:", 1)[1].strip()
         if "map_file =" in line:
-            return line.rsplit("=", 1)[1].strip()
-    return None
+            fallback = line.rsplit("=", 1)[1].strip().removesuffix(" added.")
+    return fallback
 
 
 def main() -> None:

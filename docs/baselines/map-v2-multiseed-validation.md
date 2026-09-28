@@ -41,7 +41,7 @@
 - Maximum absolute bias of the 30-realization ensemble-mean radial LOS probability: 0.038.
 - Maximum absolute ensemble shadow-standard-deviation error: 0.000 dB.
 - Maximum absolute error of the ensemble-mean axial autocorrelation at the nearest grid-representable lag: 0.007.
-- Maximum absolute opposite-edge shadow correlation: 0.026; this diagnoses circular FFT seams and is not an acceptance pass.
+- Maximum absolute ensemble-mean opposite-edge shadow correlation: 0.026; this diagnoses circular FFT seams and is not an acceptance pass.
 - Autocorrelation targets use `exp(-lag/d_cor)` at the reported integer-cell lag; they are not incorrectly compared with `exp(-1)` when the declared distance falls between cells.
 - Link-gain intervals quantify realization variability for the generator. They are not confidence intervals for field prediction error.
 - The proxy excludes penetration, small-scale fading, external interference, mobility, MIMO, scheduling, HARQ, and traffic.

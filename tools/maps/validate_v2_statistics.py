@@ -250,7 +250,8 @@ def markdown_report(
             f"- Maximum absolute error of the ensemble-mean axial "
             f"autocorrelation at the nearest grid-representable lag: "
             f"{max_autocorr_error:.3f}.",
-            f"- Maximum absolute opposite-edge shadow correlation: "
+            f"- Maximum absolute ensemble-mean opposite-edge shadow "
+            f"correlation: "
             f"{max_edge_correlation:.3f}; this diagnoses circular FFT seams "
             "and is not an acceptance pass.",
             "- Autocorrelation targets use `exp(-lag/d_cor)` at the reported "

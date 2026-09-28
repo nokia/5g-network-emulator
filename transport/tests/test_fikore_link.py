@@ -350,7 +350,8 @@ def test_barrier_event_overflow_aborts_before_feedback_is_lost():
             if emulator.proc.poll() is not None:
                 break
             time.sleep(0.02)
-        assert emulator.proc.poll() == 0, "the overflowing barrier run did not stop"
+        assert emulator.proc.poll() == 76, (
+            f"event-backlog abort returned {emulator.proc.poll()}, expected EX_PROTOCOL")
         assert "aborting the lockstep run before feedback is lost" in open(log_path).read()
     finally:
         io.close()

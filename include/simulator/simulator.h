@@ -16,6 +16,7 @@
 #include <mac_layer/mac_layer.h>
 #include <timer/timer.h>
 #include <utils/control/control_manager.h>
+#include <utils/run_status.h>
 #include <utils/terminal_logging.h>
 
 class simulator
@@ -34,6 +35,9 @@ public:
     void terminate();
 
     void print_traffic();
+
+    int exit_code() const { return exit_status(exit_code_); }
+    run_stop_reason stop_reason() const { return stop_reason_; }
 
     // One simulation step. Public so that tests can drive the loop without the
     // timer thread; the emulator itself still gets here through timer::start().
@@ -78,6 +82,8 @@ private:
     int verbosity = 0; 
     bool runtime_started = false;
     bool runtime_stopped = false;
+    run_exit_code exit_code_ = run_exit_code::ok;
+    run_stop_reason stop_reason_ = run_stop_reason::none;
     std::chrono::steady_clock::time_point runtime_start_tp;
     float progress_log_period_s = 0.0f;
     float next_progress_log_sim_time_s = 0.0f;

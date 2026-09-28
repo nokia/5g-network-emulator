@@ -73,7 +73,7 @@ $(BIN_DIR)/udp_tos_probe: $(TOOLS_OBJ_DIR)/udp_tos_probe.o
 	@mkdir -p $(@D)
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) $^ -o $@
 
-test: $(TEST_BINS)
+test: $(TARGET) $(TEST_BINS)
 	@set -e; \
 	for test_bin in $(TEST_BINS); do \
 		echo "[TEST] $$test_bin"; \
@@ -86,6 +86,8 @@ test: $(TEST_BINS)
 	else \
 		echo "[SKIP] api/tests/dash_logic_test.js (no node interpreter)"; \
 	fi
+	@echo "[TEST] tests/exit_status_test.py"
+	@$(PYTHON) tests/exit_status_test.py
 
 test-transport:
 	@set -e; \

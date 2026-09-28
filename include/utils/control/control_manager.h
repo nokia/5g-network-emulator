@@ -21,6 +21,7 @@
 #include <utils/control/command.h>
 #include <utils/control/control_config.h>
 #include <utils/control/control_transport.h>
+#include <utils/run_status.h>
 
 class ue;
 
@@ -54,6 +55,7 @@ public:
 
     bool is_enabled() const { return enabled_; }
     bool stop_requested() const { return stopping_; }
+    run_stop_reason stop_reason() const { return stop_reason_; }
     std::int64_t credit_until_tti() const { return credit_until_tti_; }
     bool barrier_mode() const { return mode_ == mode_t::barrier; }
 
@@ -131,6 +133,7 @@ private:
     std::chrono::milliseconds timeout_{30000};
     std::int64_t credit_until_tti_ = -1;
     bool stopping_ = false;
+    run_stop_reason stop_reason_ = run_stop_reason::none;
     std::mutex mtx_;
     std::condition_variable cv_;
 

@@ -5,6 +5,7 @@
  **********************************************/
 
 #include <mac_layer/resource_grid.h>
+#include <stdexcept>
 #include <vector>
 
 // Checks if a valid duplexing type (TDD or FDD) was selected
@@ -58,13 +59,14 @@ int grid::check_numerology(int n)
     return n;
 }
 
-// Checks if any valid configuration is possible with the available bandwidth. Exits the program otherwise
+// Checks if any valid configuration is possible with the available bandwidth.
+// Throwing lets main report a stable EX_SOFTWARE-style status and still run destructors;
+// exit(-1) bypassed both and surfaced as the opaque status 255 on Unix.
 void grid::check_frequency_division(int n)
 {
     if (n < SCH_N_RB_MIN)
     {
-        LOG_ERROR_I("grid::check_frequency_division") << " Not enough bandwidth for selected numerology, exiting . . . " << END();
-        exit(-1);
+        throw std::runtime_error("not enough bandwidth for selected numerology");
     }
 }
 

@@ -215,6 +215,7 @@ void test_lost_peer_aborts_by_default()
     sim.run_steps(1);
     assert(ms_since(t0) < 3000.0);                 // released, not waiting for the timeout
     assert(sim.control_plane().stop_requested());
+    assert(sim.control_plane().stop_reason() == run_stop_reason::control_peer_lost);
     assert(sim.control_plane().barrier_mode());    // still in barrier: it stops, it does not degrade
 }
 
@@ -246,6 +247,7 @@ void test_timeout_abort_requests_stop()
 
     sim.run_steps(1);                              // TTI 2, no credit
     assert(sim.control_plane().stop_requested());
+    assert(sim.control_plane().stop_reason() == run_stop_reason::credit_timeout);
 
     c.disconnect();
 }

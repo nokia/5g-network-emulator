@@ -182,6 +182,7 @@ void control_manager::wait_for_credit(std::int64_t tti)
             // nothing would drive it and the rest of the output would be a silence
             // recorded as if it were data.
             stopping_ = true;
+            stop_reason_ = run_stop_reason::control_peer_lost;
             LOG_ERROR_I("control_manager")
                 << " control peer lost at tti " << tti << "; aborting the run" << END();
             return;
@@ -200,6 +201,7 @@ void control_manager::wait_for_credit(std::int64_t tti)
         if (on_timeout_ == on_timeout_t::abort)
         {
             stopping_ = true;
+            stop_reason_ = run_stop_reason::credit_timeout;
             LOG_ERROR_I("control_manager")
                 << " no credit for tti " << tti << " after " << timeout_.count() << " ms; aborting" << END();
             return;
@@ -376,6 +378,7 @@ void control_manager::collect_object_events(std::int64_t tti)
         if (mode_ == mode_t::barrier)
         {
             stopping_ = true;
+            stop_reason_ = run_stop_reason::object_event_backlog;
             LOG_ERROR_I("control_manager")
                 << " object event backlog exceeded " << max_object_events_
                 << " entries; aborting the lockstep run before feedback is lost" << END();

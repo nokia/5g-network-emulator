@@ -70,14 +70,25 @@ void simulator::start()
 void simulator::join()
 {
     ticker.wait_finished();
-    log_runtime_stop("completed");
+    const run_stop_reason control_reason = control.stop_reason();
+    if (control_reason != run_stop_reason::none)
+        stop_reason_ = control_reason;
+    else if (stop_reason_ == run_stop_reason::none)
+        stop_reason_ = run_stop_reason::completed;
+    exit_code_ = run_stop_exit_code(stop_reason_);
+    log_runtime_stop(run_stop_reason_name(stop_reason_));
 }
 
 void simulator::terminate()
 {
+    if (stop_reason_ == run_stop_reason::none)
+    {
+        stop_reason_ = run_stop_reason::terminated;
+        exit_code_ = run_stop_exit_code(stop_reason_);
+    }
     ticker.stop();
     control.stop();
-    log_runtime_stop("terminated");
+    log_runtime_stop(run_stop_reason_name(stop_reason_));
 }
 
 void simulator::print_traffic()
@@ -212,7 +223,11 @@ void simulator::step(unsigned int _ts)
     control.tick(ts, (std::int64_t)total_steps - 1);
     // The control plane can ask for the run to end, e.g. when a credit times out with
     // on_timeout: abort. request_stop does not join, so it is safe from this thread.
-    if (control.stop_requested()) ticker.request_stop();
+    if (control.stop_requested())
+    {
+        ticker.request_stop();
+        return;
+    }
 
     std::chrono::steady_clock::time_point t = std::chrono::steady_clock::now();
     mac_l.step(ts);

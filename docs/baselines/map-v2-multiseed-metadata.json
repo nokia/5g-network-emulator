@@ -1,0 +1,23 @@
+{
+  "catalog_entries": 21,
+  "confidence_unit": "independent map realization",
+  "elapsed_seconds": 33.03811742924154,
+  "generator": {
+    "map_semantic_version": "2.0.0",
+    "name": "fikore-map-generator",
+    "version": "2.0.0"
+  },
+  "host": {
+    "hostname": "pitahaya",
+    "numpy": "2.2.6",
+    "platform": "Linux-5.15.0-58-generic-x86_64-with-glibc2.35",
+    "python": "3.10.4"
+  },
+  "master_seed_base": 20270000,
+  "realizations": 30,
+  "schema_version": 1,
+  "source": {
+    "dirty": true,
+    "sha": "806614cadf00e6205d542d68319998e98cc24d7a"
+  }
+}

@@ -1,0 +1,455 @@
+#!/usr/bin/env python3
+"""Summarize deterministic PHY Model V2 profile logs."""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import json
+import math
+import re
+import statistics
+from collections import defaultdict
+from pathlib import Path
+
+import numpy as np
+
+TOKEN = re.compile(r"^([^:]+):(.+)$")
+DIRECTIONS = ("dl", "ul")
+WINDOWS_S = (0.01, 0.1, 1.0)
+
+
+def parse_tokens(line: str) -> dict[str, float]:
+    values = {}
+    for raw in line.split():
+        match = TOKEN.match(raw)
+        if match is None:
+            continue
+        try:
+            values[match.group(1)] = float(match.group(2))
+        except ValueError:
+            pass
+    return values
+
+
+def safe_mean(values: list[float]) -> float:
+    return statistics.fmean(values) if values else math.nan
+
+
+def percentile(values: list[float], probability: float) -> float:
+    return (
+        float(np.quantile(np.asarray(values, dtype=float), probability))
+        if values
+        else math.nan
+    )
+
+
+def sampled_interval(timestamps: list[float]) -> float:
+    differences = [
+        later - earlier
+        for earlier, later in zip(timestamps[:-1], timestamps[1:])
+        if later > earlier
+    ]
+    return statistics.median(differences) if differences else 0.0
+
+
+def zero_window_counts(
+    samples: list[tuple[float, float, float]],
+    warmup_s: float,
+    window_s: float,
+) -> tuple[int, int]:
+    windows: dict[int, list[float]] = defaultdict(lambda: [0.0, 0.0])
+    for timestamp, delivered, generated in samples:
+        index = int(math.floor((timestamp - warmup_s) / window_s + 1e-9))
+        windows[index][0] += delivered
+        windows[index][1] += generated
+    eligible = [values for values in windows.values() if values[1] > 0.0]
+    return sum(values[0] <= 1e-9 for values in eligible), len(eligible)
+
+
+def service_gaps(
+    samples: list[tuple[float, float, float]],
+    warmup_s: float,
+    end_s: float,
+) -> list[float]:
+    if not samples:
+        return []
+    timestamps = [sample[0] for sample in samples]
+    interval = sampled_interval(timestamps)
+    served = [
+        timestamp
+        for timestamp, delivered, generated in samples
+        if generated > 0.0 and delivered > 1e-9
+    ]
+    if not served:
+        return [max(0.0, end_s - warmup_s)]
+    gaps = [max(0.0, served[0] - warmup_s)]
+    gaps.extend(
+        max(0.0, later - earlier - interval)
+        for earlier, later in zip(served[:-1], served[1:])
+    )
+    gaps.append(max(0.0, end_s - served[-1] - interval))
+    return gaps
+
+
+def parse_ue(
+    path: Path,
+    profile: str,
+    warmup_s: float,
+    configured_duration_s: float | None,
+) -> list[dict]:
+    ue_id = int(path.stem.rsplit("_", 1)[1])
+    traffic: dict[str, list[tuple[float, float, float, float]]] = {
+        direction: [] for direction in DIRECTIONS
+    }
+    quality: dict[str, dict[str, list[float]]] = {
+        direction: defaultdict(list) for direction in DIRECTIONS
+    }
+    maximum_timestamp = 0.0
+    with path.open() as handle:
+        for line in handle:
+            values = parse_tokens(line)
+            timestamp = values.get("ts")
+            if timestamp is None:
+                continue
+            maximum_timestamp = max(maximum_timestamp, timestamp)
+            if timestamp < warmup_s:
+                continue
+            if "rul" in values:
+                for direction in DIRECTIONS:
+                    suffix = direction
+                    traffic[direction].append(
+                        (
+                            timestamp,
+                            values.get(f"r{suffix}", 0.0),
+                            values.get(f"g{suffix}", 0.0),
+                            values.get(f"e{suffix}", 0.0),
+                        )
+                    )
+            elif "sinr" in values and "tx" in values:
+                direction = "ul" if int(values["tx"]) == 1 else "dl"
+                for key in ("sinr", "mcs"):
+                    value = values.get(key)
+                    if value is not None and math.isfinite(value):
+                        quality[direction][key].append(value)
+
+    end_s = configured_duration_s or maximum_timestamp
+    rows = []
+    for direction in DIRECTIONS:
+        samples = traffic[direction]
+        delivered = [sample[1] for sample in samples]
+        generated = [sample[2] for sample in samples]
+        errors = [sample[3] for sample in samples]
+        generated_mean = safe_mean(generated)
+        delivered_mean = safe_mean(delivered)
+        mcs = quality[direction]["mcs"]
+        sinr = quality[direction]["sinr"]
+        outage_fraction = (
+            sum(value < 0.0 for value in mcs) / len(mcs)
+            if mcs
+            else math.nan
+        )
+        outage = bool(
+            math.isfinite(outage_fraction) and outage_fraction >= 0.99)
+        active_samples = [
+            (timestamp, received, offered)
+            for timestamp, received, offered, _ in samples
+            if offered > 0.0
+        ]
+        gaps = (
+            []
+            if outage
+            else service_gaps(active_samples, warmup_s, end_s)
+        )
+        row = {
+            "profile": profile,
+            "ue_id": ue_id,
+            "direction": direction,
+            "generated_mbps": generated_mean,
+            "throughput_mbps": delivered_mean,
+            "error_mbps": safe_mean(errors),
+            "demand_satisfaction": (
+                min(delivered_mean / generated_mean, 1.0)
+                if generated_mean > 0.0
+                else math.nan
+            ),
+            "sinr_p05_db": percentile(sinr, 0.05),
+            "sinr_p50_db": percentile(sinr, 0.50),
+            "sinr_p95_db": percentile(sinr, 0.95),
+            "mcs_p05": percentile(mcs, 0.05),
+            "mcs_p50": percentile(mcs, 0.50),
+            "mcs_p95": percentile(mcs, 0.95),
+            "outage_fraction": outage_fraction,
+            "outage": outage,
+            "zero_throughput": bool(
+                math.isfinite(delivered_mean) and delivered_mean <= 1e-9),
+            "service_gap_p50_ms": 1000.0 * percentile(gaps, 0.50),
+            "service_gap_p95_ms": 1000.0 * percentile(gaps, 0.95),
+            "service_gap_p99_ms": 1000.0 * percentile(gaps, 0.99),
+            "service_gap_max_ms": (
+                1000.0 * max(gaps) if gaps else math.nan),
+            "_gaps_s": gaps,
+        }
+        for window_s in WINDOWS_S:
+            zero, total = (
+                (0, 0)
+                if outage
+                else zero_window_counts(
+                    active_samples, warmup_s, window_s)
+            )
+            label = f"{int(window_s * 1000)}ms"
+            row[f"zero_{label}_windows"] = zero
+            row[f"eligible_{label}_windows"] = total
+            row[f"zero_{label}_fraction"] = (
+                zero / total if total else math.nan)
+        rows.append(row)
+    return rows
+
+
+def parse_grid(path: Path, warmup_s: float) -> dict:
+    expected_units = 0
+    grants = 0
+    nominal_bits = 0.0
+    effective_bits = 0.0
+    units_by_timestamp: dict[float, int] = defaultdict(int)
+    assigned_by_timestamp: dict[float, int] = defaultdict(int)
+    with path.open() as handle:
+        for line_index, line in enumerate(handle):
+            values = parse_tokens(line)
+            if line_index == 0:
+                expected_units = int(
+                    values.get("f", 0) * values.get("t", 0))
+                continue
+            timestamp = values.get("ts")
+            if timestamp is None or timestamp < warmup_s:
+                continue
+            units_by_timestamp[timestamp] += 1
+            if values.get("id", -1.0) >= 0.0:
+                assigned_by_timestamp[timestamp] += 1
+                grants += 1
+                nominal_bits += values.get("tp", 0.0)
+                effective_bits += values.get("e_tp", 0.0)
+    opportunities = expected_units * len(units_by_timestamp)
+    assigned = sum(assigned_by_timestamp.values())
+    return {
+        "logged_opportunities": opportunities,
+        "logged_units": sum(units_by_timestamp.values()),
+        "assigned_units": assigned,
+        "resource_fill_fraction": (
+            assigned / opportunities if opportunities else math.nan),
+        "grant_payload_efficiency": (
+            effective_bits / nominal_bits if nominal_bits > 0.0 else math.nan),
+        "sampled_nominal_grant_bits": nominal_bits,
+        "sampled_effective_payload_bits": effective_bits,
+        "sampled_grants": grants,
+    }
+
+
+def summarize(
+    manifest: dict,
+    ue_rows: list[dict],
+    grid_metrics: dict[tuple[str, str], dict],
+    warmup_s: float,
+) -> list[dict]:
+    elapsed = {
+        run["profile"]: run["elapsed_seconds"]
+        for run in manifest["runs"]
+    }
+    grouped: dict[tuple[str, str], list[dict]] = defaultdict(list)
+    for row in ue_rows:
+        grouped[(row["profile"], row["direction"])].append(row)
+    summaries = []
+    for (profile, direction), rows in sorted(grouped.items()):
+        non_outage = [row for row in rows if not row["outage"]]
+        gaps = [
+            gap
+            for row in non_outage
+            for gap in row["_gaps_s"]
+        ]
+        generated = sum(row["generated_mbps"] for row in rows)
+        delivered = sum(row["throughput_mbps"] for row in rows)
+        grid = grid_metrics.get((profile, direction), {})
+        summary = {
+            "profile": profile,
+            "direction": direction,
+            "seed": manifest.get("seed", ""),
+            "duration_s": manifest.get("duration_s", ""),
+            "warmup_s": warmup_s,
+            "ues": len(rows),
+            "generated_mbps": generated,
+            "throughput_mbps": delivered,
+            "error_mbps": sum(row["error_mbps"] for row in rows),
+            "aggregate_demand_satisfaction": (
+                min(delivered / generated, 1.0)
+                if generated > 0.0
+                else math.nan
+            ),
+            "mean_ue_demand_satisfaction": safe_mean(
+                [row["demand_satisfaction"] for row in rows]),
+            "outage_ues": sum(row["outage"] for row in rows),
+            "zero_throughput_ues": sum(
+                row["zero_throughput"] for row in rows),
+            "sinr_p05_db": percentile(
+                [row["sinr_p05_db"] for row in rows], 0.50),
+            "sinr_p50_db": percentile(
+                [row["sinr_p50_db"] for row in rows], 0.50),
+            "sinr_p95_db": percentile(
+                [row["sinr_p95_db"] for row in rows], 0.50),
+            "mcs_p05": percentile(
+                [row["mcs_p05"] for row in rows], 0.50),
+            "mcs_p50": percentile(
+                [row["mcs_p50"] for row in rows], 0.50),
+            "mcs_p95": percentile(
+                [row["mcs_p95"] for row in rows], 0.50),
+            "service_gap_p50_ms": 1000.0 * percentile(gaps, 0.50),
+            "service_gap_p95_ms": 1000.0 * percentile(gaps, 0.95),
+            "service_gap_p99_ms": 1000.0 * percentile(gaps, 0.99),
+            "service_gap_max_ms": (
+                max(
+                    (
+                        row["service_gap_max_ms"]
+                        for row in non_outage
+                        if math.isfinite(row["service_gap_max_ms"])
+                    ),
+                    default=math.nan,
+                )
+            ),
+            "wall_seconds": elapsed.get(profile, math.nan),
+            **grid,
+        }
+        for window_s in WINDOWS_S:
+            label = f"{int(window_s * 1000)}ms"
+            zero = sum(row[f"zero_{label}_windows"] for row in non_outage)
+            total = sum(
+                row[f"eligible_{label}_windows"] for row in non_outage)
+            summary[f"zero_{label}_window_fraction"] = (
+                zero / total if total else math.nan)
+        summaries.append(summary)
+    return summaries
+
+
+def csv_value(value: object) -> object:
+    if isinstance(value, float) and not math.isfinite(value):
+        return ""
+    return value
+
+
+def write_csv(path: Path, rows: list[dict], private: set[str] | None = None) -> None:
+    private = private or set()
+    columns = [key for key in rows[0] if key not in private]
+    with path.open("w", newline="") as handle:
+        writer = csv.DictWriter(
+            handle, fieldnames=columns, lineterminator="\n")
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(
+                {key: csv_value(row[key]) for key in columns})
+
+
+def report(manifest: dict, summaries: list[dict], warmup_s: float) -> str:
+    lines = [
+        "# PHY Model V2 Five-Profile Validation",
+        "",
+        f"- Batch: `{manifest.get('batch_id', 'legacy-local-batch')}`",
+        f"- Source: `{manifest.get('source_sha', 'not recorded')}`",
+        f"- Seed: `{manifest.get('seed', 'not recorded')}`",
+        f"- Warm-up excluded: {warmup_s:g} seconds",
+        "",
+        "| Profile | Dir. | Offered | Delivered | Errors | Outage UEs | "
+        "Zero-service windows (10/100/1000 ms) | Gap P95/P99/max (ms) | "
+        "Payload/grant | Wall time |",
+        "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+    ]
+    for row in summaries:
+        efficiency = row.get("grant_payload_efficiency", math.nan)
+        efficiency_text = (
+            "n/a"
+            if not isinstance(efficiency, float) or not math.isfinite(efficiency)
+            else f"{100.0 * efficiency:.1f}%"
+        )
+        lines.append(
+            f"| {row['profile']} | {row['direction'].upper()} | "
+            f"{row['generated_mbps']:.2f} | "
+            f"{row['throughput_mbps']:.2f} | "
+            f"{row['error_mbps']:.2f} | {row['outage_ues']} | "
+            f"{100.0 * row['zero_10ms_window_fraction']:.1f}% / "
+            f"{100.0 * row['zero_100ms_window_fraction']:.1f}% / "
+            f"{100.0 * row['zero_1000ms_window_fraction']:.1f}% | "
+            f"{row['service_gap_p95_ms']:.0f} / "
+            f"{row['service_gap_p99_ms']:.0f} / "
+            f"{row['service_gap_max_ms']:.0f} | "
+            f"{efficiency_text} | {row['wall_seconds']:.2f} s |"
+        )
+    lines.extend(
+        [
+            "",
+            "Rates are Mbit/s. Service-window and service-gap statistics exclude "
+            "UEs classified as permanent PHY outage. A PHY-outage UE has MCS "
+            "below zero in at least 99% of post-warm-up channel samples.",
+            "",
+            "A zero-service window has positive offered traffic and no delivered "
+            "payload in that non-overlapping window. This avoids interpreting "
+            "every unassigned TTI as user starvation.",
+            "",
+            "Payload/grant efficiency is sampled from logged grid grants and is "
+            "the sum of effective payload bits divided by nominal grant bits.",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("manifest", type=Path)
+    parser.add_argument("--warmup-s", type=float, default=20.0)
+    parser.add_argument("--output", type=Path, required=True)
+    args = parser.parse_args()
+    manifest_path = args.manifest.resolve()
+    manifest = json.loads(manifest_path.read_text())
+    configured_duration = manifest.get("duration_s")
+    ue_rows = []
+    grid_metrics = {}
+    for run in manifest["runs"]:
+        profile = run["profile"]
+        log_dir = Path(run["log_dir"])
+        for path in sorted((log_dir / "ue").glob("ue_log_*.txt")):
+            ue_rows.extend(
+                parse_ue(
+                    path,
+                    profile,
+                    args.warmup_s,
+                    configured_duration,
+                )
+            )
+        for direction in DIRECTIONS:
+            grid_path = log_dir / "mac" / f"grid_log_{direction}.txt"
+            if grid_path.is_file():
+                grid_metrics[(profile, direction)] = parse_grid(
+                    grid_path, args.warmup_s)
+
+    summaries = summarize(
+        manifest, ue_rows, grid_metrics, args.warmup_s)
+    output = args.output.resolve()
+    output.mkdir(parents=True, exist_ok=True)
+    write_csv(output / "profile-summary.csv", summaries)
+    write_csv(output / "ue-summary.csv", ue_rows, {"_gaps_s"})
+    (output / "report.md").write_text(
+        report(manifest, summaries, args.warmup_s))
+    analysis_metadata = {
+        "schema_version": 1,
+        "source_manifest": str(manifest_path),
+        "source_manifest_sha256": __import__("hashlib").sha256(
+            manifest_path.read_bytes()).hexdigest(),
+        "warmup_s": args.warmup_s,
+        "service_windows_s": WINDOWS_S,
+        "outage_definition": "MCS below zero in >=99% of eligible samples",
+        "service_conditioning": "positive offered traffic, non-outage UE",
+    }
+    (output / "analysis-metadata.json").write_text(
+        json.dumps(analysis_metadata, indent=2, sort_keys=True) + "\n")
+    print(output)
+
+
+if __name__ == "__main__":
+    main()

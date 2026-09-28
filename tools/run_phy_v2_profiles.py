@@ -1,0 +1,201 @@
+#!/usr/bin/env python3
+"""Run the five deterministic PHY Model V2 reference profiles."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import platform
+import re
+import socket
+import subprocess
+import time
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+PROFILES = (
+    "offline_umi_n40_npn",
+    "offline_uma_n78_pedestrian",
+    "offline_rural_n78_vehicular",
+    "offline_indoor_hotspot_n78_pedestrian",
+    "offline_umi_n258_fwa",
+)
+EXPECTED_MAPS = {
+    "offline_umi_n40_npn":
+        "macroscopic_fading_map_URBAN_MICROCELL_2.38.json",
+    "offline_uma_n78_pedestrian":
+        "macroscopic_fading_map_URBAN_MACROCELL_3.5.json",
+    "offline_rural_n78_vehicular":
+        "macroscopic_fading_map_RURAL_MACROCELL_3.5.json",
+    "offline_indoor_hotspot_n78_pedestrian":
+        "macroscopic_fading_map_INDOOR_OPEN_OFFICE_3.5.json",
+    "offline_umi_n258_fwa":
+        "macroscopic_fading_map_URBAN_MICROCELL_26.json",
+}
+ANSI = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def git(*args: str) -> str:
+    return subprocess.check_output(
+        ["git", *args], cwd=ROOT, text=True).strip()
+
+
+def render_config(
+    source: Path,
+    seed: int,
+    run_id: str,
+    duration_s: int,
+) -> str:
+    lines = source.read_text().splitlines()
+    rendered = []
+    inserted = False
+    for line in lines:
+        rendered.append(line)
+        if line.strip() == "[Global]":
+            rendered.extend(
+                [
+                    f"seed: {seed}",
+                    f"run_id: {run_id}",
+                    "progress_log_period_s: -1",
+                ]
+            )
+            inserted = True
+        elif line.strip().startswith("duration:"):
+            rendered[-1] = f"duration: {duration_s}"
+    if not inserted:
+        raise ValueError(f"{source}: [Global] section is missing")
+    return "\n".join(rendered) + "\n"
+
+
+def selected_map(stdout: str) -> str | None:
+    clean = ANSI.sub("", stdout)
+    for line in clean.splitlines():
+        for marker in ("Selected explicit map ", "Selected map "):
+            if marker in line:
+                return line.rsplit(marker, 1)[1].strip()
+        if "Map path:" in line:
+            return line.rsplit("Map path:", 1)[1].strip()
+        if "map_file =" in line:
+            return line.rsplit("=", 1)[1].strip()
+    return None
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--seed", type=int, default=20260927)
+    parser.add_argument("--duration-s", type=int, default=180)
+    parser.add_argument("--batch-id")
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=ROOT / "results" / "phy-v2-production-maps",
+    )
+    args = parser.parse_args()
+
+    binary = ROOT / "bin" / "fikore"
+    if not binary.is_file():
+        raise SystemExit(f"build FikoRE first: {binary}")
+    source_sha = git("rev-parse", "HEAD")
+    dirty = bool(git("status", "--porcelain"))
+    if dirty:
+        raise SystemExit(
+            "profile evidence requires a clean worktree; commit tooling first")
+    batch_id = args.batch_id or (
+        f"phy-v2-production-{source_sha[:8]}-seed{args.seed}"
+    )
+    output = args.output.resolve()
+    input_dir = output / "inputs"
+    stdout_dir = output / "stdout"
+    input_dir.mkdir(parents=True, exist_ok=True)
+    stdout_dir.mkdir(parents=True, exist_ok=True)
+
+    production_manifest = json.loads(
+        (ROOT / "include" / "maps_scenarios" / "MANIFEST.json").read_text())
+    map_by_name = {
+        entry["file"]: entry for entry in production_manifest["maps"]
+    }
+    runs = []
+    for profile in PROFILES:
+        source = ROOT / "config" / f"{profile}.ini"
+        run_id = f"{batch_id}-{profile}"
+        rendered = render_config(
+            source, args.seed, run_id, args.duration_s)
+        input_path = input_dir / source.name
+        input_path.write_text(rendered)
+
+        started = time.perf_counter()
+        completed = subprocess.run(
+            [str(binary), str(input_path)],
+            cwd=ROOT,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            env={**os.environ, "LC_ALL": "C"},
+        )
+        elapsed = time.perf_counter() - started
+        stdout_path = stdout_dir / f"{profile}.log"
+        stdout_path.write_text(completed.stdout)
+        expected_map = EXPECTED_MAPS[profile]
+        observed_map = selected_map(completed.stdout)
+        if completed.returncode != 0:
+            raise SystemExit(
+                f"{profile} failed with return code {completed.returncode}; "
+                f"see {stdout_path}")
+        if observed_map is not None and not observed_map.endswith(expected_map):
+            raise SystemExit(
+                f"{profile}: selected {observed_map}, expected {expected_map}")
+        log_dir = ROOT / "logs" / run_id
+        if not log_dir.is_dir():
+            raise SystemExit(f"{profile}: expected log directory {log_dir}")
+        map_entry = map_by_name[expected_map]
+        runs.append(
+            {
+                "profile": profile,
+                "source_config": str(source.relative_to(ROOT)),
+                "rendered_config": str(input_path),
+                "rendered_config_sha256": sha256(input_path),
+                "run_id": run_id,
+                "return_code": completed.returncode,
+                "elapsed_seconds": elapsed,
+                "log_dir": str(log_dir),
+                "stdout": str(stdout_path),
+                "map_file": expected_map,
+                "map_sha256": map_entry["sha256"],
+                "map_realization_id": map_entry["realization_id"],
+            }
+        )
+        print(f"{profile}: {elapsed:.3f} s")
+
+    manifest = {
+        "schema_version": 1,
+        "batch_id": batch_id,
+        "source_sha": source_sha,
+        "source_dirty": dirty,
+        "seed": args.seed,
+        "duration_s": args.duration_s,
+        "environment": {
+            "hostname": socket.gethostname(),
+            "platform": platform.platform(),
+            "python": platform.python_version(),
+        },
+        "production_map_manifest_sha256": sha256(
+            ROOT / "include" / "maps_scenarios" / "MANIFEST.json"),
+        "runs": runs,
+    }
+    (output / "manifest.json").write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+    print(output / "manifest.json")
+
+
+if __name__ == "__main__":
+    main()

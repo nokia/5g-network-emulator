@@ -9,10 +9,8 @@ way a player does. What is printed is what the harness would see: completions,
 their duration, and the telemetry of the window they finished in.
 """
 import os
-import sys
 import time
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from pathlib import Path
 
 from fikore_transport.backend import (BackendConfig, DownloadCompleted,
                                       NetworkTelemetryReceived, TransportBackend)
@@ -20,7 +18,7 @@ from fikore_transport.cc import Cubic
 from fikore_transport.emulator import Emulator, EmulatorConfig
 from fikore_transport.fikore_link import FikoreLink
 
-EMU = os.environ.get("FIKORE_DIR", "/home/pablop/devel/fikore/5g-network-emulator")
+EMU = os.environ.get("FIKORE_DIR", str(Path(__file__).resolve().parents[2]))
 SEGMENT_BYTES = 375_000     # about 3 Mbps of video at 1 s segments
 N_UES = 2
 

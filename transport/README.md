@@ -130,7 +130,7 @@ fikore_transport/
   runner.py        the lockstep loop
   emulator.py      process wrapper and .ini generation
   fikore_link.py   the control-protocol client as a Link
-  backend.py       the pilot's NetworkBackend over the transport model
+  backend.py       request/delivery NetworkBackend over the transport model
 prague/            the C++ shim over the L4S reference, and its Makefile
 tests/             every transport against the loopback link, and the link
                    itself against a real emulator
@@ -141,21 +141,21 @@ docs/              the design
 ## Running
 
 ```bash
-make -C prague                                 # the Prague binding, once
-python3 tests/test_loopback_transfer.py        # no emulator needed
-python3 tests/test_backend.py                  # no emulator needed
-python3 tests/test_transports.py               # ideal and UDP
-python3 tests/test_prague.py                   # needs the binding
-python3 tests/test_fikore_link.py              # needs bin/fikore; skips without it
-python3 benchmarks/bench_lockstep.py           # cost of one slot per round trip
-python3 benchmarks/e2e_fikore.py               # one transfer over FikoRE
-python3 benchmarks/e2e_backend.py              # a player-like object queue, 2 UEs
-python3 benchmarks/e2e_prague.py               # Prague over the emulator's DualPI2
+python3 -m venv transport/.venv                 # from the emulator root
+transport/.venv/bin/pip install -e transport
+make test-transport                             # deterministic links, no emulator
+make test-transport-integration                 # builds and drives bin/fikore
+make -C transport/prague                        # optional Prague binding
+
+PYTHONPATH=transport python3 transport/benchmarks/bench_lockstep.py
+PYTHONPATH=transport python3 transport/benchmarks/e2e_fikore.py
+PYTHONPATH=transport python3 transport/benchmarks/e2e_backend.py
+PYTHONPATH=transport python3 transport/benchmarks/e2e_prague.py
 ```
 
-`FIKORE_DIR` points at the emulator checkout and defaults to
-`../5g-network-emulator`. `PRAGUE_DIR` points at the L4S `udp_prague` tree and
-defaults to `../../L4STeam/udp_prague`; nothing in it is modified.
+The scripts resolve the emulator from the repository that contains this directory;
+`FIKORE_DIR` is only an override. `PRAGUE_DIR` points at the L4S `udp_prague` tree
+and defaults to `../../L4STeam/udp_prague`; nothing in it is modified.
 
 ## Reading order
 

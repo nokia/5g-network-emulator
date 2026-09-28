@@ -13,10 +13,10 @@ import os
 import re
 import socket
 import subprocess
-import sys
 import time
+from pathlib import Path
 
-EMU = os.environ.get("FIKORE_DIR", os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "..", "5g-network-emulator"))
+EMU = os.environ.get("FIKORE_DIR", str(Path(__file__).resolve().parents[2]))
 PROTO = "fikore-control-1"
 # Out of the way of the per-slot ids, which start at 1 and would otherwise reach it.
 PRELOAD_ID = 10 ** 12

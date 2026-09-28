@@ -17,8 +17,7 @@ import shutil
 import sys
 import tempfile
 import time
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from pathlib import Path
 
 from fikore_transport.backend import (BackendConfig, DownloadCompleted,
                                       TransportBackend)
@@ -27,7 +26,7 @@ from fikore_transport.emulator import Emulator, EmulatorConfig
 from fikore_transport.fikore_link import FikoreLink
 from fikore_transport.link import Transmit
 
-EMU = os.environ.get("FIKORE_DIR", "/home/pablop/devel/fikore/5g-network-emulator")
+EMU = os.environ.get("FIKORE_DIR", str(Path(__file__).resolve().parents[2]))
 BINARY = os.path.join(EMU, "bin/fikore")
 BASE_INI = os.path.join(EMU, "config/control_demo.ini")
 

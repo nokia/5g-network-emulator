@@ -19,7 +19,10 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y --no-ins
 WORKDIR /usr/src/5g-network-emulator
 COPY . .
 
-RUN make -j"$(nproc)" && make test
+RUN make -j"$(nproc)" \
+  && make test \
+  && make test-transport \
+  && make test-transport-integration
 
 # The control API ships with the emulator and is built here, in its own venv: it is
 # independent of the repo's .venv, which belongs to the analyzers and pulls in numpy and

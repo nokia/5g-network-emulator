@@ -9,10 +9,8 @@ transport model in Python, reacting one slot at a time, actually run against
 FikoRE, and at what cost in wall-clock time.
 """
 import os
-import sys
 import time
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from pathlib import Path
 
 from fikore_transport.cc import Cubic, Reno
 from fikore_transport.emulator import Emulator, EmulatorConfig
@@ -20,7 +18,7 @@ from fikore_transport.fikore_link import FikoreLink
 from fikore_transport.runner import Flow, Runner
 from fikore_transport.tcp import TcpReceiver, TcpSender
 
-EMU = os.environ.get("FIKORE_DIR", "/home/pablop/devel/fikore/5g-network-emulator")
+EMU = os.environ.get("FIKORE_DIR", str(Path(__file__).resolve().parents[2]))
 
 
 def run(size_bytes=1_000_000, duration_s=4.0, cc_cls=Cubic, ack_over_link=False,

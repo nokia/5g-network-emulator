@@ -104,6 +104,11 @@ reply: unacknowledged events are retained and the same cursor safely replays the
 barrier run; an asynchronous client must recover atomically with
 `{"op":"events","after":0,"resync":true}`.
 
+The Python transport models that consume this interface live in
+[`transport/`](transport/README.md): TCP with Reno, CUBIC or Prague, the
+fixed-window injection baseline, UDP, and the `NetworkBackend` facade used by
+external experiment harnesses.
+
 A scenario can also be scripted with no network at all, through `timeline_file` in the
 `[Control]` section, and any session can be journaled and replayed exactly.
 

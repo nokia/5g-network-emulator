@@ -9,8 +9,6 @@ machine is right; the emulator tests say whether the integration is right.
 import os
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from fikore_transport.cc import Cubic, Reno
 from fikore_transport.clock import Clock
 from fikore_transport.link import LoopbackConfig, LoopbackLink

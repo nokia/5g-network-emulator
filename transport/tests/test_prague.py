@@ -9,8 +9,6 @@ one controller the L4S work is about would be worse than a failure.
 import os
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from fikore_transport.backend import (BackendConfig, DownloadCompleted,
                                       TransportBackend)
 from fikore_transport.cc import Cubic

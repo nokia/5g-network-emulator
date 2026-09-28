@@ -13,8 +13,7 @@ object, and the Prague binding built with `make -C prague`.
 import os
 import sys
 import time
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from pathlib import Path
 
 from fikore_transport.cc import Cubic
 from fikore_transport.cc_prague import Prague, PragueUnavailable
@@ -23,7 +22,7 @@ from fikore_transport.fikore_link import FikoreLink
 from fikore_transport.runner import Flow, Runner
 from fikore_transport.tcp import TcpReceiver, TcpSender
 
-EMU = os.environ.get("FIKORE_DIR", "/home/pablop/devel/fikore/5g-network-emulator")
+EMU = os.environ.get("FIKORE_DIR", str(Path(__file__).resolve().parents[2]))
 
 
 def run(cc_cls, ecn, duration_s=3.0, dual_queue=True, delay_budget_s=0.3):

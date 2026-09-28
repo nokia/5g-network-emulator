@@ -1,6 +1,7 @@
 #include <cassert>
 #include <cmath>
 #include <initializer_list>
+#include <random>
 
 #include <phy_layer/power_model.h>
 
@@ -69,6 +70,23 @@ int main()
         assert(near(reconstructed_total, allocation.total_dbm, 1e-2f));
         assert(allocation.total_dbm <= 23.0f + 1e-3f);
     }
+
+    assert(near(rayleigh_power_gain_db(1.0f, 1.0f), 0.0f));
+    assert(near(
+        rayleigh_power_gain_db(std::sqrt(20.0f), 0.0f),
+        10.0f));
+    std::mt19937 generator(42);
+    std::normal_distribution<float> normal(0.0f, 1.0f);
+    double mean_linear_power = 0.0;
+    constexpr int samples = 100000;
+    for (int sample = 0; sample < samples; sample++)
+    {
+        const float gain_db =
+            rayleigh_power_gain_db(normal(generator), normal(generator));
+        mean_linear_power += std::pow(10.0, gain_db / 10.0);
+    }
+    mean_linear_power /= samples;
+    assert(std::fabs(mean_linear_power - 1.0) < 0.01);
 
     return 0;
 }

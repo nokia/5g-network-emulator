@@ -35,6 +35,13 @@ inline float thermal_noise_per_prb_dbm(
            + 10.0f * std::log10(prb_bandwidth_hz);
 }
 
+inline float rayleigh_power_gain_db(float in_phase, float quadrature)
+{
+    const float unit_mean_power =
+        (in_phase * in_phase + quadrature * quadrature) / 2.0f;
+    return 10.0f * std::log10(std::max(unit_mean_power, 1e-12f));
+}
+
 inline ul_power_allocation calculate_ul_power_allocation(
     bool use_fixed_total_power,
     float fixed_total_power_dbm,

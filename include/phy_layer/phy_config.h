@@ -102,6 +102,7 @@ struct phy_enb_config
     float frequency;
     int bandwidth;
     int n_rbgs;
+    int n_carrier_prbs = 0;
     int n_sc_rbg;
     int mimo_l;
     int metric_type;

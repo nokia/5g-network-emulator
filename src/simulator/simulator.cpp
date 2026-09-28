@@ -31,6 +31,7 @@ simulator::simulator(std::string config_file)
     std::list<ue_full_config> ue_c_list = config_loader.get_ue_c_list();
     phy_enb_config phy_c = config_loader.get_phy_enb_config();
     phy_c.n_rbgs = mac_l.get_n_freq_rbg();
+    phy_c.n_carrier_prbs = mac_l.get_n_freq_rb();
     phy_c.n_sc_rbg = mac_l.get_n_sc_rbg();
     pdcp_config pdcp_c_ul = config_loader.get_pdcp_config_ul();
     pdcp_config pdcp_c_dl = config_loader.get_pdcp_config_dl();

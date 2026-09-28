@@ -240,10 +240,16 @@ void phy_layer::check_boundaries()
         break;
     }
 }
-void phy_layer::init(int _n_rbs, int _bandwidth)
+void phy_layer::init(
+    int _n_rbs,
+    int _bandwidth,
+    int _carrier_prbs)
 {
     n_rbs = _n_rbs;
-    n_tot_RB = n_rbs * n_rb_rbg;
+    n_tot_RB =
+        _carrier_prbs > 0
+            ? _carrier_prbs
+            : n_rbs * n_rb_rbg;
     // bandwidth = _bandwidth;
     cqi_s = 0;
     mcs_s = 0;
@@ -269,10 +275,9 @@ void phy_layer::init(int _n_rbs, int _bandwidth)
 
 float phy_layer::compute_rayleigh()
 {
-    return 10 * log10(
-        sqrt(
-            pow(sinr_stochastics(fading_gen), 2)
-            + pow(sinr_stochastics(fading_gen), 2)));
+    const float in_phase = sinr_stochastics(fading_gen);
+    const float quadrature = sinr_stochastics(fading_gen);
+    return rayleigh_power_gain_db(in_phase, quadrature);
 }
 
 float phy_layer::compute_pathloss_ABG(float distance, bool los) 

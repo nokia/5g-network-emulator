@@ -130,8 +130,14 @@ ue::ue(int _id,
     phy_freq = _phy_enb_config.frequency;
     phy_speed = ue_c.get_phy_config().max_speed;
     phy_doppler_f = phy_freq * phy_speed / LIGHTSPEED;
-    phy_dl.init(_phy_enb_config.n_rbgs, _phy_enb_config.bandwidth);
-    phy_ul.init(_phy_enb_config.n_rbgs, _phy_enb_config.bandwidth);
+    phy_dl.init(
+        _phy_enb_config.n_rbgs,
+        _phy_enb_config.bandwidth,
+        _phy_enb_config.n_carrier_prbs);
+    phy_ul.init(
+        _phy_enb_config.n_rbgs,
+        _phy_enb_config.bandwidth,
+        _phy_enb_config.n_carrier_prbs);
     pdcp_ul.init(_harq_config.mod, _harq_config.layers, _harq_config.log_units);
     pdcp_dl.init(_harq_config.mod, _harq_config.layers, _harq_config.log_units);
 }

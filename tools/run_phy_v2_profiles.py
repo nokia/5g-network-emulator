@@ -57,6 +57,7 @@ def render_config(
     seed: int,
     run_id: str,
     duration_s: int,
+    map_file: Path | None = None,
 ) -> str:
     lines = source.read_text().splitlines()
     rendered = []
@@ -72,6 +73,8 @@ def render_config(
                 ]
             )
             inserted = True
+        elif line.strip() == "[Scenario]" and map_file is not None:
+            rendered.append(f"map_file: {map_file}")
         elif line.strip().startswith("duration:"):
             rendered[-1] = f"duration: {duration_s}"
     if not inserted:
@@ -100,6 +103,11 @@ def main() -> None:
     parser.add_argument(
         "--profiles",
         help="comma-separated profile names; defaults to the five references",
+    )
+    parser.add_argument(
+        "--map-dir",
+        type=Path,
+        help="explicit map catalog directory for paired catalog comparisons",
     )
     parser.add_argument(
         "--output",
@@ -141,6 +149,8 @@ def main() -> None:
     map_by_name = {
         entry["file"]: entry for entry in production_manifest["maps"]
     }
+    explicit_map_dir = (
+        args.map_dir.resolve() if args.map_dir is not None else None)
     runs = []
     for profile in profiles:
         source = ROOT / "config" / f"{profile}.ini"
@@ -149,8 +159,29 @@ def main() -> None:
         if log_dir.exists():
             raise SystemExit(
                 f"refusing to append to existing run log directory: {log_dir}")
+        expected_map = EXPECTED_MAPS[profile]
+        if explicit_map_dir is not None:
+            explicit_map = explicit_map_dir / expected_map
+            if (
+                profile == "offline_umi_n40_npn"
+                and not explicit_map.is_file()
+            ):
+                expected_map = (
+                    "macroscopic_fading_map_URBAN_MICROCELL_3.5.json"
+                )
+                explicit_map = explicit_map_dir / expected_map
+            if not explicit_map.is_file():
+                raise SystemExit(
+                    f"{profile}: explicit map is missing: {explicit_map}")
+        else:
+            explicit_map = None
         rendered = render_config(
-            source, args.seed, run_id, args.duration_s)
+            source,
+            args.seed,
+            run_id,
+            args.duration_s,
+            explicit_map,
+        )
         input_path = input_dir / source.name
         input_path.write_text(rendered)
 
@@ -166,7 +197,6 @@ def main() -> None:
         elapsed = time.perf_counter() - started
         stdout_path = stdout_dir / f"{profile}.log"
         stdout_path.write_text(completed.stdout)
-        expected_map = EXPECTED_MAPS[profile]
         observed_map = selected_map(completed.stdout)
         if completed.returncode != 0:
             raise SystemExit(
@@ -177,7 +207,17 @@ def main() -> None:
                 f"{profile}: selected {observed_map}, expected {expected_map}")
         if not log_dir.is_dir():
             raise SystemExit(f"{profile}: expected log directory {log_dir}")
-        map_entry = map_by_name[expected_map]
+        selected_map_path = (
+            explicit_map
+            if explicit_map is not None
+            else ROOT / "include" / "maps_scenarios" / expected_map
+        )
+        if explicit_map is not None:
+            selected_payload = json.loads(selected_map_path.read_text())
+            realization_id = selected_payload.get(
+                "metadata", {}).get("realization_id")
+        else:
+            realization_id = map_by_name[expected_map]["realization_id"]
         runs.append(
             {
                 "profile": profile,
@@ -190,8 +230,8 @@ def main() -> None:
                 "log_dir": str(log_dir),
                 "stdout": str(stdout_path),
                 "map_file": expected_map,
-                "map_sha256": map_entry["sha256"],
-                "map_realization_id": map_entry["realization_id"],
+                "map_sha256": sha256(selected_map_path),
+                "map_realization_id": realization_id,
             }
         )
         print(f"{profile}: {elapsed:.3f} s")

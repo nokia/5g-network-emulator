@@ -450,7 +450,7 @@ def report(manifest: dict, summaries: list[dict], warmup_s: float) -> str:
         f"- Warm-up excluded: {warmup_s:g} seconds",
         "",
         "| Profile | Dir. | Offered | Delivered | Errors | Outage UEs | "
-        "Zero-service windows (10/100/1000 ms) | "
+        "Zero-delivery windows (10/100/1000 ms) | "
         "UE max delivery-gap P50/P95/P99/max (ms) | "
         "Grid assigned/effective | "
         "Payload/grant | Wall time |",

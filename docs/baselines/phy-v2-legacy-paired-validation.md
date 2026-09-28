@@ -1,22 +1,22 @@
 # PHY Model V2 Five-Profile Validation
 
-- Batch: `phy-v2-legacy-paired-c0e5d11-seed20260927`
-- Source: `c0e5d114cd4715b53d9557905017745fa2af6f05`
+- Batch: `phy-v2-legacy-final2b-7cbed30-seed20260927`
+- Source: `7cbed30592232f44667f01384a4ce03dbf889c10`
 - Seed: `20260927`
 - Warm-up excluded: 20 seconds
 
 | Profile | Dir. | Offered | Delivered | Errors | Outage UEs | Zero-delivery windows (10/100/1000 ms) | UE max delivery-gap P50/P95/P99/max (ms) | Grid assigned/effective | Payload/grant | Wall time |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| offline_indoor_hotspot_n78_pedestrian | DL | 65.00 | 45.74 | 19.38 | 0 | 0.4% / 0.2% / 0.2% | 0 / 1495 / 2659 / 2950 | 90.4% / 90.4% | 24.6% | 11.32 s |
-| offline_indoor_hotspot_n78_pedestrian | UL | 90.00 | 56.56 | 33.44 | 0 | 13.6% / 0.3% / 0.2% | 20 / 1865 / 3333 / 3700 | 100.0% / 60.4% | 43.2% | 11.32 s |
-| offline_rural_n78_vehicular | DL | 120.01 | 46.16 | 73.83 | 1 | 32.7% / 29.8% / 25.1% | 8290 / 56472 / 75638 / 80430 | 95.2% / 95.2% | 98.4% | 111.27 s |
-| offline_rural_n78_vehicular | UL | 120.01 | 25.65 | 94.23 | 0 | 57.6% / 48.4% / 35.3% | 11530 / 66940 / 83276 / 87360 | 99.6% / 41.2% | 68.4% | 111.27 s |
-| offline_uma_n78_pedestrian | DL | 180.01 | 111.48 | 68.51 | 5 | 20.0% / 15.7% / 13.1% | 20 / 65528 / 67201 / 67620 | 100.0% / 100.0% | 73.0% | 15.51 s |
-| offline_uma_n78_pedestrian | UL | 70.00 | 13.79 | 56.20 | 0 | 57.5% / 41.6% / 38.9% | 10460 / 160000 / 160000 / 160000 | 100.0% / 20.7% | 100.0% | 15.51 s |
-| offline_umi_n258_fwa | DL | 500.02 | 500.02 | 0.00 | 0 | 0.0% / 0.0% / 0.0% | 0 / 0 / 0 / 0 | 98.7% / 98.7% | 38.1% | 10.27 s |
-| offline_umi_n258_fwa | UL | 200.01 | 156.76 | 43.25 | 0 | 14.0% / 0.0% / 0.0% | 10 / 10 / 10 / 10 | 100.0% / 27.4% | 21.1% | 10.27 s |
-| offline_umi_n40_npn | DL | 50.00 | 48.24 | 1.75 | 0 | 7.4% / 0.0% / 0.0% | 20 / 45 / 49 / 50 | 100.0% / 100.0% | 75.1% | 8.27 s |
-| offline_umi_n40_npn | UL | 35.00 | 25.03 | 9.97 | 0 | 33.6% / 0.0% / 0.0% | 20 / 30 / 30 / 30 | 100.0% / 83.8% | 77.4% | 8.27 s |
+| offline_indoor_hotspot_n78_pedestrian | DL | 65.00 | 43.42 | 21.69 | 0 | 0.3% / 0.1% / 0.1% | 0 / 990 / 1742 / 1930 | 87.8% / 87.8% | 23.9% | 9.26 s |
+| offline_indoor_hotspot_n78_pedestrian | UL | 90.00 | 59.33 | 30.68 | 0 | 11.9% / 0.2% / 0.1% | 20 / 1325 / 2361 / 2620 | 100.0% / 61.5% | 45.6% | 9.26 s |
+| offline_rural_n78_vehicular | DL | 120.01 | 45.41 | 74.59 | 0 | 33.3% / 28.4% / 23.1% | 7040 / 55090 / 70146 / 73910 | 91.6% / 91.6% | 98.5% | 91.25 s |
+| offline_rural_n78_vehicular | UL | 120.01 | 25.58 | 94.28 | 0 | 48.3% / 25.4% / 5.5% | 2640 / 6090 / 6370 / 6440 | 99.1% / 43.8% | 70.8% | 91.25 s |
+| offline_uma_n78_pedestrian | DL | 180.01 | 113.49 | 66.51 | 4 | 19.1% / 9.8% / 4.4% | 20 / 20224 / 32845 / 36000 | 99.9% / 99.9% | 74.6% | 12.46 s |
+| offline_uma_n78_pedestrian | UL | 70.00 | 16.21 | 53.78 | 0 | 50.6% / 34.6% / 30.2% | 1090 / 160000 / 160000 / 160000 | 100.0% / 26.1% | 99.3% | 12.46 s |
+| offline_umi_n258_fwa | DL | 500.02 | 500.02 | 0.00 | 0 | 0.0% / 0.0% / 0.0% | 0 / 0 / 0 / 0 | 98.8% / 98.8% | 38.1% | 9.24 s |
+| offline_umi_n258_fwa | UL | 200.01 | 160.14 | 39.87 | 0 | 13.8% / 0.0% / 0.0% | 20 / 25 / 29 / 30 | 100.0% / 29.4% | 21.5% | 9.24 s |
+| offline_umi_n40_npn | DL | 50.00 | 47.74 | 2.20 | 0 | 11.3% / 0.0% / 0.0% | 30 / 55 / 59 / 60 | 100.0% / 100.0% | 73.0% | 7.26 s |
+| offline_umi_n40_npn | UL | 35.00 | 25.51 | 9.49 | 0 | 28.7% / 0.0% / 0.0% | 30 / 30 / 30 / 30 | 100.0% / 88.4% | 81.7% | 7.26 s |
 
 Rates are Mbit/s. Delivery-window and delivery-gap statistics exclude UEs classified as permanent PHY outage. A PHY-outage UE has MCS below zero in at least 99% of post-warm-up radio samples.
 

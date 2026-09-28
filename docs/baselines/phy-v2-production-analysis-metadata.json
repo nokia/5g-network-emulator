@@ -9,6 +9,6 @@
     1.0
   ],
   "source_manifest": "docs/baselines/phy-v2-production-run-manifest.json",
-  "source_manifest_sha256": "199a301475a23651ac4c32f353272248bc91010192ebce0df5bdca6bac1399dc",
+  "source_manifest_sha256": "002507b841956906f0adff47dad4852d3534047f30e9649b4ab4c648f06acea0",
   "warmup_s": 20.0
 }

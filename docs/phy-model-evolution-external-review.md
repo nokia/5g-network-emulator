@@ -553,24 +553,24 @@ limitation; they are not coverage predictions.
 
 | Profile | Dir. | Offered | Delivered | Outage UEs | Zero-delivery 1 s | Maximum UE delivery gap | Grid assigned/effective | Payload/grant |
 |---|---|---:|---:|---:|---:|---:|---:|---:|
-| Indoor n78 | DL | 65.00 | 44.61 | 0 | 0.1% | 2.43 s | 88.8% / 88.8% | 21.9% |
-| Indoor n78 | UL | 90.00 | 57.52 | 0 | 0.0% | 1.07 s | 100.0% / 60.7% | 44.1% |
-| RMa n78 | DL | 120.01 | 52.82 | 0 | 24.0% | 104.34 s | 98.0% / 98.0% | 98.6% |
-| RMa n78 | UL | 120.01 | 27.21 | 0 | 28.1% | 98.70 s | 100.0% / 54.8% | 82.6% |
-| UMa n78 | DL | 180.01 | 106.75 | 6 | 25.9% | 106.88 s | 99.6% / 99.6% | 72.6% |
-| UMa n78 | UL | 70.00 | 13.91 | 0 | 42.7% | 160.00 s | 100.0% / 16.3% | 98.0% |
-| UMi n258 | DL | 500.02 | 500.02 | 0 | 0.0% | 0.00 s | 98.7% / 98.7% | 38.1% |
-| UMi n258 | UL | 200.01 | 156.73 | 0 | 0.0% | 0.01 s | 100.0% / 27.3% | 21.0% |
-| UMi n40 | DL | 50.00 | 47.19 | 0 | 0.0% | 0.05 s | 100.0% / 100.0% | 73.7% |
-| UMi n40 | UL | 35.00 | 24.16 | 0 | 0.0% | 0.03 s | 100.0% / 80.9% | 73.4% |
+| Indoor n78 | DL | 65.00 | 42.54 | 0 | 0.0% | 0.81 s | 86.7% / 86.7% | 21.4% |
+| Indoor n78 | UL | 90.00 | 60.35 | 0 | 0.0% | 0.09 s | 100.0% / 60.8% | 46.5% |
+| RMa n78 | DL | 120.01 | 51.82 | 0 | 18.6% | 102.09 s | 96.0% / 96.0% | 98.7% |
+| RMa n78 | UL | 120.01 | 26.28 | 0 | 3.2% | 5.10 s | 99.9% / 57.3% | 85.0% |
+| UMa n78 | DL | 180.01 | 103.80 | 2 | 10.4% | 76.76 s | 99.0% / 99.0% | 73.5% |
+| UMa n78 | UL | 70.00 | 13.37 | 0 | 28.2% | 160.00 s | 100.0% / 17.8% | 100.0% |
+| UMi n258 | DL | 500.02 | 500.02 | 0 | 0.0% | 0.00 s | 98.8% / 98.8% | 38.1% |
+| UMi n258 | UL | 200.01 | 157.24 | 0 | 0.0% | 0.02 s | 100.0% / 28.2% | 21.7% |
+| UMi n40 | DL | 50.00 | 46.55 | 0 | 0.0% | 0.07 s | 100.0% / 100.0% | 71.9% |
+| UMi n40 | UL | 35.00 | 24.29 | 0 | 0.0% | 0.03 s | 100.0% / 83.8% | 76.5% |
 
 Rates are Mbit/s.
 
 Three conclusions follow.
 
 First, a zero grant in an individual TTI is normal. UMi n40 has many 10 ms
-zero-delivery windows (7.1% DL and 34.8% UL), yet no 1 s zero-delivery windows
-and maximum observed gaps of 50 ms DL and 30 ms UL. Labeling every zero TTI as
+zero-delivery windows (10.1% DL and 31.8% UL), yet no 1 s zero-delivery windows
+and maximum observed gaps of 70 ms DL and 30 ms UL. Labeling every zero TTI as
 application-visible starvation substantially over-reports the problem.
 
 Second, some long application-delivery gaps are observed. UMa has a high
@@ -583,9 +583,9 @@ classification.
 
 Third, fill below 100% does not imply structural TDD loss. Per-TTI summaries
 separate directionally unavailable units before the utilization denominator.
-RMa assigns 98.0% of available DL and 100.0% of available UL units, but only
-54.8% of UL units carry positive effective payload. UMa UL similarly assigns
-100.0% while only 16.3% carry effective payload. The original plots therefore
+RMa assigns 96.0% of available DL and 99.9% of available UL units, but only
+57.3% of UL units carry positive effective payload. UMa UL similarly assigns
+100.0% while only 17.8% carry effective payload. The original plots therefore
 mixed TDD-unavailable, empty, assigned, and useful units. Queue reservation and
 explicit empty/waste reasons remain required.
 
@@ -594,16 +594,16 @@ attributed to maps alone:
 
 ![Original baseline versus PHY Model V2](figures/phy-v2-throughput.svg)
 
-For example, n40 DL rises from 14.93 to 47.06 Mbit/s and its maximum
-non-outage gap falls from 124.27 s to 0.10 s over the whole run. Conversely,
+For example, n40 DL rises from 14.93 to 46.18 Mbit/s and its maximum
+non-outage gap falls from 124.27 s to 0.28 s over the whole run. Conversely,
 RMa and indoor throughput fall after the combined power/noise/PF/profile/map
-changes. In the one-factor legacy-v1/v2.1 catalog pair, RMa DL rises 14.4%,
-while UMa DL falls 4.2%, indoor DL falls 2.5%, and n40 DL falls 2.2% for the
+changes. In the one-factor legacy-v1/v2.1 catalog pair, RMa DL rises 14.1%,
+while UMa DL falls 8.5%, indoor DL falls 2.0%, and n40 DL falls 2.5% for the
 fixed seed; n258 DL remains demand-saturated.
 
 With common keyed fading/interference streams, the controlled high-loss n258
-pair reduced median-UE SINR by 38.13 dB DL and 38.49 dB UL. Throughput fell
-47.1% DL and 61.0% UL. This one-seed ablation isolates configured environment
+pair reduced median-UE SINR by 38.15 dB DL and 37.57 dB UL. Throughput fell
+51.7% DL and 63.0% UL. This one-seed ablation isolates configured environment
 loss; the maximum per-UE standard deviation of the paired DL SINR delta was
 \(6.2\times10^{-6}\) dB. Equivalent gains remain an alignment abstraction, not
 beamforming.

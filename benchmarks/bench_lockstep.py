@@ -65,13 +65,16 @@ class Session:
         assert hello.get("proto") == PROTO, hello
         self.send({"proto": PROTO})
         self.next_id = 1
+        self.reply_bytes = 0
 
     def send(self, msg):
         self.f.write((json.dumps(msg) + "\n").encode())
         self.f.flush()
 
     def read_ack(self):
-        return json.loads(self.f.readline())
+        line = self.f.readline()
+        self.reply_bytes += len(line)
+        return json.loads(line)
 
     def close(self):
         try:
@@ -85,7 +88,8 @@ class Session:
             self.proc.kill()
 
 
-def run(variant, duration_s=2.0, window=1, live_tags=1, read_state=True, n_ues=1):
+def run(variant, duration_s=2.0, window=1, live_tags=1, read_state=True,
+        n_ues=1, events=False):
     ttis = int(duration_s * 1000)
     sock = "/tmp/fikore-transport-bench/bench.sock"
     ses = Session(sock, duration_s, n_ues)
@@ -101,10 +105,13 @@ def run(variant, duration_s=2.0, window=1, live_tags=1, read_state=True, n_ues=1
     t0 = time.perf_counter()
     tti = 0
     seq = 1
+    cursor = 0
     while tti < ttis - window:
         last = tti + window - 1
         cmds = [{"op": "inject", "target": "ue/0", "tag": 1, "dl.bytes": 1500}]
-        if read_state:
+        if events:
+            cmds.append({"op": "events", "after": cursor})
+        elif read_state:
             cmds.append({"op": "get", "target": "ue/*"})
         a_id, b_id = seq, seq + 1
         seq += 2
@@ -124,13 +131,16 @@ def run(variant, duration_s=2.0, window=1, live_tags=1, read_state=True, n_ues=1
             assert owed.get(ack["id"], 0) > 0, ack
             assert ack["status"] == "ok", ack
             owed[ack["id"]] -= 1
+            if events and ack["id"] == a_id and "result" in ack:
+                cursor = int(ack["result"]["cursor"])
         tti += window
     wall = time.perf_counter() - t0
 
     rt = (ttis - window) // window
     per = wall / max(rt, 1) * 1e6
     print(f"{variant:<28} {wall:7.2f} s wall  {rt:6d} round trips  "
-          f"{per:7.1f} us/trip  -> 300 s run: {wall / duration_s * 300:7.1f} s", flush=True)
+          f"{per:7.1f} us/trip  -> 300 s run: {wall / duration_s * 300:7.1f} s  "
+          f"{ses.reply_bytes/1e6:6.2f} MB", flush=True)
     ses.close()
     return wall
 
@@ -141,10 +151,12 @@ if __name__ == "__main__":
     run("1 TTI, grant only", read_state=False)
     run("1 TTI, grant+get, 1 tag")
     run("1 TTI, grant+get, 100 tags", live_tags=100)
+    run("1 TTI, events, 100 tags", live_tags=100, events=True)
     run("10 TTI window, grant+get", window=10)
     print("-- 4 UEs")
     run("1 TTI, grant only", read_state=False, n_ues=4)
     run("1 TTI, get, 1 tag/UE", n_ues=4)
     run("1 TTI, get, 20 tags/UE", live_tags=20, n_ues=4)
     run("1 TTI, get, 60 tags/UE", live_tags=60, n_ues=4)
+    run("1 TTI, events, 60 tags/UE", live_tags=60, n_ues=4, events=True)
     run("10 TTI window, get, 20 tags/UE", window=10, live_tags=20, n_ues=4)

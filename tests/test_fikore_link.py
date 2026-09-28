@@ -12,9 +12,11 @@ They need `bin/fikore`. Where there is no emulator they skip rather than fail, s
 the loopback suite stays the one that has to pass everywhere.
 """
 import os
+import json
 import shutil
 import sys
 import tempfile
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -190,6 +192,172 @@ def test_loss_is_reported_with_a_cause_and_the_transfer_still_completes():
         assert accounted(link) == link.submitted_bytes
     finally:
         teardown(link, backend)
+
+def test_event_cursor_replays_until_the_client_acknowledges_it():
+    """`after` means consumed, so losing one reply cannot lose its events."""
+    if not os.path.exists(BINARY) or not os.path.exists(BASE_INI):
+        raise Skipped(f"no emulator at {BINARY}; set FIKORE_DIR to run these")
+    work = tempfile.mkdtemp(prefix="fikore-events-")
+    emulator = Emulator(EmulatorConfig(
+        binary=BINARY, base_ini=BASE_INI,
+        socket_path=os.path.join(work, "control.sock"),
+        duration_s=2.0, work_dir=EMU, n_ues=1, delay_budget_s=30.0,
+        log_path=os.path.join(work, "emulator.log")))
+    sock = emulator.connect()
+    io = sock.makefile("rwb")
+
+    def send(message):
+        io.write((json.dumps(message) + "\n").encode())
+        io.flush()
+
+    def slot(tti, commands, message_id):
+        send({"id": message_id, "at_tti": tti, "cmds": commands})
+        send({"id": message_id + 1, "op": "grant", "until_tti": tti})
+        replies = []
+        for _ in range(len(commands) + 1):
+            replies.append(json.loads(io.readline()))
+        result = [r["result"] for r in replies
+                  if r["id"] == message_id and "result" in r]
+        assert len(result) == 1, replies
+        return result[0]
+
+    try:
+        hello = json.loads(io.readline())
+        assert hello["proto"] == "fikore-control-1"
+        send({"proto": "fikore-control-1"})
+
+        # The first call starts the subscription; history before it is intentionally
+        # absent. Inject after arming it.
+        assert slot(0, [{"op": "events", "after": 0}], 100)["events"] == []
+        slot(1, [{"op": "inject", "target": "ue/0", "tag": 77,
+                  "dl.bytes": 1500}, {"op": "events", "after": 0}], 102)
+
+        first = None
+        tti = 2
+        while tti < 30 and first is None:
+            reply = slot(tti, [{"op": "events", "after": 0}], 100 + tti * 2)
+            if reply["events"]:
+                first = reply
+            tti += 1
+        assert first is not None, "the injected segment produced no event"
+
+        # Same cursor, byte-identical logical event. Only after returning the cursor
+        # does the server discard it.
+        replay = slot(tti, [{"op": "events", "after": 0}], 100 + tti * 2)
+        tti += 1
+        assert replay["cursor"] == first["cursor"]
+        assert replay["events"] == first["events"]
+
+        drained = slot(tti, [{"op": "events", "after": first["cursor"]}],
+                       100 + tti * 2)
+        tti += 1
+        assert drained["cursor"] == first["cursor"]
+        assert drained["events"] == []
+
+        # Going backwards after acknowledging a cursor is rejected rather than
+        # silently returning an incomplete replay.
+        send({"id": 999, "at_tti": tti,
+              "cmds": [{"op": "events", "after": 0}]})
+        send({"id": 1000, "op": "grant", "until_tti": tti})
+        replies = [json.loads(io.readline()), json.loads(io.readline())]
+        event_ack = next(r for r in replies if r["id"] == 999)
+        assert event_ack["status"] == "error"
+        assert event_ack["errors"][0]["key"] == "after"
+    finally:
+        io.close()
+        sock.close()
+        emulator.close()
+        shutil.rmtree(work, ignore_errors=True)
+
+def test_async_event_overflow_requires_an_atomic_resync():
+    if not os.path.exists(BINARY) or not os.path.exists(BASE_INI):
+        raise Skipped(f"no emulator at {BINARY}; set FIKORE_DIR to run these")
+    work = tempfile.mkdtemp(prefix="fikore-gap-")
+    emulator = Emulator(EmulatorConfig(
+        binary=BINARY, base_ini=BASE_INI,
+        socket_path=os.path.join(work, "control.sock"),
+        duration_s=3.0, work_dir=EMU, n_ues=1,
+        log_path=os.path.join(work, "emulator.log"), max_object_events=2,
+        extra={"period": "1", "sync_mode": "async"}))
+    sock = emulator.connect()
+    io = sock.makefile("rwb")
+
+    def send(message):
+        io.write((json.dumps(message) + "\n").encode())
+        io.flush()
+
+    try:
+        assert json.loads(io.readline())["proto"] == "fikore-control-1"
+        send({"proto": "fikore-control-1"})
+        send({"id": 1, "op": "events", "after": 0})
+        assert json.loads(io.readline())["status"] == "ok"
+
+        send({"id": 2, "cmds": [
+            {"op": "inject", "target": "ue/0", "tag": tag, "dl.bytes": 1500}
+            for tag in (1, 2, 3)]})
+        assert all(json.loads(io.readline())["status"] == "ok" for _ in range(3))
+        time.sleep(0.2)
+
+        send({"id": 3, "op": "events", "after": 0})
+        gap = json.loads(io.readline())
+        assert gap["status"] == "error"
+        assert "resync" in gap["errors"][0]["reason"]
+
+        # Snapshot and re-arm happen at one quiescent point. A separate get followed by
+        # a reset would leave one unobserved slot between them in async mode.
+        send({"id": 4, "op": "events", "after": 0, "resync": True})
+        resync = json.loads(io.readline())
+        assert resync["status"] == "ok"
+        assert len(resync["result"]["snapshot"]) == 1
+        assert resync["result"]["events"] == []
+    finally:
+        io.close()
+        sock.close()
+        emulator.close()
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def test_barrier_event_overflow_aborts_before_feedback_is_lost():
+    if not os.path.exists(BINARY) or not os.path.exists(BASE_INI):
+        raise Skipped(f"no emulator at {BINARY}; set FIKORE_DIR to run these")
+    work = tempfile.mkdtemp(prefix="fikore-gap-barrier-")
+    log_path = os.path.join(work, "emulator.log")
+    emulator = Emulator(EmulatorConfig(
+        binary=BINARY, base_ini=BASE_INI,
+        socket_path=os.path.join(work, "control.sock"),
+        duration_s=3.0, work_dir=EMU, n_ues=1, log_path=log_path,
+        max_object_events=2))
+    sock = emulator.connect()
+    io = sock.makefile("rwb")
+
+    def send(message):
+        io.write((json.dumps(message) + "\n").encode())
+        io.flush()
+
+    try:
+        assert json.loads(io.readline())["proto"] == "fikore-control-1"
+        send({"proto": "fikore-control-1"})
+        send({"id": 1, "at_tti": 0, "cmds": [{"op": "events", "after": 0}]})
+        send({"id": 2, "op": "grant", "until_tti": 0})
+        assert all(json.loads(io.readline())["status"] == "ok" for _ in range(2))
+
+        send({"id": 3, "at_tti": 1, "cmds": [
+            {"op": "inject", "target": "ue/0", "tag": tag, "dl.bytes": 1500}
+            for tag in (1, 2, 3)]})
+        send({"id": 4, "op": "grant", "until_tti": 20})
+        assert all(json.loads(io.readline())["status"] == "ok" for _ in range(4))
+
+        for _ in range(100):
+            if emulator.proc.poll() is not None:
+                break
+            time.sleep(0.02)
+        assert emulator.proc.poll() == 0, "the overflowing barrier run did not stop"
+        assert "aborting the lockstep run before feedback is lost" in open(log_path).read()
+    finally:
+        io.close()
+        sock.close()
+        emulator.close()
+        shutil.rmtree(work, ignore_errors=True)
 
 
 if __name__ == "__main__":

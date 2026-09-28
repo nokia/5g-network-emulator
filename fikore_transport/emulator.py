@@ -35,6 +35,7 @@ class EmulatorConfig:
     # deadlock: the client waits for acknowledgements that only the next TTI can
     # produce, and that TTI needs the credit the client has not granted yet.
     max_cmds_per_tick: int = 8192
+    max_object_events: int = 65536
     extra: dict[str, str] = field(default_factory=dict)
 
     def render(self, path: str) -> str:
@@ -52,6 +53,7 @@ class EmulatorConfig:
             "address": self.socket_path,
             "on_timeout": "abort",
             "max_cmds_per_tick": f"{self.max_cmds_per_tick}",
+            "max_object_events": f"{self.max_object_events}",
             "progress_log_period_s": "0",
             **self.extra,
         }

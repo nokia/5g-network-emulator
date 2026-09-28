@@ -24,7 +24,7 @@ EMU = os.environ.get("FIKORE_DIR", "/home/pablop/devel/fikore/5g-network-emulato
 
 
 def run(size_bytes=1_000_000, duration_s=4.0, cc_cls=Cubic, ack_over_link=False,
-        delay_budget_s=30.0, rwnd=4 * 1024 * 1024, label=""):
+        delay_budget_s=30.0, rwnd=4 * 1024 * 1024, label="", use_events=True):
     cfg = EmulatorConfig(
         binary=os.path.join(EMU, "bin/fikore"),
         base_ini=os.path.join(EMU, "config/control_demo.ini"),
@@ -36,7 +36,7 @@ def run(size_bytes=1_000_000, duration_s=4.0, cc_cls=Cubic, ack_over_link=False,
         log_path="/tmp/fikore-transport-emu.log",
     )
     emulator = Emulator(cfg)
-    link = FikoreLink(emulator, flow_to_ue={1: 0})
+    link = FikoreLink(emulator, flow_to_ue={1: 0}, use_events=use_events)
     runner = Runner(link)
     cc = cc_cls(mss=link.mss, cwnd=10 * link.mss)
     sender = TcpSender(1, cc, runner.clock, runner.sched, link.mss, rwnd=rwnd)
@@ -65,7 +65,8 @@ def run(size_bytes=1_000_000, duration_s=4.0, cc_cls=Cubic, ack_over_link=False,
           f"cwnd={cc.cwnd/link.mss:6.1f} seg rtx={sender.stats.retransmits:4d} "
           f"lost={lost:4d} rto={sender.stats.rto_events:2d} | "
           f"{link.round_trips} slots in {wall:5.2f} s "
-          f"({wall/max(link.round_trips,1)*1e6:5.0f} us/slot)")
+          f"({wall/max(link.round_trips,1)*1e6:5.0f} us/slot), "
+          f"{link.received_bytes/1e6:.2f} MB replies")
     # The byte account, which is the only thing that says the run was real rather
     # than merely fast: what went in came out delivered, lost with a reason, or is
     # still inside the emulator.

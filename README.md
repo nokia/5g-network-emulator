@@ -39,8 +39,8 @@ Working. What runs today:
 - `LoopbackLink`, a deterministic Python bottleneck, with the test suites that
   exercise all of it without an emulator.
 - `FikoreLink`, which drives a real FikoRE run one slot at a time: one object tag
-  per segment, per-tag counters read back every slot, tags released as soon as they
-  are terminal.
+  per segment, replayable counter deltas read back every slot, tags released as
+  soon as they are terminal.
 - `TransportBackend`, the request and delivery interface: object requests,
   concurrent objects per UE, cancellation with a drained tail, and telemetry with
   a measured round-trip time.
@@ -56,8 +56,8 @@ budget, 256 KB receive window, 3 s of simulated time), saturating the cell:
 
 | Congestion control | Goodput | SRTT | Window | Retransmits | Losses reported by the emulator | RTOs | Wall clock |
 | :-- | --: | --: | --: | --: | --: | --: | --: |
-| Reno | 59.7 Mbps | 18.5 ms | 100 seg | 265 | 265 expired | 0 | 6.3 s |
-| CUBIC | 25.4 Mbps | 6.2 ms | 15 seg | 155 | 121 expired | 1 | 1.8 s |
+| Reno | 59.7 Mbps | 18.5 ms | 100 seg | 265 | 265 expired | 0 | 1.1 s |
+| CUBIC | 25.4 Mbps | 6.2 ms | 15 seg | 155 | 121 expired | 1 | 0.6 s |
 
 Reno's retransmission count matches the emulator's loss count exactly, which is the
 check that the sender is inferring loss rather than being told about it. CUBIC
@@ -78,17 +78,19 @@ barrier is nearly free while reading the state back is not. From
 | Round trip | Per slot | Extrapolated to a 300 s run |
 | :-- | --: | --: |
 | grant only, no state read | 40 us | 12 s |
-| grant + `get`, 1 UE, 1 live object | 119 us | 36 s |
-| grant + `get`, 1 UE, 100 live objects | 820 us | 246 s |
-| grant + `get`, 4 UEs, 20 live objects each | 778 us | 233 s |
-| grant + `get`, 4 UEs, 60 live objects each | 1859 us | 557 s |
-| grant + `get` every 10 slots, 4 UEs, 20 each | 849 us | 25 s |
+| grant + `get`, 1 UE, 1 live object | 112 us | 34 s |
+| grant + `get`, 1 UE, 100 live objects | 897 us | 269 s |
+| grant + `events`, 1 UE, 100 live objects | 80 us | 24 s |
+| grant + `get`, 4 UEs, 20 live objects each | 935 us | 281 s |
+| grant + `get`, 4 UEs, 60 live objects each | 2381 us | 714 s |
+| grant + `events`, 4 UEs, 60 live objects each | 51 us | 15 s |
+| grant + `get` every 10 slots, 4 UEs, 20 each | 809 us | 24 s |
 
-The cost is linear in the number of live object tags, because the whole UE state
-is re-serialised every slot: about 9.7 KB of JSON per slot under a saturating
-transfer, of which roughly 660 us is spent waiting on the emulator and 250 us
-parsing in Python. One TTI per round trip is viable — a 300 s run is minutes, not
-hours — but the window size, not the duration, is what sets the bill.
+The old cost is linear in the number of live object tags because `get`
+re-serialises the whole UE state every slot. `events` carries only counter
+movements and remains close to the grant-only floor regardless of how many
+completed tags are retained. A compact cumulative state, without knobs or the
+object map, is requested once per harness window for telemetry.
 
 Prague against the same bottleneck, over the deterministic link so that the two
 runs differ in nothing but the controller (50 Mbps, 20 ms, 512 KB queue, CE above
@@ -106,7 +108,7 @@ the library exists, and it now also runs against the emulator's own DualPI2:
 Through the backend, two UEs fetching a queue of 375 kB objects over 6 s of
 simulated time: 110 objects, median 110 ms each, about 28 Mbps per UE, with
 throughput, round-trip time, drop rate, queue occupancy and SINR reported per
-window. 14.8 s of wall clock, of which most is the per-slot object map.
+window. The event path runs the 6 s experiment in 3.3 s of wall clock.
 
 The ideal transport against the transport model, same 300 kB object over the same
 bottleneck: it finishes in 0.14 s against 0.23 s, and drops 2503 segments doing it

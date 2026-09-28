@@ -4,9 +4,10 @@
 """The `Link` implementation that drives FikoRE over its control protocol.
 
 One slot per round trip, because a transport model reacts within the slot in which
-it learns something: the harness injects what the senders produced, grants exactly
-one slot of credit, reads the per-object counters back, and turns their movement
-into arrivals.
+it learns something: the caller injects what the senders produced, grants exactly
+one slot of credit, drains the per-tag counter movements, and turns them into
+arrivals. A compact cumulative state snapshot is requested only once per harness
+window for telemetry; the live object map is never serialised on this path.
 
 Each segment travels under its own object tag, which is what makes a byte counter
 into per-segment feedback: a tag whose terminal counters add up to its size has
@@ -15,7 +16,7 @@ marked on the way. Tags are released as soon as they are terminal, so the number
 live objects stays around the congestion window rather than growing with the
 transfer.
 
-Two properties of the wire protocol shape everything below, and neither is obvious
+Three properties of the wire protocol shape everything below, and none is obvious
 from the message format:
 
 * **The emulator answers per command, not per message.** A message of N commands
@@ -26,6 +27,9 @@ from the message format:
 * **`grant` is answered from the socket thread and everything else at the quiescent
   point**, so the two messages of a slot must both be written before either reply is
   read, and the replies must be matched by `id` rather than by order.
+* **Object events are cursor based.** `after` is the last cursor successfully
+  consumed, not the cursor requested. The emulator retains everything newer, so a
+  repeated request is a replay rather than a destructive second read.
 """
 from __future__ import annotations
 
@@ -65,7 +69,8 @@ class _Outstanding:
 class FikoreLink:
     """Transport-facing view of a running emulator."""
 
-    def __init__(self, emulator: Emulator, flow_to_ue: dict[int, int]) -> None:
+    def __init__(self, emulator: Emulator, flow_to_ue: dict[int, int],
+                 state_every_ttis: int = 10, use_events: bool = True) -> None:
         self.emulator = emulator
         self.flow_to_ue = flow_to_ue
         self.mss = emulator.cfg.pkt_size_bits // 8
@@ -86,7 +91,12 @@ class FikoreLink:
         self._pending: dict[int, list[Transmit]] = {}
         self._to_forget: list[tuple[int, int]] = []   # (ue, tag)
         self._queued_sets: list[dict] = []
+        self._event_cursor = 0
+        self._event_counters: dict[int, dict[str, float]] = {}
+        self.state_every_ttis = state_every_ttis
+        self.use_events = use_events
         self.round_trips = 0
+        self.received_bytes = 0
         self.ce_by_ue: dict[tuple[int, Direction], int] = {}
         # Byte accounting of what this link was asked to carry, for whoever wants to
         # check that the run conserved bytes without going back to the emulator.
@@ -148,10 +158,13 @@ class FikoreLink:
         if acks[grant_id][0].get("status") != "ok":
             raise RuntimeError(f"the grant was refused: {acks[grant_id][0]}")
 
-        # The `get` is written last, so its reply is the last of the batch, and it is
-        # the only one carrying a result.
-        state = acks[batch_id][-1].get("result") or []
-        return self._arrivals_from(state, until_tti)
+        # The read operation is written last and is the only command carrying a result.
+        result = acks[batch_id][-1].get("result") or {}
+        if self.use_events:
+            # Its cursor advances only after a complete reply was parsed, so retrying
+            # after a lost reply asks for the same deltas rather than losing them.
+            return self._arrivals_from_events(result, until_tti)
+        return self._arrivals_from(result, until_tti)
 
     def close(self) -> None:
         try:
@@ -192,7 +205,16 @@ class FikoreLink:
         for ue, tag in release:
             cmds.append({"op": "forget", "target": f"ue/{ue}", "tag": tag})
 
-        cmds.append({"op": "get", "target": "ue/*"})
+        if self.use_events:
+            events = {"op": "events", "after": self._event_cursor}
+            # Backend telemetry is emitted after a window, so sample on its last slot
+            # rather than its first; otherwise every observation is one window stale.
+            if (self.state_every_ttis > 0
+                    and (tti + 1) % self.state_every_ttis == 0):
+                events["include_state"] = True
+            cmds.append(events)
+        else:
+            cmds.append({"op": "get", "target": "ue/*"})
         return cmds
 
     # -- wire ---------------------------------------------------------------------
@@ -216,6 +238,7 @@ class FikoreLink:
             if not line:
                 raise RuntimeError("the emulator closed the control channel"
                                    f"{self.emulator.log_tail()}")
+            self.received_bytes += len(line)
             ack = json.loads(line)
             bucket = got.get(ack.get("id"))
             if bucket is None or len(bucket) >= expected[ack["id"]]:
@@ -242,6 +265,56 @@ class FikoreLink:
         # selective acknowledgements and the sender retransmits segments that were
         # never lost. Inside a slot the order is unobservable, so sequence order is
         # the only defensible one to present.
+        out.sort(key=lambda a: (a.flow, a.kind, a.seq))
+        return out
+
+    def _arrivals_from_events(self, result: dict, tti: int) -> list[Arrival]:
+        """Accumulate per-tag deltas and turn newly terminal tags into arrivals.
+
+        The emulator deliberately does not decide that a tag is terminal: a client may
+        inject the same tag more than once and only this side knows the segment size.
+        The event stream therefore carries counter movements, not guessed completions.
+        """
+        cursor = int(result.get("cursor", self._event_cursor))
+        if cursor < self._event_cursor:
+            raise RuntimeError(f"event cursor moved backwards: {cursor} after "
+                               f"{self._event_cursor}")
+
+        for entry in result.get("state", []):
+            ue = int(str(entry["target"]).split("/")[1])
+            for direction in ("dl", "ul"):
+                state = entry.get(direction)
+                if state is None:
+                    continue
+                self.last_state[(ue, direction)] = state
+                self.ce_by_ue[(ue, direction)] = int(state.get("ce_packets_total", 0))
+
+        out: list[Arrival] = []
+        for event in result.get("events", []):
+            tag = int(event["tag"])
+            pending = self._outstanding.get(tag)
+            if pending is None:
+                # A retry may replay an event already consumed locally only if the
+                # caller reused an old cursor after processing a successful reply,
+                # which is a client bug rather than something to account twice.
+                raise RuntimeError(f"event for unknown or terminal tag {tag}: {event}")
+            ue = int(str(event["target"]).split("/")[1])
+            direction = str(event["dir"])
+            if ue != pending.ue or direction != pending.direction:
+                raise RuntimeError(f"event does not match tag {tag}: {event}")
+
+            counters = self._event_counters.setdefault(tag, {})
+            for key in ("delivered_bytes", "expired_bytes", "queue_dropped_bytes",
+                        "radio_dropped_bytes", "ce_bytes"):
+                counters[key] = counters.get(key, 0.0) + float(event.get(key, 0.0))
+            counters["dropped_bytes"] = (counters["queue_dropped_bytes"]
+                                         + counters["radio_dropped_bytes"])
+            arrival = self._terminal(tag, counters, ue, tti)
+            if arrival is not None:
+                self._event_counters.pop(tag, None)
+                out.append(arrival)
+
+        self._event_cursor = cursor
         out.sort(key=lambda a: (a.flow, a.kind, a.seq))
         return out
 

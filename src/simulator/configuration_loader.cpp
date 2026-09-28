@@ -242,7 +242,7 @@ void configuration_loader::load(std::string cfg_file)
                             if (key == "o2i")
                             {
                                 LOG_WARNING_I("configuration_loader::load")
-                                    << "o2i is deprecated; use location, "
+                                    << "o2i is deprecated; use ue_location_type, "
                                     << "building_penetration, and vehicle_penetration"
                                     << END();
                                 ue_c_list.back().ue_c.ue_m.o2i = std::stoi(value);
@@ -252,6 +252,9 @@ void configuration_loader::load(std::string cfg_file)
                                         : PENETRATION_NONE;
                             }
                             if (key == "location")
+                                throw std::invalid_argument(
+                                    "location is not supported; use ue_location_type");
+                            if (key == "ue_location_type")
                             {
                                 if (value == "outdoor")
                                     ue_c_list.back().ue_c.ue_m.o2i = OUTDOOR;
@@ -263,7 +266,7 @@ void configuration_loader::load(std::string cfg_file)
                                     ue_c_list.back().ue_c.ue_m.o2i = LOCATION_RANDOM;
                                 else
                                     throw std::invalid_argument(
-                                        "location must be outdoor, indoor, vehicle, or random");
+                                        "ue_location_type must be outdoor, indoor, vehicle, or random");
                             }
                             if (key == "building_penetration")
                             {

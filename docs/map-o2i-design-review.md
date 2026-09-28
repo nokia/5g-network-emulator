@@ -2,7 +2,8 @@
 
 **Status:** Approved on 2026-09-27
 **Scope:** Block 2B semantic decisions  
-**Rule:** No production map bytes or O2I behavior change before approval
+**Activation:** All eleven semantic items and the 21-map production catalog
+were approved; catalog activation occurred on 2026-09-28.
 
 ## 1. Preserved decisions
 
@@ -210,7 +211,7 @@ Exact dimensions remain pending profile-by-profile review.
 Replace the overloaded integer with explicit values:
 
 ```text
-location: outdoor | indoor | vehicle
+ue_location_type: outdoor | indoor | vehicle
 building_penetration: none | low_loss | high_loss
 ```
 
@@ -241,7 +242,7 @@ indoor-depth term.
 - Standard vehicle: draw \(N(9,5^2)\) dB once per UE/session.
 - Metallized vehicle: configurable mean near 20 dB with approved variance.
 - Do not add building indoor-depth loss to a vehicle.
-- Keep the realization stable until location state changes.
+- Keep the realization stable until the UE environment type changes.
 
 **Recommendation:** Approve.
 
@@ -291,6 +292,7 @@ The owner should approve or revise:
 10. Gaussian vehicle-loss model.
 11. Defer Rician/LOS small-scale changes to Phase 3.
 
-All eleven design items were approved on 2026-09-27. Candidate maps are
-generated and evaluated in parallel; replacing shipped production map bytes
-remains a separate activation decision based on the comparison report.
+All eleven design items were approved on 2026-09-27. The owner subsequently
+approved activation of all 21 deterministic v2 maps, including the material RMa
+change and exact 2.38 GHz UMi lookup. The promoted numeric arrays are identical
+to the reviewed candidate arrays.

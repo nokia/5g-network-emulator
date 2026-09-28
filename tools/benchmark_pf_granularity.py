@@ -85,7 +85,7 @@ max_distance: 1000
 priority: 1
 pkt_delay_budget: 10
 ue_height: 1.5
-o2i: 10
+ue_location_type: outdoor
 
 [Scenario]
 scenario_type: 1

@@ -1,17 +1,17 @@
-# Explicit UE Location and Penetration Model
+# Explicit UE Environment and Penetration Model
 
 ## Configuration
 
-UE location and penetration are configured independently:
+The UE environment type and penetration are configured independently:
 
 ```ini
 [UE]
-location: outdoor
+ue_location_type: outdoor
 building_penetration: none
 vehicle_penetration: standard
 ```
 
-### `location`
+### `ue_location_type`
 
 - `outdoor`
 - `indoor`
@@ -46,7 +46,7 @@ migration and emits a warning.
 For InH/InF scenarios where both the gNB and UE are indoors:
 
 ```ini
-location: indoor
+ue_location_type: indoor
 building_penetration: none
 ```
 

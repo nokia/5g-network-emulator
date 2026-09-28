@@ -104,7 +104,7 @@ Options:
 2. **Per-PRB PSD abstraction:** interpret the configured value through a
    reference bandwidth/PSD. Efficient and grouping-invariant, but 23 dBm no
    longer directly means the UE total-power cap.
-3. **Two-pass TTI allocation:** allocate resources, then distribute the UE
+3. **Two-pass TTI alue_location_type:** allocate resources, then distribute the UE
    total power over its complete allocation and recompute UL SINR/MCS/grant.
    Most physically coherent, but materially increases scheduler complexity.
 

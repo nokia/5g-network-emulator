@@ -42,7 +42,7 @@ void write_config(const std::string &path)
         << "priority: 1\n"
         << "pkt_delay_budget: 10\n"
         << "ue_height: 1.5\n"
-        << "o2i: 10\n"
+        << "ue_location_type: outdoor\n"
         << "[Scenario]\n"
         << "scenario_type: 1\n"
         << "[eNBConfig]\n"

@@ -2,7 +2,7 @@
 
 **Status:** External technical-review manuscript
 **Model under test:** `feature/phy-model-v2`
-**Validated simulator source:** `62764dc6957c9dadff3beecac4ac1c4e268a6ec3`
+**Validated simulator source:** `fe9307795130804fe41b9edf6730b35eb75cf162`
 **Runtime-benchmark source:** `9862842045d0dc136e5c458546d09455efc7070b`
 **Evidence protocol:** `docs/phy-model-v2-evidence-protocol.md`
 **Date:** 2026-09-28
@@ -24,10 +24,10 @@ environment state explicit.
 
 Validation combines unit invariants, byte reproduction, 630 independently
 seeded map realizations, five 180 s packet-level profiles, a controlled O2I
-stress pair, and repeated timing over 1–256 UEs. Production results reproduce
-the reviewed candidate-map metrics exactly. Map LOS bias is at most 0.025 in
-the tested radial bins and axial shadow-correlation error is at most 0.008 at
-the nearest grid-representable lag. Grouped PF reranking materially improves
+stress pair, and repeated timing over 1–256 UEs. All promoted numeric map
+arrays exactly reproduce the reviewed candidates. Map LOS bias is at most
+0.025 in the tested radial bins and axial shadow-correlation error is at most
+0.008 at the nearest grid-representable lag. Grouped PF reranking materially improves
 64-UE Jain fairness and maximum service gaps with sub-millisecond P99 cost on
 the measured host, whereas distributed per-PRB 100/400 MHz grids exceed the
 real-time budget. Windowed service metrics show that apparent per-TTI
@@ -323,10 +323,13 @@ m_{i,b}
 =\max\{m:\Gamma_{i,b}\ge\theta_{m,q,v}\},
 \]
 
-where thresholds depend on table, allocation-size class, and rank. If
-\(\Gamma_{i,b}<\theta_0\), FikoRE returns \(m=-1\), sets spectral efficiency to
-zero, and the UE is not a positive-rate candidate on that unit. This is an
-MCS-table boundary, not a separate configured minimum-SINR admission rule.
+where thresholds depend on table, allocation-size class, and configured layer
+count. The zero-based table axis is derived from the one-based layer count; an
+off-by-one defect found during adversarial review was corrected and bounded for
+one through four layers. If \(\Gamma_{i,b}<\theta_0\), FikoRE returns \(m=-1\),
+sets spectral efficiency to zero, and the UE is not a positive-rate candidate
+on that unit. This is an MCS-table boundary, not a separate configured
+minimum-SINR admission rule.
 
 For spectral efficiency \(\eta_m\), allocation subcarriers
 \(N_{\mathrm{SC},b}\), usable symbols \(N_{\mathrm{sym},b}\), rank \(v_i\),
@@ -339,10 +342,11 @@ B_{i,b}
 \]
 
 The current rank abstraction is threshold-based in mean SINR, capped by UE
-antenna count and configured layer count; UL rank is one. It neither represents
-a channel matrix nor predicts post-processing layer SINR. Packet/HARQ handling
-then maps nominal grant bits \(B_{i,b}\) to effective payload
-\(B^{\mathrm{eff}}_{i,b}\le B_{i,b}\).
+antenna count and configured layer count; UL rank is one. The selected MCS
+threshold family remains tied to configured layers rather than dynamically
+changing rank. The model neither represents a channel matrix nor predicts
+post-processing layer SINR. Packet/HARQ handling then maps nominal grant bits
+\(B_{i,b}\) to effective payload \(B^{\mathrm{eff}}_{i,b}\le B_{i,b}\).
 
 ### 3.6 Proportional-fair state and reranking
 
@@ -395,6 +399,7 @@ second scheduling pass. Exact metric ties use a persistent round-robin cursor.
 | UL total power reused by independently considered grants | Nominal planning plus allocation-aware total-power finalization | 1–275 PRB power conservation and 23 dBm cap |
 | PF exponent and history embedded in per-UE/CQI behavior | Common \(\alpha\); 1 ms EWMA of effective service; fair ties | State, metric, migration, homogeneous-scheduler tests |
 | Same-TTI repeated winners in grouped grids | Configurable provisional allocation-unit reranking | Fairness/gap/runtime benchmark |
+| One-based layer count used as zero-based MCS table index | Bounded `layers - 1` index shared by MCS and HARQ; bounded RI threshold loop | Layer/rank index regression test |
 | Unseeded, origin-ambiguous production maps | 21 deterministic v2 files, odd grid, binary LOS, manifest, exact n40 map | Two-catalog byte equality; origin test; 630-realization study |
 | O2I overloaded into one integer/map assumption | Explicit UE environment, building, and vehicle fields; indoor-gNB profiles omit facade loss | Unit formulas and controlled high-loss n258 pair |
 
@@ -456,8 +461,8 @@ The complete matrix, commands, and limitations are in
 
 Two independent production generations were byte-identical. All 21 promoted
 numeric arrays are identical to the reviewed candidate arrays; only production
-metadata changed. Applying the same analyzer to candidate and production
-profile logs produced a maximum shared numeric delta of exactly zero.
+metadata changed. Historical candidate profile logs predate the subsequent
+MCS-layer indexing correction and are not used as a current profile oracle.
 
 Across 630 maps:
 
@@ -479,23 +484,23 @@ limitation; they are not coverage predictions.
 
 | Profile | Dir. | Offered | Delivered | Outage UEs | Zero-service 1 s | Maximum UE gap | Grid fill | Payload/grant |
 |---|---|---:|---:|---:|---:|---:|---:|---:|
-| Indoor n78 | DL | 65.00 | 46.57 | 0 | 0.1% | 1.51 s | 86.6% | 22.8% |
-| Indoor n78 | UL | 90.00 | 45.20 | 0 | 3.4% | 43.75 s | 100.0% | 44.5% |
-| RMa n78 | DL | 120.01 | 62.38 | 1 | 25.1% | 92.10 s | 96.9% | 98.6% |
-| RMa n78 | UL | 120.01 | 27.01 | 0 | 30.6% | 43.85 s | 99.9% | 88.8% |
-| UMa n78 | DL | 180.01 | 108.75 | 5 | 16.8% | 110.57 s | 100.0% | 72.5% |
-| UMa n78 | UL | 70.00 | 14.38 | 1 | 37.6% | 160.00 s | 100.0% | 98.3% |
+| Indoor n78 | DL | 65.00 | 46.22 | 0 | 0.1% | 1.51 s | 86.2% | 22.6% |
+| Indoor n78 | UL | 90.00 | 44.50 | 0 | 3.6% | 44.81 s | 100.0% | 44.1% |
+| RMa n78 | DL | 120.01 | 61.93 | 1 | 24.7% | 92.09 s | 97.3% | 98.6% |
+| RMa n78 | UL | 120.01 | 26.70 | 0 | 30.2% | 43.70 s | 99.9% | 89.7% |
+| UMa n78 | DL | 180.01 | 108.21 | 5 | 18.1% | 110.57 s | 100.0% | 71.9% |
+| UMa n78 | UL | 70.00 | 14.16 | 1 | 38.4% | 160.00 s | 100.0% | 99.4% |
 | UMi n258 | DL | 500.02 | 500.02 | 0 | 0.0% | 0.00 s | 98.7% | 38.1% |
 | UMi n258 | UL | 200.01 | 156.73 | 0 | 0.1% | 0.01 s | 100.0% | 20.9% |
-| UMi n40 | DL | 50.00 | 48.27 | 0 | 0.0% | 0.04 s | 100.0% | 75.0% |
-| UMi n40 | UL | 35.00 | 24.33 | 0 | 0.3% | 0.03 s | 100.0% | 77.9% |
+| UMi n40 | DL | 50.00 | 48.24 | 0 | 0.0% | 0.04 s | 100.0% | 74.9% |
+| UMi n40 | UL | 35.00 | 24.24 | 0 | 0.2% | 0.03 s | 100.0% | 77.3% |
 
 Rates are Mbit/s.
 
 Three conclusions follow.
 
 First, a zero grant in an individual TTI is normal. UMi n40 has many 10 ms
-zero-service windows (4.7% DL and 32.7% UL), yet no 1 s DL windows, only 0.3%
+zero-service windows (4.5% DL and 32.8% UL), yet no 1 s DL windows, only 0.2%
 1 s UL windows, and maximum gaps below 40 ms. Labeling every zero TTI as
 starvation substantially over-reports the problem.
 
@@ -503,12 +508,12 @@ Second, some long gaps are real. UMa is fully allocated while several
 non-outage UEs still experience gaps of 110–160 s; this is a scheduling/channel
 heterogeneity outcome, not a plotting error or unused TDD capacity. RMa has
 both outage/low-MCS periods and 20–30% zero-service 1 s windows. Indoor UL has
-no permanent outage but one 43.75 s gap, which requires follow-up under
+no permanent outage but one 44.81 s gap, which requires follow-up under
 multiple mobility/traffic seeds.
 
 Third, fill below 100% does not imply structural TDD loss. Per-TTI summaries
 separate directionally unavailable units before the utilization denominator.
-RMa assigns 96.9% of available DL and 99.9% of available UL units despite its
+RMa assigns 97.3% of available DL and 99.9% of available UL units despite its
 long per-UE gaps; the effect is distribution among UEs, not loss of the cell
 resource pool. Indoor DL leaves 13.4% unused under finite demand. Empty-unit
 reason should next distinguish no backlog from no positive-rate candidate.
@@ -518,14 +523,14 @@ attributed to maps alone:
 
 ![Original baseline versus PHY Model V2](figures/phy-v2-throughput.svg)
 
-For example, n40 DL rises from 14.93 to 48.28 Mbit/s and its maximum
-non-outage gap falls from 124.27 s to 0.17 s over the whole run. Conversely,
+For example, n40 DL rises from 14.93 to 48.26 Mbit/s and its maximum
+non-outage gap falls from 124.27 s to 0.16 s over the whole run. Conversely,
 RMa and indoor throughput fall after the combined power/noise/PF/profile/map
 changes. The one-factor candidate/production comparison, not this combined
 figure, establishes map-activation parity.
 
 The controlled high-loss n258 pair reduced median-UE SINR by 42.06 dB DL and
-37.84 dB UL, but throughput changed only \(-0.8\%\) DL and \(-6.3\%\) UL
+37.78 dB UL, but throughput changed only \(-0.9\%\) DL and \(-6.4\%\) UL
 because equivalent FWA gains and offered demand keep DL near saturation. This
 is a useful warning: throughput alone can hide a very large physical-model
 change.

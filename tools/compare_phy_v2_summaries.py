@@ -105,10 +105,10 @@ def main() -> None:
     lines.extend(
         [
             "",
-            "The production run is independently compared with the reviewed v2 "
-            "candidate run. All shared numeric metrics are exactly equal, "
-            "confirming that activation changed metadata and default lookup but "
-            "not the approved numeric map arrays.",
+            "Map activation parity is established by direct equality of all 21 "
+            "reviewed and promoted numeric arrays. Historical candidate profile "
+            "logs predate the later MCS-layer indexing correction and are not "
+            "used as a one-factor profile oracle for this table.",
             "",
         ]
     )

@@ -45,7 +45,7 @@
     {
       "id": "production-profile-ue-summary",
       "path": "docs/baselines/phy-v2-production-ue-summary.csv",
-      "sha256": "d234270e918c1c28128d87be0118fa0c0b34ed150316cb6fe25b4550b8af3227"
+      "sha256": "6e3f51df3062c30ada924d6e1b37018d262eb2102865e2f42b950474e9e3ecf8"
     },
     {
       "id": "map-v2-multiseed-summary",
@@ -70,12 +70,12 @@
     {
       "id": "original-production-comparison",
       "path": "docs/baselines/phy-v2-production-comparison.csv",
-      "sha256": "cb94600ee08a0e8e8526e35530be1bd8202daf227429ef94fbf0208f3048c96c"
+      "sha256": "eab8d6ac69312e0846b97a9e74423de78132e8ee084c9a7f015c3dbf18452300"
     },
     {
       "id": "controlled-o2i-comparison",
       "path": "docs/baselines/phy-v2-o2i-controlled-comparison.csv",
-      "sha256": "f64c267c1880cdc89aacc73122f1431410d52f010842fda725d94931c93acf0e"
+      "sha256": "af941bd70d8a50e63e15d21a292d0ba79e85828907da67ef831a40f477801885"
     }
   ],
   "environment": {
@@ -139,13 +139,13 @@
     },
     {
       "duration_s": 180,
-      "id": "phy-v2-production-tdd-metrics-62764dc-seed20260927",
+      "id": "phy-v2-production-mimo-index-fe93077-seed20260927",
       "manifest": "docs/baselines/phy-v2-production-run-manifest.json",
-      "manifest_sha256": "79d503fc0ec3fce5b1d2b42ef33fd3639aa9c71bb5e8fc213f2c360820dd8b50",
+      "manifest_sha256": "36c3aa2a386dc9f9dad8ead1bed84e1ab4818d342cc83a1a37d15f7973d3064a",
       "seed": 20260927,
-      "source_sha": "62764dc6957c9dadff3beecac4ac1c4e268a6ec3",
+      "source_sha": "fe9307795130804fe41b9edf6730b35eb75cf162",
       "summary": "docs/baselines/phy-v2-production-profile-summary.csv",
-      "summary_sha256": "c09a6089284df544cff4383d0709617cb8946d1d3a17b84560bff0224e9c2171",
+      "summary_sha256": "6407c9f1762cb55d22c1790696c186f4547234e3466be20bd503429ab48d147e",
       "warmup_s": 20
     }
   ],
@@ -157,7 +157,7 @@
     "feature_baseline_sha": "dc81da62f59ca93e36a02c36bdcecd45ec6cd2bd",
     "map_statistics_source_sha": "cd1e583407793a69ff558124f6dcb5b605f903e2",
     "runtime_benchmark_source_sha": "9862842045d0dc136e5c458546d09455efc7070b",
-    "validated_source_sha": "62764dc6957c9dadff3beecac4ac1c4e268a6ec3"
+    "validated_source_sha": "fe9307795130804fe41b9edf6730b35eb75cf162"
   },
   "study": "FikoRE PHY Model V2"
 }

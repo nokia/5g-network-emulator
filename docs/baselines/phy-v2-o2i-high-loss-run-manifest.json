@@ -1,6 +1,6 @@
 {
   "artifact_policy": "Exact rendered inputs and compact summaries are committed; raw logs are local-only.",
-  "batch_id": "phy-v2-o2i-high-loss-975f983-seed20260927",
+  "batch_id": "phy-v2-o2i-high-loss-fe93077-seed20260927",
   "duration_s": 180,
   "environment": {
     "hostname": "pitahaya",
@@ -10,21 +10,21 @@
   "production_map_manifest_sha256": "f4e84042f2a9a760cc84023246814a568a1f5c0e9e4b29cee960b4ab198cfcd3",
   "runs": [
     {
-      "elapsed_seconds": 11.282327751629055,
+      "elapsed_seconds": 9.246127764694393,
       "map_file": "macroscopic_fading_map_URBAN_MICROCELL_26.json",
       "map_realization_id": "urban_microcell-26-seed-4596863232196585428-ea6438f9b43b",
       "map_sha256": "0780a035503344380b8375cf84837617e0c1aaac19bb0686885564c1b9f72d8c",
       "profile": "offline_umi_n258_fwa_high_loss",
       "raw_logs_committed": false,
       "rendered_config": "docs/baselines/phy-v2-o2i-inputs/offline_umi_n258_fwa_high_loss.ini",
-      "rendered_config_sha256": "3670e7cb3ee827465e5fc8ba8b8dc7916740f6b075537d70e5435ce17f8bb9dd",
+      "rendered_config_sha256": "6fb6e56462250e441074173a73c64f2c7caabc04bbf67ffcc2d15f4d4e1917a1",
       "return_code": 0,
-      "run_id": "phy-v2-o2i-high-loss-975f983-seed20260927-offline_umi_n258_fwa_high_loss",
+      "run_id": "phy-v2-o2i-high-loss-fe93077-seed20260927-offline_umi_n258_fwa_high_loss",
       "source_config": "config/offline_umi_n258_fwa_high_loss.ini"
     }
   ],
   "schema_version": 1,
   "seed": 20260927,
   "source_dirty": false,
-  "source_sha": "975f983dda975187c5aa9f6efbd8c09d7e1be334"
+  "source_sha": "fe9307795130804fe41b9edf6730b35eb75cf162"
 }

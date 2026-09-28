@@ -12,6 +12,7 @@
 | Configuration migration | `ue_location_type_config_test` | Canonical values passed; removed `location` key rejected; pre-feature `o2i` warning path retained |
 | Allocation bandwidth | `phy_power_model_test` | Integrated signal/noise SINR invariant for 1/2/4/8/16-PRB grouping |
 | UL total power | `phy_power_model_test`; `ul_power_finalization_test` | Per-PRB reconstruction conserved total power for 1–275 PRBs; 23 dBm cap respected |
+| MIMO table indexing | `phy_mimo_index_test` | One-based layer/rank state mapped safely to zero-based 1–4-layer tables |
 | PF metric and state | `pf_metric_test`; `pf_state_test`; `pf_scheduler_test` | Common alpha, 1 ms EWMA aging, zero-service update, fair homogeneous service passed |
 | PF migration | `pf_config_migration_test` | Legacy per-UE PF beta rejected |
 | Reranking/granularity | repeated runtime/fairness envelope | Grouped reranking materially reduced service gaps; detailed trade-off recorded |

@@ -105,10 +105,9 @@ def main() -> None:
     lines.extend(
         [
             "",
-            "Map activation parity is established by direct equality of all 21 "
-            "reviewed and promoted numeric arrays. Historical candidate profile "
-            "logs predate the later MCS-layer indexing correction and are not "
-            "used as a one-factor profile oracle for this table.",
+            "This combined table is not the map-catalog ablation. The paired "
+            "legacy-v1 versus padded-v2.1 comparison is reported separately in "
+            "`map-v2.1-paired-profile-comparison.md`.",
             "",
         ]
     )

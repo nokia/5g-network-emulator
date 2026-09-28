@@ -17,7 +17,7 @@ The protocol baseline is commit
 
 | ID | Claim | Required evidence | Failure condition |
 |---|---|---|---|
-| C1 | Signal, noise, interference, and capacity use the same allocation bandwidth. | Equation audit, power-model unit tests, and an RBG-grouping invariance experiment. | Equivalent PSD and PRBs produce a material SINR or aggregate-capacity change solely because of grouping. |
+| C1 | Signal, noise, and interference use one per-PRB reference independent of scheduling grouping. | Equation audit, power-model unit tests, and a runtime grouped/per-PRB SINR experiment with the same physical carrier PRBs. | Equivalent physical carrier power, noise, and channel produce a grouping-dependent per-PRB SINR. Incomplete final RBG capacity is reported separately rather than claimed invariant. |
 | C2 | Two-stage UL scheduling respects the UE total-power cap while exposing a deterministic nominal rate to the scheduler. | Unit tests for nominal and finalized powers plus a power-conservation sweep. | Final grants exceed the configured UE power or the same deterministic inputs produce different allocations. |
 | C3 | PF service history is updated once per active TTI and is independent of CQI report cadence. | State and scheduler tests plus a CQI-period invariance test. | The EWMA state differs solely because static-channel CQI cadence changes. |
 | C4 | Allocation-unit reranking improves short-horizon delivery continuity in grouped full-backlog grids at measured cost. | Paired PF benchmark with `none` and `allocation_unit`, Jain fairness, maximum delivery gap, and repeated per-TTI runtime samples. | No short-horizon continuity benefit is observed or measured cost exceeds the stated operating envelope. |

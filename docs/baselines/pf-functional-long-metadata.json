@@ -29,18 +29,15 @@
       1
     ]
   ],
-  "repeats": 10,
+  "repeats": 1,
   "schema_version": 1,
   "source_dirty": false,
   "source_sha": "f89a3159935cc58737dd68324ca5f8ba72f21419",
-  "steps": 100,
-  "timing_samples_per_case": 1000,
+  "steps": 2000,
+  "timing_samples_per_case": 2000,
   "timing_unit": "individual warmed-up TTI",
   "ue_counts": [
-    1,
-    16,
-    64,
-    256
+    64
   ],
-  "warmup_steps": 20
+  "warmup_steps": 500
 }

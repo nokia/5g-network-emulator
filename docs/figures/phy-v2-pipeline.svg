@@ -186,7 +186,7 @@ L 484.502643 92.658281
    </g>
    <g id="text_6">
     <text style="font-size: 9px; font-family: 'DejaVu Sans'" transform="translate(519.173739 88.302703)">Grant,</text>
-    <text style="font-size: 9px; font-family: 'DejaVu Sans'" transform="translate(503.602333 98.380734)">packet/HARQ</text>
+    <text style="font-size: 9px; font-family: 'DejaVu Sans'" transform="translate(502.635536 98.380734)">packet/queue</text>
    </g>
    <g id="patch_14">
     <path d="M 577.401579 90.858281

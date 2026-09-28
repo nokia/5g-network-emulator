@@ -1,13 +1,14 @@
 {
-  "outage_definition": "MCS below zero in >=99% of eligible samples",
-  "schema_version": 1,
-  "service_conditioning": "positive offered traffic, non-outage UE",
+  "analyzer_source_sha": "f89a3159935cc58737dd68324ca5f8ba72f21419",
+  "delivery_conditioning": "contiguous positive-offer segments, non-outage UE; queue backlog is not observed",
+  "outage_definition": "MCS below zero in >=99% of post-warm-up radio samples",
+  "schema_version": 2,
   "service_windows_s": [
     0.01,
     0.1,
     1.0
   ],
-  "source_manifest": "/home/pablop/devel/fikore/5g-network-emulator/results/phy-v2-production-mimo-index/manifest.json",
-  "source_manifest_sha256": "ca473efc76ffe49d43edd7a12c8d7665d75e7bc2bbc7a35d70ac0647b4e9175b",
+  "source_manifest": "docs/baselines/phy-v2-production-run-manifest.json",
+  "source_manifest_sha256": "199a301475a23651ac4c32f353272248bc91010192ebce0df5bdca6bac1399dc",
   "warmup_s": 20.0
 }

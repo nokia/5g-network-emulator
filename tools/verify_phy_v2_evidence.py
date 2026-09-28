@@ -58,6 +58,15 @@ def main() -> None:
             if path_key in batch:
                 check(batch[path_key], batch[hash_key])
                 checked += 1
+        if "manifest" in batch:
+            run_manifest = json.loads(
+                (ROOT / batch["manifest"]).read_text())
+            for run in run_manifest.get("runs", []):
+                check(
+                    run["rendered_config"],
+                    run["rendered_config_sha256"],
+                )
+                checked += 1
 
     identifiers = set()
     for artifact in manifest["committed_evidence"]:

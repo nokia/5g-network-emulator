@@ -191,7 +191,7 @@ def runtime_figure() -> None:
 def reranking_figure() -> None:
     data = [
         row
-        for row in rows(BASELINES / "pf-runtime-envelope.csv")
+        for row in rows(BASELINES / "pf-functional-long.csv")
         if int(row["ues"]) == 64
     ]
     categories = []

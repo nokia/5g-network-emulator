@@ -129,7 +129,6 @@ void grid::step()
     int syms = 0;
     int n_enabled = 0;
     last_step_metrics = grid_step_metrics();
-    last_step_metrics.grid_capacity_bits = max_capacity_bits;
     if (ue_list != nullptr)
     {
         for (std::vector<ue>::iterator it = ue_list->begin(); it != ue_list->end(); ++it)
@@ -162,6 +161,15 @@ void grid::step()
             syms = tdd_h.get_syms();
         else
             syms = n_sym_rbg;
+        if (syms > 0)
+        {
+            last_step_metrics.available_rbg_count += n_freq_rbg;
+            last_step_metrics.grid_capacity_bits +=
+                n_freq_rbg
+                * n_sc_rbg
+                * syms
+                * EFF_2_CQI[1][15];
+        }
 
         auto record_rbg = [&](int f)
         {
@@ -223,11 +231,32 @@ void grid::step()
             }
         }
     }
-    last_step_metrics.empty_rbg_count = n_freq_rbg * n_time_rbg - last_step_metrics.scheduled_rbg_count;
-    if (n_freq_rbg * n_time_rbg > 0)
-        last_step_metrics.utilization_ratio = (float)last_step_metrics.scheduled_rbg_count / (float)(n_freq_rbg * n_time_rbg);
+    const int total_rbg_count = n_freq_rbg * n_time_rbg;
+    last_step_metrics.structural_unavailable_rbg_count =
+        total_rbg_count - last_step_metrics.available_rbg_count;
+    last_step_metrics.empty_rbg_count =
+        last_step_metrics.available_rbg_count
+        - last_step_metrics.scheduled_rbg_count;
+    if (last_step_metrics.available_rbg_count > 0)
+        last_step_metrics.utilization_ratio =
+            (float)last_step_metrics.scheduled_rbg_count
+            / (float)last_step_metrics.available_rbg_count;
     if (last_step_metrics.scheduled_bits > 0.0f)
         last_step_metrics.scheduling_efficiency_ratio = last_step_metrics.effective_bits / last_step_metrics.scheduled_bits;
+    if (log)
+    {
+        logger->log_partial(
+            "summary:1 tx:{} available:{} assigned:{} empty:{} "
+            "structural:{} capacity:{} utilization:{} ts:{} \n",
+            tx,
+            last_step_metrics.available_rbg_count,
+            last_step_metrics.scheduled_rbg_count,
+            last_step_metrics.empty_rbg_count,
+            last_step_metrics.structural_unavailable_rbg_count,
+            last_step_metrics.grid_capacity_bits,
+            last_step_metrics.utilization_ratio,
+            current_t);
+    }
 }
 
 float grid::assignRFBandwidth(float bandwidth)
@@ -356,5 +385,4 @@ grid::grid(int _tx, int _mimo_layers, int _numerology, int _n_re_f, int _n_re_t,
     n_logical_units = n_time_rb / n_time_rbg;
     metric_t = _metric_t;
     tdd_h.set_syms(n_sym_rbg);
-    max_capacity_bits = n_rb_total * n_ofdm_symbols * n_sc_rb * EFF_2_CQI[1][15];
 }

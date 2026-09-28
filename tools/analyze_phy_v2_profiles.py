@@ -213,6 +213,11 @@ def parse_grid(path: Path, warmup_s: float) -> dict:
     effective_bits = 0.0
     units_by_timestamp: dict[float, int] = defaultdict(int)
     assigned_by_timestamp: dict[float, int] = defaultdict(int)
+    summary_available = 0
+    summary_assigned = 0
+    summary_empty = 0
+    summary_structural = 0
+    summary_rows = 0
     with path.open() as handle:
         for line_index, line in enumerate(handle):
             values = parse_tokens(line)
@@ -223,6 +228,13 @@ def parse_grid(path: Path, warmup_s: float) -> dict:
             timestamp = values.get("ts")
             if timestamp is None or timestamp < warmup_s:
                 continue
+            if "summary" in values:
+                summary_available += int(values.get("available", 0.0))
+                summary_assigned += int(values.get("assigned", 0.0))
+                summary_empty += int(values.get("empty", 0.0))
+                summary_structural += int(values.get("structural", 0.0))
+                summary_rows += 1
+                continue
             units_by_timestamp[timestamp] += 1
             if values.get("id", -1.0) >= 0.0:
                 assigned_by_timestamp[timestamp] += 1
@@ -231,12 +243,22 @@ def parse_grid(path: Path, warmup_s: float) -> dict:
                 effective_bits += values.get("e_tp", 0.0)
     opportunities = expected_units * len(units_by_timestamp)
     assigned = sum(assigned_by_timestamp.values())
+    available = summary_available if summary_rows else opportunities
+    assigned_for_fill = summary_assigned if summary_rows else assigned
     return {
-        "logged_opportunities": opportunities,
+        "available_units": available,
+        "structural_unavailable_units": summary_structural,
+        "empty_available_units": (
+            summary_empty
+            if summary_rows
+            else max(0, opportunities - assigned)
+        ),
+        "grid_summary_ttis": summary_rows,
+        "legacy_conditional_fill": not bool(summary_rows),
         "logged_units": sum(units_by_timestamp.values()),
         "assigned_units": assigned,
         "resource_fill_fraction": (
-            assigned / opportunities if opportunities else math.nan),
+            assigned_for_fill / available if available else math.nan),
         "grant_payload_efficiency": (
             effective_bits / nominal_bits if nominal_bits > 0.0 else math.nan),
         "sampled_nominal_grant_bits": nominal_bits,
@@ -407,9 +429,10 @@ def report(manifest: dict, summaries: list[dict], warmup_s: float) -> str:
             "each non-outage UE's maximum post-warm-up gap. Pooled inter-service "
             "gap quantiles remain available in the CSV.",
             "",
-            "Grid fill is the assigned fraction of frequency-time allocation "
-            "units in logged opportunities for that direction. TDD slots of the "
-            "other direction are not included in this denominator.",
+            "Grid fill is the assigned fraction of physically available "
+            "frequency-time allocation units for that direction. Per-TTI grid "
+            "summaries separate TDD-unavailable units from available-but-empty "
+            "units.",
             "",
             "Payload/grant efficiency is sampled from logged grid grants and is "
             "the sum of effective payload bits divided by nominal grant bits.",

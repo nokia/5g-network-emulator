@@ -164,6 +164,8 @@ void mac_layer::step(float current_t)
         dl_point.tags["tx_dir"] = "dl";
         dl_point.ts_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
             std::chrono::system_clock::now().time_since_epoch()).count();
+        dl_point.fields["available_rbg_sum"] = make_metric_field(dl_metrics.available_rbg_count, field_aggregation::sum);
+        dl_point.fields["structural_unavailable_rbg_sum"] = make_metric_field(dl_metrics.structural_unavailable_rbg_count, field_aggregation::sum);
         dl_point.fields["scheduled_rbg_sum"] = make_metric_field(dl_metrics.scheduled_rbg_count, field_aggregation::sum);
         dl_point.fields["empty_rbg_sum"] = make_metric_field(dl_metrics.empty_rbg_count, field_aggregation::sum);
         dl_point.fields["scheduled_ues_sum"] = make_metric_field(dl_metrics.scheduled_ue_count, field_aggregation::sum);
@@ -180,6 +182,8 @@ void mac_layer::step(float current_t)
         ul_point.measurement = "mac_scheduler";
         ul_point.tags["tx_dir"] = "ul";
         ul_point.ts_ns = dl_point.ts_ns;
+        ul_point.fields["available_rbg_sum"] = make_metric_field(ul_metrics.available_rbg_count, field_aggregation::sum);
+        ul_point.fields["structural_unavailable_rbg_sum"] = make_metric_field(ul_metrics.structural_unavailable_rbg_count, field_aggregation::sum);
         ul_point.fields["scheduled_rbg_sum"] = make_metric_field(ul_metrics.scheduled_rbg_count, field_aggregation::sum);
         ul_point.fields["empty_rbg_sum"] = make_metric_field(ul_metrics.empty_rbg_count, field_aggregation::sum);
         ul_point.fields["scheduled_ues_sum"] = make_metric_field(ul_metrics.scheduled_ue_count, field_aggregation::sum);

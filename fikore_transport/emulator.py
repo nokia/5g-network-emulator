@@ -29,12 +29,6 @@ class EmulatorConfig:
     pkt_size_bits: int = 12000        # the MSS the transport model must match
     delay_budget_s: float = 30.0      # see docs/03: the budget is not the experiment
     log_path: str | None = None
-    # The emulator applies at most this many commands per TTI and defers the rest to
-    # the next one. A slot carries one command per segment, so the shipped 256 is
-    # below a window of a few hundred segments, and the deferred tail would be a
-    # deadlock: the client waits for acknowledgements that only the next TTI can
-    # produce, and that TTI needs the credit the client has not granted yet.
-    max_cmds_per_tick: int = 8192
     max_object_events: int = 65536
     extra: dict[str, str] = field(default_factory=dict)
 
@@ -52,7 +46,6 @@ class EmulatorConfig:
             "sync_mode": "barrier",
             "address": self.socket_path,
             "on_timeout": "abort",
-            "max_cmds_per_tick": f"{self.max_cmds_per_tick}",
             "max_object_events": f"{self.max_object_events}",
             "progress_log_period_s": "0",
             **self.extra,

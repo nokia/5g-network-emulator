@@ -26,10 +26,10 @@ happen exactly when the queue overflows. `FikoreLink` is the real one.
 | :-- | :-- |
 | hand a segment over | `inject` on `ue/<id>`, with a tag, `dl.bytes` or `ul.bytes` |
 | advance one slot | `grant` with `until_tti` |
-| read what became terminal | `get` on `ue/*`, then diff the per-tag counters |
+| read what changed | cell-wide `events` with the last consumed cursor |
 | release a finished segment | `forget` on its tag |
 | set a rate cap or priority | `set` with `dl.rmax_mbps`, `priority` |
-| check the MSS | `state.pkt_size_bits` from the same `get` |
+| read network telemetry | `events` with `include_state` at the end of a harness window |
 
 **One tag per segment.** This is what turns a byte counter into per-segment
 feedback: a tag whose `delivered + dropped + expired` reaches its size has
@@ -45,8 +45,8 @@ the credit timeout.
 **A message of N commands is answered N times, and every reply carries the
 message's `id`.** The `id` identifies the message, not the command, so it cannot be
 used to tell one reply from the next; what aligns the stream is counting, one reply
-per command written, in the order they were written. Only the `get` carries a
-`result`. A client that reads one reply per `id` leaves N-1 in the socket and from
+per command written, in the order they were written. Only the final read command
+carries a `result`. A client that reads one reply per `id` leaves N-1 in the socket and from
 then on reads a previous slot's answers — which are well formed, say `ok`, and
 describe the wrong instant. That was the state of this client until it was first
 run against a real emulator, and the symptom was not an error but a plausible
@@ -66,62 +66,46 @@ the sender retransmits segments that were never lost — a measured 4 spurious
 retransmissions in a 1 MB transfer that lost nothing at all. Inside a slot the
 ordering is unobservable, so sequence order is the only defensible one to present.
 
-## What works today, and what it costs
+## Incremental feedback
 
-Everything above exists in the protocol as it stands, so Phase 1 needs no emulator
-change at all. The measured cost is the object map. The barrier on its own is 40 µs
-per slot, 12 s over a 300 s run, and it is not the problem. Adding the state read
-costs 103 µs with one live tag on one UE, 829 µs with a hundred; across 4 UEs it is
-309 µs with one tag each, 749 µs with 20, and 1890 µs with 60. A congestion window
-of 60 segments is not large — it is 90 KB, about right for 15 Mbps at 50 ms — so a
-300 s run is about nine minutes of wall clock, and worse as capacity grows.
-
-The real path confirms it. The same end-to-end script costs 245 to 314 µs per slot
-while a 1 MB object is in flight, and 600 to 2100 µs once a bulk flow holds a window
-of tens to hundreds of segments: about 9.7 KB of JSON per slot, 660 µs of it spent
-waiting on the emulator and 250 µs parsing in Python. The extra time is the whole
-object map being serialised, parsed and diffed every slot to learn about the handful
-of segments that changed.
-
-These figures are roughly twice what this document reported before the client was
-fixed, and the earlier ones were understated for a reason worth recording: reading
-one reply per message left the state reply buffered for the next slot to collect, so
-the client never waited for the emulator to produce the answer it was using. Lagging
-a slot behind looks like speed until you notice which slot the answer describes.
-
-The map can be isolated from everything else by sending the same `get` twice in one
-message: the second copy costs what producing it costs, and nothing else. With 2486
-live tags and a 207 KB reply, one copy is 8.0 ms of a 9.9 ms slot — the simulation
-and the barrier are the remaining 1.9 ms. About a third of the 8.0 ms is the
-client's `json.loads` and the rest is the emulator building and serialising. Which
-settles where the change has to be made: a client that parsed for free would still
-pay three quarters of the cost, because the payload can only be cut where it is
-produced.
-
-## The one addition that matters
-
-**Per-tag deltas instead of the whole map.** Everything the model needs is *what
-changed*, and what changed in one slot is a handful of segments rather than the
-whole window. Either shape works:
+`events` is additive to `get`: dashboards and diagnostics keep their complete
+snapshot, while a transport asks only for counter movements newer than the cursor
+it has consumed.
 
 ```json
-{"id":7,"cmds":[{"op":"get","target":"ue/*","objects":"changed"}]}
+{"id":7,"cmds":[{"op":"events","after":123,"include_state":false}]}
+{"id":7,"status":"ok","tti":940,"result":{
+  "cursor":125,
+  "events":[
+    {"seq":124,"at_tti":939,"target":"ue/0","dir":"dl","tag":8817,
+     "delivered_bytes":1500,"ce_bytes":1500},
+    {"seq":125,"at_tti":939,"target":"ue/1","dir":"dl","tag":730,
+     "expired_bytes":1500}
+  ]
+}}
 ```
 
-or a dedicated drain:
+An event is a delta, not the emulator guessing that a tag is complete: the client
+may inject one tag more than once and only it knows the total. `after` means
+“consumed through this cursor”. Newer events are retained, so retrying the same
+cursor replays them. A compact cumulative state without the object map is optional
+for telemetry.
 
-```json
-{"id":7,"cmds":[{"op":"events","target":"ue/*"}]}
-{"id":7,"status":"ok","tti":940,"result":[
-  {"target":"ue/0","dir":"dl","events":[
-    {"tag":8817,"fate":"delivered","bytes":1500,"ce":false},
-    {"tag":8818,"fate":"expired","bytes":1500}]}]}
-```
+The replay log is bounded by `max_object_events`. Overflow aborts a barrier run
+before feedback is lost. Async mode reports a gap and requires an atomic full
+snapshot with `{"op":"events","after":0,"resync":true}`.
 
-The expected cost then follows the grant-only floor plus a small payload, around
-130 to 150 µs per slot with four UEs: 45 s of overhead for a 300 s run, and
-independent of the window size. This is the single change that decides whether the
-approach scales, and it is worth making before anything else.
+## What it costs
+
+The barrier alone is about 40 µs per slot. The old full map costs 897 µs with
+100 retained tags on one UE and 2381 µs with 60 tags on each of four UEs.
+`events` costs 80 and 51 µs respectively: close to the barrier floor and
+independent of the retained map.
+
+The real end-to-end path gives the same answer. One UE moving 3 MB falls from
+2.241 to 0.170 s and from 25.08 to 0.464 MB of replies. Four UEs moving 1 MB
+each finish in the same 630 slots but fall from 3.700 to 0.266 s and from
+42.90 to 0.805 MB. Every run conserves bytes exactly.
 
 ## What ECN needs
 
@@ -169,22 +153,12 @@ emulator, a thousand times the cost of a healthy one. A bounded receive window i
 therefore not only realism (see [docs/04](04-transport-model.md)), it is what keeps
 a run fast.
 
-The same backlog is what makes the per-slot object map expensive, and the two
-compound: a 300 ms budget with no AQM and a 4 MB window builds a queue of thousands
-of live tags, the whole map is serialized every slot in both directions, and a run
-of that shape eventually spends more than the emulator's 30 s credit timeout in a
-single slot and is aborted. It is the scaling problem above, reached from the other
-side, and the same per-tag delta feedback fixes it.
+The same backlog used to compound the cost by growing the per-slot object map.
+`events` removes that serialization term, but it cannot make the emulator's expiry
+scan cheaper; bounding the receive window remains part of a healthy experiment.
 
-**`max_cmds_per_tick` and the barrier do not compose.** The emulator applies at most
-that many commands per TTI and defers the rest to the next one, which is the right
-thing to do when nobody is waiting. Under the barrier nobody can be waiting for
-anything else: the client is blocked on acknowledgements the deferred commands have
-not produced, and the TTI that would produce them needs credit the client cannot
-grant until it is unblocked. The run stops until `credit_timeout_ms` expires and
-then, with `on_timeout: abort`, ends. A lockstep slot carries one command per
-segment, so the shipped 256 is below an ordinary congestion window and the config
-has to raise it; `EmulatorConfig.max_cmds_per_tick` does, and the client refuses a
-slot it knows will not fit rather than hanging. Deferring the limit in the emulator
-would be reasonable too — a barrier could take everything addressed to the TTI it is
-about to run — but nothing here needs it.
+**`max_cmds_per_tick` is for async and real-time control only.** It bounds how much
+work one wall-clock TTI accepts before deferring the rest. Barrier mode is necessarily
+fast mode — requesting it with `period > 0` degrades to async — and the client owns
+the clock there, so the emulator applies every command addressed to the granted TTI.
+`FikoreLink` therefore neither overrides the cap nor imposes a duplicate local one.

@@ -74,7 +74,6 @@ class FikoreLink:
         self.emulator = emulator
         self.flow_to_ue = flow_to_ue
         self.mss = emulator.cfg.pkt_size_bits // 8
-        self.max_cmds_per_tick = emulator.cfg.max_cmds_per_tick
 
         self.sock = emulator.connect()
         self.io = self.sock.makefile("rwb")
@@ -191,19 +190,11 @@ class FikoreLink:
                 inject["ecn"] = t.ecn
             cmds.append(inject)
 
-        # One command per segment plus one per release, and the emulator defers
-        # whatever a TTI cannot take. Deferring an injection would move a segment to
-        # a slot the model did not choose, so the releases give way first: a tag held
-        # one slot longer only costs a line of JSON in the next `get`.
-        budget = self.max_cmds_per_tick - len(cmds) - 1
-        if budget < 0:
-            raise RuntimeError(
-                f"slot {tti} needs {len(cmds) + 1} commands but the emulator applies "
-                f"{self.max_cmds_per_tick} per TTI; raise EmulatorConfig."
-                f"max_cmds_per_tick above the largest window this run can reach")
-        release, self._to_forget = self._to_forget[:budget], self._to_forget[budget:]
-        for ue, tag in release:
+        # Barrier runs are never real-time, so the emulator deliberately applies every
+        # command addressed to this TTI. Holding completed tags serves no purpose.
+        for ue, tag in self._to_forget:
             cmds.append({"op": "forget", "target": f"ue/{ue}", "tag": tag})
+        self._to_forget.clear()
 
         if self.use_events:
             events = {"op": "events", "after": self._event_cursor}

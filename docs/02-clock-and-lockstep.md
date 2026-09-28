@@ -48,24 +48,23 @@ Measured on this machine, against `bin/fikore` in fast mode, 2000 slots per run
 
 | Configuration | µs per slot | Projected overhead of a 300 s run |
 | :-- | --: | --: |
-| 1 UE, grant only | 38 | 11 s |
-| 1 UE, grant + state read | 52 | 15 s |
-| 4 UEs, grant only | 44 | 13 s |
-| 4 UEs, grant + state read | 132 | 40 s |
-| 4 UEs, grant + state read, 20 live objects per UE | 338 | 101 s |
-| 4 UEs, grant + state read, 60 live objects per UE | 809 | 243 s |
-| 4 UEs, 10 ms window, 20 live objects per UE | 388 per window | 12 s |
+| 1 UE, grant only | 40 | 12 s |
+| 1 UE, grant + full `get`, 100 live objects | 897 | 269 s |
+| 1 UE, grant + `events`, 100 live objects | 80 | 24 s |
+| 4 UEs, grant only | 42 | 13 s |
+| 4 UEs, grant + full `get`, 20 live objects per UE | 935 | 281 s |
+| 4 UEs, grant + full `get`, 60 live objects per UE | 2381 | 714 s |
+| 4 UEs, grant + `events`, 60 live objects per UE | 51 | 15 s |
 
 Two conclusions. A slot per round trip is affordable: the lockstep itself costs
-tens of microseconds, and a 300 s run pays well under a minute for it. And the cost
-is dominated not by the round trip but by the size of the object map in the reply,
-which grows with the number of segments in flight. At 60 segments per UE the run
-approaches real time, and the congestion window grows with capacity, so that is the
-wrong thing for the cost to scale with. [docs/03](03-link-and-protocol-requirements.md)
-deals with it.
+tens of microseconds. And `events` removes the wrong scaling term: feedback stays
+close to the grant-only floor regardless of how many completed tags are retained,
+because only counter movements cross the socket. [docs/03](03-link-and-protocol-requirements.md)
+defines that protocol.
 
-The end-to-end run through `FikoreLink` measures 131 to 188 µs per slot with one UE
-and a live transfer, which is the same order and includes the model's own work.
+The real path confirms it. One UE moving 3 MB falls from 5465 to 416 µs per
+slot; four UEs moving 1 MB each fall from 5873 to 422 µs, including the model's
+own work and one compact telemetry snapshot per 10-TTI harness window.
 
 ## Skipping idle slots
 

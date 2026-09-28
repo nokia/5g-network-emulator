@@ -61,14 +61,12 @@ buffer.
 the dual-queue occupancies and marking probabilities recorded alongside the
 transport view. This is the experiment the whole design is for.
 
-**Phase 5 — performance.** The per-tag delta feedback, and the grant that stops on
-an event. Both are protocol additions rather than model changes, and both are
-measured before and after with `benchmarks/bench_lockstep.py`.
+**Phase 5 — performance.** Per-tag delta feedback is built and measured:
+`events` stays close to the grant-only floor instead of scaling with the number
+of retained tags. The remaining optional step is a grant that stops on an event,
+so an idle sender need not pay one round trip per millisecond.
 
 ## Ordering note
 
-Phase 2 does not depend on Phase 3, and Phase 3 does not depend on Phase 5. The one
-sequencing constraint that matters is that the per-tag delta feedback should land
-before any long grid of runs, because without it the cost of a run grows with the
-congestion window: 40 s of overhead for a 300 s run becomes four minutes once the
-window reaches 60 segments per UE.
+Phase 2 does not depend on Phase 3. The performance prerequisite for long grids is
+already in place: feedback no longer grows with the congestion window.

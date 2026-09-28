@@ -68,7 +68,8 @@ The v2 schema is the production contract for deterministic generation.
 - V2 metadata does not change the interpretation of the numeric map array
   without a new approved semantic version.
 - Canonical profiles use exact scenario-frequency lookup.
-- If nearest-frequency fallback is used, the runtime must report both requested
+- Nearest-frequency fallback is disabled by default. It requires
+  `allow_nearest_map_fallback: true`, and the runtime reports both requested
   and selected frequencies.
 - A map realization is immutable: changed bytes require a new realization ID
   and checksum.

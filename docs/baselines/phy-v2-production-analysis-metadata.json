@@ -1,5 +1,5 @@
 {
-  "analyzer_source_sha": "f89a3159935cc58737dd68324ca5f8ba72f21419",
+  "analyzer_source_sha": "2a6684c47137e3ddb187e4278727e8ed7f489a98",
   "delivery_conditioning": "contiguous positive-offer segments, non-outage UE; queue backlog is not observed",
   "outage_definition": "MCS below zero in >=99% of post-warm-up radio samples",
   "schema_version": 2,

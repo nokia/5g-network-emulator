@@ -77,6 +77,7 @@ The signed design review in `map-o2i-design-review.md` approves:
 - Python as the maintained generator;
 - preservation of the current ABG coefficient values;
 - exact 2.38 GHz lookup for the canonical n40 profile;
+- exact lookup by default, with explicit opt-in for nearest-frequency fallback;
 - one shipped deterministic realization per scenario-frequency pair;
 - separate runtime ownership of building and vehicle penetration.
 

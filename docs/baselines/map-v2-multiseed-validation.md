@@ -38,7 +38,7 @@
 
 ## Checks and interpretation
 
-- Maximum absolute radial LOS-probability bias: 0.038.
+- Maximum absolute bias of the 30-realization ensemble-mean radial LOS probability: 0.038.
 - Maximum absolute ensemble shadow-standard-deviation error: 0.000 dB.
 - Maximum absolute axial-autocorrelation error at the nearest grid-representable lag: 0.007.
 - Maximum absolute opposite-edge shadow correlation: 0.026; this diagnoses circular FFT seams and is not an acceptance pass.

@@ -123,8 +123,12 @@ def main() -> None:
     manuscript = (
         ROOT / "docs/phy-model-evolution-external-review.md"
     ).read_text()
-    validated_match = re.search(
-        r"\*\*Validated simulator source:\*\* `([0-9a-f]{40})`",
+    implementation_match = re.search(
+        r"\*\*Model implementation source:\*\* `([0-9a-f]{40})`",
+        manuscript,
+    )
+    profile_match = re.search(
+        r"\*\*Packet-profile source:\*\* `([0-9a-f]{40})`",
         manuscript,
     )
     runtime_match = re.search(
@@ -132,11 +136,17 @@ def main() -> None:
         manuscript,
     )
     if (
-        validated_match is None
-        or validated_match.group(1)
-        != manifest["source"]["validated_source_sha"]
+        implementation_match is None
+        or implementation_match.group(1)
+        != manifest["source"]["implementation_source_sha"]
     ):
-        raise ValueError("manuscript validated source SHA is stale")
+        raise ValueError("manuscript implementation source SHA is stale")
+    if (
+        profile_match is None
+        or profile_match.group(1)
+        != manifest["source"]["packet_profile_source_sha"]
+    ):
+        raise ValueError("manuscript profile source SHA is stale")
     if (
         runtime_match is None
         or runtime_match.group(1)

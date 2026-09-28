@@ -28,7 +28,7 @@ rejects even v2 dimensions and any origin other than
 Thirty independent master seeds were evaluated for every catalog entry
 (630 realizations). The largest observed diagnostics were:
 
-- absolute radial LOS-probability bias: 0.038;
+- absolute bias of the ensemble-mean radial LOS probability: 0.038;
 - axial shadow-autocorrelation error at the nearest representable lag: 0.007;
 - absolute ensemble-mean opposite-edge correlation: 0.026.
 

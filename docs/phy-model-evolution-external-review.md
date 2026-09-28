@@ -2,7 +2,8 @@
 
 **Status:** External technical-review manuscript
 **Model under test:** `feature/phy-model-v2`
-**Validated simulator source:** `7cbed30592232f44667f01384a4ce03dbf889c10`
+**Model implementation source:** `64d8385d4a148f039126f604e0d4467b1ade08c6`
+**Packet-profile source:** `2a6684c47137e3ddb187e4278727e8ed7f489a98`
 **Runtime-benchmark source:** `c943af3acf412092b9e95843802d4aebf6dfa1fc`
 **Evidence protocol:** `docs/phy-model-v2-evidence-protocol.md`
 **Date:** 2026-09-28
@@ -26,7 +27,8 @@ Validation combines unit invariants, byte reproduction, 630 independently
 seeded map realizations, five 180 s packet-level profiles, a controlled O2I
 stress pair, and repeated timing over 1–256 UEs. All promoted numeric map
 arrays are byte-reproducible from their v2.1 metadata. Within the inscribed
-map disks, the largest observed radial LOS bias is 0.038; axial
+map disks, the largest absolute bias of the 30-realization ensemble-mean
+radial LOS probability is 0.038; axial
 shadow-correlation error is 0.007, and
 opposite-edge correlation after padded generation is 0.026. Grouped PF
 reranking materially reduces 64-UE maximum service gaps while long-run Jain
@@ -569,12 +571,15 @@ change for one realization.
 
 Across 630 maps:
 
-- largest observed absolute radial LOS-probability bias within each map's
-  inscribed disk was 0.038;
+- largest absolute bias of the 30-realization ensemble-mean radial LOS
+  probability within each map's inscribed disk was 0.038;
 - largest observed axial-correlation error at the sampled physical lag was 0.007;
 - largest absolute ensemble-mean opposite-edge correlation was 0.026;
 - normalized shadow standard deviations equaled their configured values;
 - exact-frequency UMi 2.38 GHz lookup replaced nearest 3.5 GHz lookup.
+
+Exact scenario-frequency lookup is now the default. Nearest fallback requires
+`allow_nearest_map_fallback: true` and logs both frequencies.
 
 ![LOS-state ensemble validation](figures/phy-v2-map-los.svg)
 

@@ -36,7 +36,7 @@
     {
       "id": "map-v2.1-activation",
       "path": "docs/baselines/map-v2.1-activation.md",
-      "sha256": "110266779a5e58ff1a26255679cc8b68cb09c391b9ff35b282c120a6b886dd07"
+      "sha256": "00fc76acc80180dd3159d0d527b5d931579a260139e48780d98d3e820b0b1d2d"
     },
     {
       "id": "map-v2.1-multiseed-summary",
@@ -56,7 +56,7 @@
     {
       "id": "map-v2.1-statistics-report",
       "path": "docs/baselines/map-v2-multiseed-validation.md",
-      "sha256": "aa592c3b62a931f3cbf39a4600ea7ef656f3dff81f71829448f6a9398a30eafd"
+      "sha256": "a075077c85cbfa5ba987adfea0a84d2f956b231da784bac194ba74fc2dbc2519"
     },
     {
       "id": "map-v2.1-paired-profile-comparison",
@@ -76,7 +76,7 @@
     {
       "id": "production-analysis-metadata",
       "path": "docs/baselines/phy-v2-production-analysis-metadata.json",
-      "sha256": "a13607db3fcaf8a67635c3121d388724a7f59548cad86c81d4cabbcf419b4d20"
+      "sha256": "025c3b738b79c94f97d2037af5fe28fb31b871a1f08ddb9b006efeb2ffa12fa6"
     },
     {
       "id": "production-validation-report",
@@ -161,7 +161,7 @@
     {
       "id": "manuscript",
       "path": "docs/phy-model-evolution-external-review.md",
-      "sha256": "35b832d44727997138adbae820103633bea1fc079c0348e59d6da43450bba79d"
+      "sha256": "d0d36f4b1313e357ae9d2e0685edaecbd02414787e9db8c84578b80bc0fe6a76"
     },
     {
       "id": "python-dependency-lock",
@@ -272,10 +272,11 @@
     "branch": "feature/phy-model-v2",
     "dev_baseline_sha": "e995563fd3e8fa300f4b0accca3b494f7177101c",
     "feature_baseline_sha": "dc81da62f59ca93e36a02c36bdcecd45ec6cd2bd",
-    "map_catalog_source_sha": "59e1329bdbb1be0e6a4e83331339842b462215bb",
+    "implementation_source_sha": "64d8385d4a148f039126f604e0d4467b1ade08c6",
+    "map_catalog_source_sha": "59e1329f28e5960078ad32b5fa40e2b44b25571f",
     "map_statistics_source_sha": "172f1a8936e903ba93308c809dcc8ab309e59bfd",
-    "runtime_benchmark_source_sha": "c943af3acf412092b9e95843802d4aebf6dfa1fc",
-    "validated_source_sha": "2a6684c47137e3ddb187e4278727e8ed7f489a98"
+    "packet_profile_source_sha": "2a6684c47137e3ddb187e4278727e8ed7f489a98",
+    "runtime_benchmark_source_sha": "c943af3acf412092b9e95843802d4aebf6dfa1fc"
   },
   "study": "FikoRE PHY Model V2"
 }

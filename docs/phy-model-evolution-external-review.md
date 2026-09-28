@@ -3,7 +3,7 @@
 **Status:** External technical-review manuscript
 **Model under test:** `feature/phy-model-v2`
 **Validated simulator source:** `62764dc6957c9dadff3beecac4ac1c4e268a6ec3`
-**Runtime-benchmark source:** `38202afe9b31f9e8c63a5f09617850d3ab87b2f1`
+**Runtime-benchmark source:** `9862842045d0dc136e5c458546d09455efc7070b`
 **Evidence protocol:** `docs/phy-model-v2-evidence-protocol.md`
 **Date:** 2026-09-28
 
@@ -537,12 +537,12 @@ fairness and continuity consistently:
 
 | Grid | Unit | Jain none → rerank | Maximum DL gap none → rerank | P99 runtime none → rerank |
 |---|---|---:|---:|---:|
-| 20 MHz, \(\mu=1\) | grouped | 0.935 → 0.998 | 102 → 19 TTIs | 153 → 163 µs |
-| 100 MHz, \(\mu=1\) | grouped | 0.945 → 1.000 | 103 → 13 TTIs | 302 → 311 µs |
-| 400 MHz, \(\mu=3\) | grouped | 0.961 → 1.000 | 85 → 22 TTIs | 407 → 376 µs |
-| 20 MHz, \(\mu=1\) | per-PRB | 0.940 → 1.000 | 106 → 15 TTIs | 800 → 924 µs |
-| 100 MHz, \(\mu=1\) | per-PRB | 0.925 → 0.983 | 105 → 48 TTIs | 5329 → 4865 µs |
-| 400 MHz, \(\mu=3\) | per-PRB | 0.953 → 0.953 | 57 → 57 TTIs | 13640 → 13595 µs |
+| 20 MHz, \(\mu=1\) | grouped | 0.935 → 0.998 | 102 → 19 TTIs | 149 → 153 µs |
+| 100 MHz, \(\mu=1\) | grouped | 0.945 → 1.000 | 103 → 13 TTIs | 265 → 292 µs |
+| 400 MHz, \(\mu=3\) | grouped | 0.961 → 1.000 | 85 → 22 TTIs | 295 → 344 µs |
+| 20 MHz, \(\mu=1\) | per-PRB | 0.940 → 1.000 | 106 → 15 TTIs | 805 → 901 µs |
+| 100 MHz, \(\mu=1\) | per-PRB | 0.925 → 0.983 | 105 → 48 TTIs | 4104 → 4281 µs |
+| 400 MHz, \(\mu=3\) | per-PRB | 0.953 → 0.953 | 57 → 57 TTIs | 11836 → 10735 µs |
 
 ![PF reranking fairness and service gaps](figures/phy-v2-reranking.svg)
 
@@ -556,11 +556,12 @@ Runtime is a property of the complete grid/population, not only reranking:
 ![Measured PF runtime envelope](figures/phy-v2-runtime.svg)
 
 On the measured host, grouped P99 remains below 1 ms through 64 UEs for every
-tested bandwidth, and through 256 UEs only for the 20 MHz case. Distributed
-per-PRB P99 exceeds 1 ms for 100 MHz with allocation-unit reranking even at one
-UE, and both 400 MHz modes exceed 6 ms at one UE. At 256 UEs, P99 reaches
-17.25 ms for 100 MHz and 42.25 ms for 400 MHz. No general real-time claim is
-supported outside the tested grouped envelope.
+tested bandwidth. At 256 UEs, grouped reranking remains below 1 ms at 20 MHz
+but reaches 1.04 ms at 100 MHz and 1.09 ms at 400 MHz. Distributed per-PRB
+100 MHz crosses 1 ms at 16 UEs; both 400 MHz modes exceed 5.9 ms even at one
+UE. At 256 UEs, per-PRB P99 reaches 16.27 ms for 100 MHz and 36.60 ms for
+400 MHz. No general real-time claim is supported outside the tested grouped
+envelope.
 
 ## 7. External validity and parameter realism
 

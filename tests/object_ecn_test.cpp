@@ -98,6 +98,28 @@ void test_the_ecn_field_is_parsed_by_name()
     assert(error.find("ecn") != std::string::npos);
 }
 
+void test_the_events_cursor_is_explicit()
+{
+    std::vector<command> cmds;
+    std::string error;
+    assert(ndjson::parse_line(
+        "{\"id\":5,\"cmds\":[{\"op\":\"events\",\"after\":17,"
+        "\"include_state\":true,\"resync\":true}]}",
+        5, cmds, error));
+    assert(cmds.size() == 1);
+    assert(cmds[0].op == command_op::events);
+    assert(cmds[0].target == "cell");
+    assert(cmds[0].after == 17);
+    assert(cmds[0].include_state);
+    assert(cmds[0].resync_events);
+
+    cmds.clear();
+    error.clear();
+    assert(!ndjson::parse_line("{\"id\":6,\"cmds\":[{\"op\":\"events\"}]}",
+                               6, cmds, error));
+    assert(error == "events needs an after cursor");
+}
+
 // An object that declares ECT(1) and overfeeds the cell is marked rather than dropped,
 // which is the whole difference between a scalable sender and a classic one.
 void test_ect1_is_marked_instead_of_dropped()
@@ -182,6 +204,7 @@ void test_marks_are_attributed_per_object()
 int main()
 {
     test_the_ecn_field_is_parsed_by_name();
+    test_the_events_cursor_is_explicit();
     test_ect1_is_marked_instead_of_dropped();
     test_not_ect_traffic_is_never_marked();
     test_the_aqm_drops_long_before_the_budget_would();

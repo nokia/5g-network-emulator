@@ -46,6 +46,7 @@ command_op parse_op(const std::string &s)
     if (s == "grant") return command_op::grant;
     if (s == "inject") return command_op::inject;
     if (s == "forget") return command_op::forget;
+    if (s == "events") return command_op::events;
     return command_op::set;
 }
 }
@@ -120,6 +121,21 @@ bool parse_line(const std::string &line, std::uint64_t fallback_id,
                     error = "grant needs until_tti";
                     return false;
                 }
+                c.target = "cell";
+            }
+
+            if (c.op == command_op::events)
+            {
+                if (!item.contains("after"))
+                {
+                    error = "events needs an after cursor";
+                    return false;
+                }
+                c.after = item["after"].get<std::uint64_t>();
+                if (item.contains("include_state"))
+                    c.include_state = item["include_state"].get<bool>();
+                if (item.contains("resync"))
+                    c.resync_events = item["resync"].get<bool>();
                 c.target = "cell";
             }
 
@@ -230,6 +246,12 @@ std::string serialize_journal_entry(const command &c, double sim_t, std::int64_t
     case command_op::forget:
         cmd["op"] = "forget";
         cmd["tag"] = c.tag;
+        break;
+    case command_op::events:
+        cmd["op"] = "events";
+        cmd["after"] = c.after;
+        if (c.include_state) cmd["include_state"] = true;
+        if (c.resync_events) cmd["resync"] = true;
         break;
     default: cmd["op"] = "set"; break;
     }

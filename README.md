@@ -90,6 +90,20 @@ nc -U /tmp/fikore-control.sock
 {"id":1,"cmds":[{"target":"ue/0","set":{"priority":8.0}}]}
 ```
 
+A transport model should use the incremental `events` operation instead of polling
+the full UE state every TTI:
+
+```json
+{"id":2,"cmds":[{"op":"events","after":0,"include_state":true}]}
+```
+
+The reply carries only per-tag counter movements newer than `after`, plus an
+optional compact state snapshot. Advance `after` only after consuming the complete
+reply: unacknowledged events are retained and the same cursor safely replays them.
+`max_object_events` bounds that replay log (65536 by default). Overflow aborts a
+barrier run; an asynchronous client must recover atomically with
+`{"op":"events","after":0,"resync":true}`.
+
 A scenario can also be scripted with no network at all, through `timeline_file` in the
 `[Control]` section, and any session can be journaled and replayed exactly.
 

@@ -426,6 +426,7 @@ void configuration_loader::load(std::string cfg_file)
                                 if (key == "timeline_file") control_c.timeline_file = value;
                                 if (key == "journal_file") control_c.journal_file = value;
                                 if (key == "max_cmds_per_tick") control_c.max_cmds_per_tick = std::stoi(value);
+                                if (key == "max_object_events") control_c.max_object_events = std::stoi(value);
                             }
                             if (mode == "Monitoring")
                             {

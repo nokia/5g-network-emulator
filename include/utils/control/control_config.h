@@ -43,4 +43,9 @@ struct control_config
     std::string journal_file = "none";
 
     int max_cmds_per_tick = 256;
+
+    // Replayable object events retained for one control peer. A barrier run aborts if
+    // this fills, because losing transport feedback invalidates it. An async client is
+    // instead required to resynchronise from a full snapshot.
+    int max_object_events = 65536;
 };

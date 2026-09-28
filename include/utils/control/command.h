@@ -31,7 +31,10 @@ enum class command_op
     inject,
     // Releases an object's counters. The emulator cannot know that an object is
     // finished, because it does not know its size; whoever injected it does.
-    forget
+    forget,
+    // Incremental object feedback for a transport model. Cell-wide: returns only the
+    // counter movements after a client-confirmed cursor, not every live object.
+    events
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -64,6 +67,12 @@ struct command
     int tx_dir = -1;
     double bytes = 0.0;
     std::uint8_t ecn = 0;   // ECN_NOT_ECT
+
+    // Only meaningful for events. `after` is the last cursor the client consumed; the
+    // server retains later events so retrying the same request is idempotent.
+    std::uint64_t after = 0;
+    bool include_state = false;
+    bool resync_events = false;
 };
 
 struct ack_error

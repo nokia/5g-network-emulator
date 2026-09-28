@@ -31,6 +31,7 @@ void control_manager::init(const control_config &cfg, std::vector<ue> *ue_list, 
 {
     ue_list_ = ue_list;
     max_cmds_per_tick_ = cfg.max_cmds_per_tick;
+    max_object_events_ = (size_t)std::max(1, cfg.max_object_events);
     cell_ = cell;
     const float period_ms = cell.period_ms;
 
@@ -232,6 +233,10 @@ void control_manager::tick(double sim_t, std::int64_t tti)
 
     wait_for_credit(tti);
 
+    // Changes produced by the previous TTI are now stable: both worker pools are
+    // parked, which is the same reason applying control here needs no atomics.
+    collect_object_events(tti);
+    if (stopping_) return;
     drain_transport();
     apply_due(sim_t, tti);
 
@@ -321,6 +326,76 @@ void control_manager::apply_due(double sim_t, std::int64_t tti)
     }
 }
 
+void control_manager::collect_object_events(std::int64_t tti)
+{
+    if (!object_events_enabled_ || ue_list_ == nullptr) return;
+
+    std::vector<object_event> pending;
+    // unordered_map iteration would make the wire order depend on hash layout. The
+    // changes within one TTI are simultaneous at this boundary, so UE, direction and
+    // tag order is the deterministic order to expose.
+    for (size_t i = 0; i < ue_list_->size(); i++)
+    {
+        ue &u = (*ue_list_)[i];
+        for (int tx_dir : {TX_DL, TX_UL})
+        {
+            std::unordered_map<std::uint32_t, object_counters> changed =
+                u.take_object_events(tx_dir);
+            std::vector<std::uint32_t> tags;
+            tags.reserve(changed.size());
+            for (const auto &entry : changed) tags.push_back(entry.first);
+            std::sort(tags.begin(), tags.end());
+
+            for (std::uint32_t tag : tags)
+            {
+                const object_counters &c = changed[tag];
+                object_event e;
+                // Collected at the next quiescent point: these counters moved while
+                // the preceding TTI was running.
+                e.at_tti = tti - 1;
+                e.ue_id = u.get_id();
+                e.tx_dir = tx_dir;
+                e.tag = tag;
+                e.delivered_bytes = c.delivered_bits / 8.0;
+                e.expired_bytes = c.expired_bits / 8.0;
+                e.queue_dropped_bytes = c.queue_dropped_bits / 8.0;
+                e.radio_dropped_bytes = c.radio_dropped_bits / 8.0;
+                e.ce_bytes = c.ce_bits / 8.0;
+                pending.push_back(e);
+            }
+        }
+    }
+
+    // Once there is a gap, keep draining the handler-local maps so they remain
+    // bounded, but do not pretend the global stream can resume without a snapshot.
+    if (object_event_gap_) return;
+    if (object_events_.size() + pending.size() > max_object_events_)
+    {
+        object_event_gap_ = true;
+        object_events_.clear();
+        if (mode_ == mode_t::barrier)
+        {
+            stopping_ = true;
+            LOG_ERROR_I("control_manager")
+                << " object event backlog exceeded " << max_object_events_
+                << " entries; aborting the lockstep run before feedback is lost" << END();
+        }
+        else
+        {
+            LOG_WARNING_I("control_manager")
+                << " object event backlog exceeded " << max_object_events_
+                << " entries; incremental feedback has a gap and needs resync" << END();
+        }
+        return;
+    }
+
+    for (object_event &e : pending)
+    {
+        e.seq = ++object_event_seq_;
+        object_events_.push_back(e);
+    }
+}
+
 bool control_manager::resolve_target(const std::string &target, std::vector<ue *> &out, ack &a)
 {
     if (target == "ue/*")
@@ -393,6 +468,14 @@ void control_manager::apply(const command &c, double sim_t, std::int64_t tti)
     {
         a.ok = true;
         a.payload = param_registry::instance().describe_json();
+        transport_->reply(a);
+        return;
+    }
+
+    if (c.op == command_op::events)
+    {
+        a.payload = read_object_events(c, a);
+        a.ok = a.errors.empty();
         transport_->reply(a);
         return;
     }
@@ -496,7 +579,7 @@ namespace
 // Everything a client driving its own injection needs in order to pace: what is still
 // queued, what came out, and what was lost and why. Cumulative where it makes sense, so
 // two reads can be diffed and a lost read costs nothing.
-nlohmann::json direction_state(ue &u, int tx_dir)
+nlohmann::json direction_state(ue &u, int tx_dir, bool include_objects = true)
 {
     pdcp_layer &p = u.pdcp_state(tx_dir);
     const pdcp_queue_status q = p.get_queue_status();
@@ -526,7 +609,7 @@ nlohmann::json direction_state(ue &u, int tx_dir)
     // states only: what is neither delivered nor lost is still in flight, which the
     // client knows because it knows how much it injected.
     const std::unordered_map<std::uint32_t, object_counters> &objects = p.objects();
-    if (!objects.empty())
+    if (include_objects && !objects.empty())
     {
         nlohmann::json o = nlohmann::json::object();
         for (std::unordered_map<std::uint32_t, object_counters>::const_iterator it = objects.begin();
@@ -571,6 +654,113 @@ std::string control_manager::read_cell_state() const
     j["apothem_m"] = (ue_list_ != nullptr && !ue_list_->empty()) ? (*ue_list_)[0].get_apothem() : 0.0f;
 
     return j.dump();
+}
+
+std::string control_manager::read_object_events(const command &c, ack &a)
+{
+    nlohmann::json result;
+    result["cursor"] = object_event_seq_;
+    result["events"] = nlohmann::json::array();
+
+    if (c.resync_events)
+    {
+        // One quiescent operation: the snapshot is the exact cumulative state from
+        // which future deltas start, so there is no gap between a separate get and
+        // re-arming the stream.
+        std::vector<ue *> targets;
+        for (size_t i = 0; ue_list_ != nullptr && i < ue_list_->size(); i++)
+            targets.push_back(&(*ue_list_)[i]);
+        result["snapshot"] = nlohmann::json::parse(read_state(targets));
+
+        object_events_.clear();
+        object_event_floor_ = object_event_seq_;
+        object_event_gap_ = false;
+        for (ue *u : targets) u->enable_object_events();
+        object_events_enabled_ = true;
+        result["cursor"] = object_event_seq_;
+        return result.dump();
+    }
+
+    if (object_event_gap_)
+    {
+        ack_error e; e.key = "after";
+        e.reason = "event backlog overflow; resync with events resync:true";
+        a.errors.push_back(e);
+        return result.dump();
+    }
+
+    if (!object_events_enabled_)
+    {
+        if (c.after != 0)
+        {
+            ack_error e; e.key = "after"; e.reason = "first events cursor must be 0";
+            a.errors.push_back(e);
+            return result.dump();
+        }
+
+        // Subscription starts here, not retroactively. Existing get-only clients keep
+        // paying no delta-accounting cost, and a client can switch explicitly by first
+        // taking a full get and then arming events with cursor zero.
+        for (size_t i = 0; ue_list_ != nullptr && i < ue_list_->size(); i++)
+            (*ue_list_)[i].enable_object_events();
+        object_events_enabled_ = true;
+    }
+    else
+    {
+        if (c.after < object_event_floor_)
+        {
+            ack_error e; e.key = "after"; e.reason = "cursor has already been acknowledged";
+            a.errors.push_back(e);
+            return result.dump();
+        }
+        if (c.after > object_event_seq_)
+        {
+            ack_error e; e.key = "after"; e.reason = "cursor is ahead of the event stream";
+            a.errors.push_back(e);
+            return result.dump();
+        }
+
+        // `after` is proof of consumption, not the cursor being requested. Keep newer
+        // events until a later call acknowledges them; retrying this call is therefore
+        // idempotent even if its previous reply was lost.
+        while (!object_events_.empty() && object_events_.front().seq <= c.after)
+            object_events_.pop_front();
+        object_event_floor_ = c.after;
+    }
+
+    result["cursor"] = object_event_seq_;
+    for (const object_event &e : object_events_)
+    {
+        nlohmann::json j;
+        j["seq"] = e.seq;
+        j["at_tti"] = e.at_tti;
+        j["target"] = std::string("ue/") + std::to_string(e.ue_id);
+        j["dir"] = e.tx_dir == TX_UL ? "ul" : "dl";
+        j["tag"] = e.tag;
+        // Zero fields carry no information and dominate tiny events on the wire.
+        if (e.delivered_bytes > 0.0) j["delivered_bytes"] = e.delivered_bytes;
+        if (e.expired_bytes > 0.0) j["expired_bytes"] = e.expired_bytes;
+        if (e.queue_dropped_bytes > 0.0) j["queue_dropped_bytes"] = e.queue_dropped_bytes;
+        if (e.radio_dropped_bytes > 0.0) j["radio_dropped_bytes"] = e.radio_dropped_bytes;
+        if (e.ce_bytes > 0.0) j["ce_bytes"] = e.ce_bytes;
+        result["events"].push_back(j);
+    }
+
+    if (c.include_state)
+    {
+        nlohmann::json state = nlohmann::json::array();
+        for (size_t i = 0; ue_list_ != nullptr && i < ue_list_->size(); i++)
+        {
+            nlohmann::json j;
+            j["target"] = std::string("ue/") + std::to_string((*ue_list_)[i].get_id());
+            j["dl"] = direction_state((*ue_list_)[i], TX_DL, false);
+            j["ul"] = direction_state((*ue_list_)[i], TX_UL, false);
+            state.push_back(j);
+        }
+        result["state"] = state;
+    }
+
+    return result.dump();
 }
 
 std::string control_manager::read_state(const std::vector<ue *> &targets) const

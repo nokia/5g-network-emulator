@@ -49,6 +49,9 @@ public:
     { return _packet_h->inject_bits(bits, tag, ecn); }
     const std::unordered_map<std::uint32_t, object_counters> &objects() const { return _packet_h->objects(); }
     bool forget_object(std::uint32_t tag) { return _packet_h->forget_object(tag); }
+    void enable_object_events() { _packet_h->enable_object_events(); }
+    std::unordered_map<std::uint32_t, object_counters> take_object_events()
+    { return _packet_h->take_object_events(); }
 
     // Everything the client needs to pace its own injection, cumulative where it makes
     // sense so that two reads can be diffed. Bits here; the control channel converts.

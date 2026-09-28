@@ -118,6 +118,13 @@ public:
         return none;
     }
     virtual bool forget_object(std::uint32_t tag) { (void)tag; return false; }
+    // The events control operation is opt-in, so existing get-only clients pay neither
+    // the write nor the memory cost of maintaining deltas. Once enabled, every terminal
+    // counter movement is accumulated by tag until control_manager collects it at the
+    // next quiescent point.
+    virtual void enable_object_events() {}
+    virtual std::unordered_map<std::uint32_t, object_counters> take_object_events()
+    { return {}; }
     virtual int get_pkt_size() const { return 0; }
 
     // Cumulative, monotonic counters. The client diffs two reads, so a lost read loses

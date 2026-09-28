@@ -171,6 +171,13 @@ public:
         const bool ul = pdcp_ul.forget_object(tag);
         return dl || ul;
     }
+    void enable_object_events()
+    {
+        pdcp_dl.enable_object_events();
+        pdcp_ul.enable_object_events();
+    }
+    std::unordered_map<std::uint32_t, object_counters> take_object_events(int tx_dir)
+    { return pdcp(tx_dir).take_object_events(); }
     void set_pkt_delay_budget(float budget_s)
     {
         pdcp_dl.set_pkt_delay_budget(budget_s);

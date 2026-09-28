@@ -149,7 +149,14 @@ phy_layer::phy_layer(int _tx, int _id, scenario_config _scenario_config, phy_ue_
     init_update_rates(doppler_f, cqi_period, ri_period);
 
     if (mcs_tables)
-        std::copy(MCS_SINR[modulation_m][rbg_lookup_index][layers], MCS_SINR[modulation_m][rbg_lookup_index][layers] + MCS_INDEX_MAX, mcs_lookup);
+    {
+        const int layer_index = get_mcs_layer_index(layers);
+        std::copy(
+            MCS_SINR[modulation_m][rbg_lookup_index][layer_index],
+            MCS_SINR[modulation_m][rbg_lookup_index][layer_index]
+                + MCS_INDEX_MAX,
+            mcs_lookup);
+    }
 }
 
 void phy_layer::compute_coherence_bw()
@@ -700,16 +707,8 @@ void phy_layer::estimate_ri()
 {
     if (tx == TX_DL)
     {
-        int i;
-        for (i = 0; i < max_ri; i++)
-        {
-            if (db_sinr_s <= RI_THRES[modulation_m][i])
-            {
-                current_ri = i + 1;
-                current_ri = std::min(current_ri, mimo_l);
-                return;
-            }
-        }
+        current_ri = estimate_rank_from_mean_sinr(
+            modulation_m, max_ri, db_sinr_s);
     }
     else
     {

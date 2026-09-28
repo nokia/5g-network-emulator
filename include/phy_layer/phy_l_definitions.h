@@ -7,6 +7,7 @@
 #ifndef PHY_L_DEFINITIONS
 #define PHY_L_DEFINITIONS
 
+#include <algorithm>
 #include <math.h>
 #include <vector>
 #include <common/direction.h>
@@ -63,6 +64,26 @@ static const float EFF_2_CQI[2][NUM_CQI_VALUES + 1] = {{0,0.1523,0.2344,0.3770,0
 
 #define NUM_RI_VALUES 4
 static const float RI_THRES[2][NUM_RI_VALUES-1] = {{4.87, 11.47, 22.82},{4.87, 7.87, 10.87}};
+
+inline int get_mcs_layer_index(int layers)
+{
+    return std::max(1, std::min(layers, NUM_RI_VALUES)) - 1;
+}
+
+inline int estimate_rank_from_mean_sinr(
+    int modulation_index,
+    int maximum_rank,
+    float mean_sinr_db)
+{
+    const int rank_limit =
+        std::max(1, std::min(maximum_rank, NUM_RI_VALUES));
+    for (int index = 0; index < rank_limit - 1; index++)
+    {
+        if (mean_sinr_db <= RI_THRES[modulation_index][index])
+            return index + 1;
+    }
+    return rank_limit;
+}
 
 #define NUM_MCS_VALUES 29
 static const float EFF_2_MCS[2][NUM_MCS_VALUES] = {{  0.2344,

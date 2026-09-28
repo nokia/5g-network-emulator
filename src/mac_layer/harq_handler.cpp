@@ -5,6 +5,7 @@
 **********************************************/
 
 #include <mac_layer/harq_handler.h>
+#include <phy_layer/phy_l_definitions.h>
 
 harq_handler::harq_handler(int _max_rtx, float _air_delay, 
                  float _rtx_period, float _rtx_period_var, 
@@ -135,7 +136,7 @@ void harq_handler::init(int _mod_i, int _layers, int _logic_units)
 {
     rbg_i = GET_RBG_INDEX(_logic_units);
     mod_i = _mod_i; 
-    l_i = _layers - 1; 
+    l_i = get_mcs_layer_index(_layers);
     logic_units = _logic_units;
 }
 

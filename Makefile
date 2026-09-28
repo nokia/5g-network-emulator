@@ -39,7 +39,7 @@ TRANSPORT_TESTS := \
 	transport/tests/test_prague.py \
 	transport/tests/test_transports.py
 
-.PHONY: all tools run test test-transport test-transport-integration smoke clean print-objects
+.PHONY: all tools run test test-api test-transport test-transport-integration smoke clean print-objects
 .SECONDARY: $(TEST_OBJECTS)
 
 all: $(TARGET) $(TOOLS_TARGETS)
@@ -99,6 +99,10 @@ test-transport:
 test-transport-integration: all
 	@echo "[TEST] transport/tests/test_fikore_link.py"
 	@PYTHONPATH=transport $(PYTHON) transport/tests/test_fikore_link.py
+
+test-api:
+	@echo "[TEST] api/tests"
+	@PYTHONPATH=api $(PYTHON) -m pytest api/tests -q
 
 smoke: all
 	./$(TARGET) tests/smoke_sim.ini

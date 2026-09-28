@@ -24,6 +24,13 @@ RUN make -j"$(nproc)" \
   && make test-transport \
   && make test-transport-integration
 
+# Test dependencies stay out of the shipped API environment.
+RUN python3 -m venv /tmp/fikore-api-test \
+  && /tmp/fikore-api-test/bin/pip install --no-cache-dir --upgrade pip \
+  && /tmp/fikore-api-test/bin/pip install --no-cache-dir -r api/requirements-test.txt \
+  && make test-api PYTHON=/tmp/fikore-api-test/bin/python \
+  && rm -rf /tmp/fikore-api-test
+
 # The control API ships with the emulator and is built here, in its own venv: it is
 # independent of the repo's .venv, which belongs to the analyzers and pulls in numpy and
 # matplotlib.

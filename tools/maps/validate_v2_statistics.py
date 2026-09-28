@@ -170,7 +170,7 @@ def markdown_report(
         "",
         "| Scenario | GHz | Link gain P50 (dB) | LOS radial RMSE | "
         "LOS shadow std (dB) | NLOS shadow std (dB) | "
-        "LOS/NLOS correlation at declared distance | Coverage proxy |",
+        "LOS/NLOS correlation observed/target | Coverage proxy |",
         "|---|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for row in map_rows:
@@ -187,8 +187,10 @@ def markdown_report(
             f"{float(row['los_radial_rmse_mean']):.3f} | "
             f"{float(row['los_shadow_std_mean_db']):.2f} | "
             f"{float(row['nlos_shadow_std_mean_db']):.2f} | "
-            f"{float(row['los_autocorr_mean']):.3f} / "
-            f"{float(row['nlos_autocorr_mean']):.3f} | {coverage} |"
+            f"{float(row['los_autocorr_mean']):.3f}/"
+            f"{float(row['los_autocorr_target']):.3f}; "
+            f"{float(row['nlos_autocorr_mean']):.3f}/"
+            f"{float(row['nlos_autocorr_target']):.3f} | {coverage} |"
         )
 
     max_radial_bias = max(
@@ -206,6 +208,19 @@ def markdown_report(
         )
         for row in map_rows
     )
+    max_autocorr_error = max(
+        max(
+            abs(
+                float(row["los_autocorr_mean"])
+                - float(row["los_autocorr_target"])
+            ),
+            abs(
+                float(row["nlos_autocorr_mean"])
+                - float(row["nlos_autocorr_target"])
+            ),
+        )
+        for row in map_rows
+    )
     lines.extend(
         [
             "",
@@ -215,9 +230,11 @@ def markdown_report(
             f"{max_radial_bias:.3f}.",
             f"- Maximum absolute ensemble shadow-standard-deviation error: "
             f"{max_shadow_std_error:.3f} dB.",
-            f"- The declared one-decorrelation-distance target is "
-            f"`exp(-1) = {math.exp(-1.0):.3f}`; observed finite-grid values "
-            "are reported rather than forced to the target.",
+            f"- Maximum absolute axial-autocorrelation error at the nearest "
+            f"grid-representable lag: {max_autocorr_error:.3f}.",
+            "- Autocorrelation targets use `exp(-lag/d_cor)` at the reported "
+            "integer-cell lag; they are not incorrectly compared with "
+            "`exp(-1)` when the declared distance falls between cells.",
             "- Link-gain intervals quantify realization variability for the "
             "generator. They are not confidence intervals for field "
             "prediction error.",
@@ -333,6 +350,20 @@ def main() -> None:
                         "nlos_autocorr_at_declared_distance":
                             axial_autocorrelation(
                                 components.nlos_shadow_db, nlos_lag),
+                        "los_autocorr_lag_m":
+                            los_lag * components.cell_size_m,
+                        "nlos_autocorr_lag_m":
+                            nlos_lag * components.cell_size_m,
+                        "los_autocorr_target": math.exp(
+                            -los_lag
+                            * components.cell_size_m
+                            / parameters.los_correlation_m
+                        ),
+                        "nlos_autocorr_target": math.exp(
+                            -nlos_lag
+                            * components.cell_size_m
+                            / parameters.nlos_correlation_m
+                        ),
                         "coverage_proxy_0db": coverage_proxy(
                             scenario, frequency_ghz, link_gain),
                     }
@@ -406,7 +437,10 @@ def main() -> None:
                 "nlos_autocorr_mean": nlos_corr[0],
                 "nlos_autocorr_ci_low": nlos_corr[1],
                 "nlos_autocorr_ci_high": nlos_corr[2],
-                "autocorr_target": math.exp(-1.0),
+                "los_autocorr_lag_m": rows[0]["los_autocorr_lag_m"],
+                "los_autocorr_target": rows[0]["los_autocorr_target"],
+                "nlos_autocorr_lag_m": rows[0]["nlos_autocorr_lag_m"],
+                "nlos_autocorr_target": rows[0]["nlos_autocorr_target"],
                 "coverage_proxy_mean": coverage[0],
                 "coverage_proxy_ci_low": coverage[1],
                 "coverage_proxy_ci_high": coverage[2],

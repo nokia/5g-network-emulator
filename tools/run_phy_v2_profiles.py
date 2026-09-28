@@ -33,6 +33,8 @@ EXPECTED_MAPS = {
         "macroscopic_fading_map_INDOOR_OPEN_OFFICE_3.5.json",
     "offline_umi_n258_fwa":
         "macroscopic_fading_map_URBAN_MICROCELL_26.json",
+    "offline_umi_n258_fwa_high_loss":
+        "macroscopic_fading_map_URBAN_MICROCELL_26.json",
 }
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
@@ -96,6 +98,10 @@ def main() -> None:
     parser.add_argument("--duration-s", type=int, default=180)
     parser.add_argument("--batch-id")
     parser.add_argument(
+        "--profiles",
+        help="comma-separated profile names; defaults to the five references",
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=ROOT / "results" / "phy-v2-production-maps",
@@ -113,6 +119,14 @@ def main() -> None:
     batch_id = args.batch_id or (
         f"phy-v2-production-{source_sha[:8]}-seed{args.seed}"
     )
+    profiles = (
+        tuple(args.profiles.split(","))
+        if args.profiles
+        else PROFILES
+    )
+    unknown = sorted(set(profiles) - EXPECTED_MAPS.keys())
+    if unknown:
+        raise SystemExit(f"unknown profiles: {unknown}")
     output = args.output.resolve()
     input_dir = output / "inputs"
     stdout_dir = output / "stdout"
@@ -125,7 +139,7 @@ def main() -> None:
         entry["file"]: entry for entry in production_manifest["maps"]
     }
     runs = []
-    for profile in PROFILES:
+    for profile in profiles:
         source = ROOT / "config" / f"{profile}.ini"
         run_id = f"{batch_id}-{profile}"
         rendered = render_config(

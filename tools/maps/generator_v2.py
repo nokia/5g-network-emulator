@@ -13,8 +13,8 @@ from pathlib import Path
 import numpy as np
 
 GENERATOR_NAME = "fikore-map-generator"
-GENERATOR_VERSION = "2.0.0"
-MAP_SEMANTIC_VERSION = "2.0.0"
+GENERATOR_VERSION = "2.1.0"
+MAP_SEMANTIC_VERSION = "2.1.0"
 
 
 @dataclass(frozen=True)
@@ -45,6 +45,18 @@ SCENARIO_PARAMETERS = {
     "INDOOR_OPEN_OFFICE": ScenarioParameters(10.0, 6.0, 4.3, 7.9),
     "INDOOR_MIXED_OFFICE": ScenarioParameters(10.0, 6.0, 4.3, 7.9),
     "INDOOR_SHOPPING_MALL": ScenarioParameters(10.0, 10.0, 3.3, 4.6),
+}
+
+LOS_PROBABILITY_MODELS = {
+    "RURAL_MACROCELL": "3gpp-tr-38.901-v18.1.0-clause-7.4.2-rma",
+    "URBAN_MICROCELL": "3gpp-tr-38.901-v18.1.0-clause-7.4.2-umi",
+    "URBAN_MACROCELL": "3gpp-tr-38.901-v18.1.0-clause-7.4.2-uma",
+    "INDOOR_OPEN_OFFICE":
+        "3gpp-tr-38.901-v18.1.0-clause-7.4.2-inh-open",
+    "INDOOR_MIXED_OFFICE":
+        "3gpp-tr-38.901-v18.1.0-clause-7.4.2-inh-mixed",
+    "INDOOR_SHOPPING_MALL":
+        "legacy-fikore-shopping-mall-heuristic-provenance-pending",
 }
 
 
@@ -133,16 +145,29 @@ def correlated_gaussian(
     cell_size_m: float,
     correlation_m: float,
 ) -> np.ndarray:
-    center = (cell_number - 1) / 2.0
-    axis = (np.arange(cell_number) - center) * cell_size_m
-    x_grid, y_grid = np.meshgrid(axis, axis)
+    # Embed the target covariance in a grid twice as wide, generate a periodic
+    # field there, and crop one contiguous cell_number square. Within the crop,
+    # Euclidean separations use the intended covariance rather than wrapping
+    # opposite production-map edges into artificial neighbors.
+    embedding_size = 2 * cell_number
+    indices = np.arange(embedding_size)
+    wrapped_distance = np.minimum(
+        indices, embedding_size - indices) * cell_size_m
+    x_grid, y_grid = np.meshgrid(
+        wrapped_distance, wrapped_distance)
     covariance = np.exp(
         -np.hypot(x_grid, y_grid) / correlation_m)
-    spectrum = np.real(np.fft.fft2(np.fft.ifftshift(covariance)))
+    spectrum = np.real(np.fft.fft2(covariance))
     spectrum = np.maximum(spectrum, 0.0)
-    white = rng.normal(size=(cell_number, cell_number))
-    field = np.real(
+    white = rng.normal(size=(embedding_size, embedding_size))
+    embedded_field = np.real(
         np.fft.ifft2(np.fft.fft2(white) * np.sqrt(spectrum)))
+    crop_start = (embedding_size - cell_number) // 2
+    crop_end = crop_start + cell_number
+    field = embedded_field[
+        crop_start:crop_end,
+        crop_start:crop_end,
+    ]
     field -= float(np.mean(field))
     standard_deviation = float(np.std(field))
     if standard_deviation <= 0.0:
@@ -179,6 +204,9 @@ def generate_components(
     cell_number: int = 291,
     ue_height_m: float = 1.5,
 ) -> MapComponents:
+    if cell_number < 3 or cell_number % 2 == 0:
+        raise ValueError(
+            "v2 cell_number must be odd and at least 3")
     parameters = SCENARIO_PARAMETERS[scenario]
     cell_size_m = 0.5 * min(
         parameters.los_correlation_m,
@@ -277,6 +305,8 @@ def generate_map(
         "los_decorrelation_m": parameters.los_correlation_m,
         "nlos_decorrelation_m": parameters.nlos_correlation_m,
         "los_state_model": "correlated-gaussian-cdf-threshold",
+        "los_probability_model": LOS_PROBABILITY_MODELS[scenario],
+        "coefficient_validity_range": "not-encoded",
     }
     realization_hash = parameter_hash(generation_parameters)
     metadata = {

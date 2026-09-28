@@ -87,6 +87,9 @@ def summarize_map(path: Path) -> dict:
     if schema_version != 2:
         raise ValueError(
             f"{path.name}: unsupported schema version {schema_version}")
+    if cell_number < 3 or cell_number % 2 == 0:
+        raise ValueError(
+            f"{path.name}: v2 cell_number must be odd and at least 3")
     metadata = payload.get("metadata")
     if not isinstance(metadata, dict):
         raise ValueError(f"{path.name}: v2 metadata is missing")
@@ -100,6 +103,8 @@ def summarize_map(path: Path) -> dict:
         "grid_origin",
         "pathloss_family",
         "los_state_model",
+        "los_probability_model",
+        "coefficient_validity_range",
     }
     missing = sorted(required - metadata.keys())
     if missing:
@@ -116,6 +121,8 @@ def summarize_map(path: Path) -> dict:
             f"{path.name}: frequency metadata disagrees with filename")
     if int(metadata.get("cell_number", cell_number)) != cell_number:
         raise ValueError(f"{path.name}: metadata cell_number mismatch")
+    if metadata["grid_origin"] != "explicit-center-cell":
+        raise ValueError(f"{path.name}: unsupported v2 grid_origin")
     if not math.isclose(
         float(metadata.get("cell_size_m", cell_size)),
         cell_size,
@@ -135,6 +142,9 @@ def summarize_map(path: Path) -> dict:
             "grid_origin": metadata["grid_origin"],
             "pathloss_family": metadata["pathloss_family"],
             "los_state_model": metadata["los_state_model"],
+            "los_probability_model": metadata["los_probability_model"],
+            "coefficient_validity_range":
+                metadata["coefficient_validity_range"],
             "metadata_sha256": canonical_sha256(metadata),
             "provenance_status": "deterministic-production-realization",
         }

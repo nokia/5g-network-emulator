@@ -18,6 +18,7 @@ from generator_v2 import (
     generate_components,
     generate_map,
     los_probability,
+    pathloss_map,
     write_map,
 )
 
@@ -58,6 +59,38 @@ class GeneratorV2Test(unittest.TestCase):
         )
         self.assertEqual(metadata["seed"], 42)
         self.assertEqual(metadata["grid_origin"], "explicit-center-cell")
+        self.assertEqual(
+            metadata["los_probability_model"],
+            "3gpp-tr-38.901-v18.1.0-clause-7.4.2-umi",
+        )
+
+    def test_independent_abg_golden_vectors(self) -> None:
+        cases = [
+            ("RURAL_MACROCELL", True, 3.5, 100.0, 86.48136088700551),
+            ("URBAN_MICROCELL", False, 26.0, 200.0, 134.03312027380358),
+            ("INDOOR_OPEN_OFFICE", False, 3.5, 50.0, 95.94676207475511),
+        ]
+        for scenario, los, frequency, distance, expected in cases:
+            actual = pathloss_map(
+                scenario,
+                los,
+                frequency,
+                np.asarray([distance]),
+            )[0]
+            self.assertAlmostEqual(float(actual), expected, places=10)
+
+    def test_even_v2_grid_is_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            generate_map(
+                "URBAN_MICROCELL", 2.38, 42, cell_number=32)
+
+    def test_shopping_mall_los_is_labelled_legacy(self) -> None:
+        payload = generate_map(
+            "INDOOR_SHOPPING_MALL", 3.5, 42, cell_number=33)
+        self.assertEqual(
+            payload["metadata"]["los_probability_model"],
+            "legacy-fikore-shopping-mall-heuristic-provenance-pending",
+        )
 
     def test_manifest_preserves_v2_provenance(self) -> None:
         payload = generate_map(
@@ -93,6 +126,19 @@ class GeneratorV2Test(unittest.TestCase):
             np.random.default_rng(42), 65, 5.0, 10.0)
         self.assertAlmostEqual(float(np.mean(field)), 0.0, places=10)
         self.assertAlmostEqual(float(np.std(field)), 1.0, places=10)
+
+    def test_correlated_field_has_no_periodic_edge_seam(self) -> None:
+        correlations = []
+        for seed in range(8):
+            field = correlated_gaussian(
+                np.random.default_rng(seed), 65, 5.0, 10.0)
+            correlations.extend(
+                [
+                    float(np.corrcoef(field[:, 0], field[:, -1])[0, 1]),
+                    float(np.corrcoef(field[0, :], field[-1, :])[0, 1]),
+                ]
+            )
+        self.assertLess(abs(float(np.mean(correlations))), 0.08)
 
     def test_uma_uses_ue_height_correction(self) -> None:
         distance = np.asarray([200.0])

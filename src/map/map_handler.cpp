@@ -1,6 +1,7 @@
 #include <map/map_handler.h>
 #include <fstream>
 #include <iostream>
+#include <stdexcept>
 
 // Constructor: initializes and loads the map
 MapHandler::MapHandler(const std::string &filename) : filename(filename)
@@ -54,6 +55,22 @@ void MapHandler::loadMap(const std::string &filename)
         else
         {
             std::cerr << "JSON key 'cell_number' is missing" << std::endl;
+        }
+
+        if (schemaVersion >= 2)
+        {
+            if (cellNumber < 3 || cellNumber % 2 == 0)
+                throw std::runtime_error(
+                    "v2 map cell_number must be odd and at least 3");
+            if (
+                !jsonData.contains("metadata")
+                || !jsonData["metadata"].contains("grid_origin")
+                || jsonData["metadata"]["grid_origin"]
+                       != "explicit-center-cell")
+            {
+                throw std::runtime_error(
+                    "v2 map requires grid_origin=explicit-center-cell");
+            }
         }
     }
     catch (json::parse_error &e)

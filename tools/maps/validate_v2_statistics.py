@@ -102,6 +102,12 @@ def axial_autocorrelation(field: np.ndarray, lag_cells: int) -> float:
     return float(np.corrcoef(left, right)[0, 1])
 
 
+def opposite_edge_correlation(field: np.ndarray) -> float:
+    first = np.concatenate((field[:, 0], field[0, :]))
+    opposite = np.concatenate((field[:, -1], field[-1, :]))
+    return float(np.corrcoef(first, opposite)[0, 1])
+
+
 def coverage_proxy(
     scenario: str,
     frequency_ghz: float,
@@ -162,7 +168,8 @@ def markdown_report(
         f"- Catalog entries per seed: {len(map_rows)}",
         f"- Runtime: {elapsed_seconds:.2f} seconds",
         "- Confidence intervals: two-sided 95% intervals over independent "
-        "realizations; spatial cells are not treated as replicates.",
+        "realizations; intervals are pointwise, not simultaneous, and spatial "
+        "cells are not treated as replicates.",
         "- Coverage proxy: fraction of map cells with map-only, "
         "pre-interference full-channel DL SNR >= 0 dB.",
         "",
@@ -221,6 +228,13 @@ def markdown_report(
         )
         for row in map_rows
     )
+    max_edge_correlation = max(
+        max(
+            abs(float(row["los_opposite_edge_correlation_mean"])),
+            abs(float(row["nlos_opposite_edge_correlation_mean"])),
+        )
+        for row in map_rows
+    )
     lines.extend(
         [
             "",
@@ -232,6 +246,9 @@ def markdown_report(
             f"{max_shadow_std_error:.3f} dB.",
             f"- Maximum absolute axial-autocorrelation error at the nearest "
             f"grid-representable lag: {max_autocorr_error:.3f}.",
+            f"- Maximum absolute opposite-edge shadow correlation: "
+            f"{max_edge_correlation:.3f}; this diagnoses circular FFT seams "
+            "and is not an acceptance pass.",
             "- Autocorrelation targets use `exp(-lag/d_cor)` at the reported "
             "integer-cell lag; they are not incorrectly compared with "
             "`exp(-1)` when the declared distance falls between cells.",
@@ -364,6 +381,12 @@ def main() -> None:
                             * components.cell_size_m
                             / parameters.nlos_correlation_m
                         ),
+                        "los_opposite_edge_correlation":
+                            opposite_edge_correlation(
+                                components.los_shadow_db),
+                        "nlos_opposite_edge_correlation":
+                            opposite_edge_correlation(
+                                components.nlos_shadow_db),
                         "coverage_proxy_0db": coverage_proxy(
                             scenario, frequency_ghz, link_gain),
                     }
@@ -390,6 +413,8 @@ def main() -> None:
         nlos_std = interval("nlos_shadow_std_db")
         los_corr = interval("los_autocorr_at_declared_distance")
         nlos_corr = interval("nlos_autocorr_at_declared_distance")
+        los_edge_corr = interval("los_opposite_edge_correlation")
+        nlos_edge_corr = interval("nlos_opposite_edge_correlation")
         coverage_values = [
             float(row["coverage_proxy_0db"])
             for row in rows
@@ -441,6 +466,12 @@ def main() -> None:
                 "los_autocorr_target": rows[0]["los_autocorr_target"],
                 "nlos_autocorr_lag_m": rows[0]["nlos_autocorr_lag_m"],
                 "nlos_autocorr_target": rows[0]["nlos_autocorr_target"],
+                "los_opposite_edge_correlation_mean": los_edge_corr[0],
+                "los_opposite_edge_correlation_ci_low": los_edge_corr[1],
+                "los_opposite_edge_correlation_ci_high": los_edge_corr[2],
+                "nlos_opposite_edge_correlation_mean": nlos_edge_corr[0],
+                "nlos_opposite_edge_correlation_ci_low": nlos_edge_corr[1],
+                "nlos_opposite_edge_correlation_ci_high": nlos_edge_corr[2],
                 "coverage_proxy_mean": coverage[0],
                 "coverage_proxy_ci_low": coverage[1],
                 "coverage_proxy_ci_high": coverage[2],

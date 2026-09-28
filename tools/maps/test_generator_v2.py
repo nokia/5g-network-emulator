@@ -15,6 +15,7 @@ from generator_v2 import (
     GENERATOR_VERSION,
     MAP_SEMANTIC_VERSION,
     correlated_gaussian,
+    generate_components,
     generate_map,
     los_probability,
     write_map,
@@ -35,6 +36,16 @@ class GeneratorV2Test(unittest.TestCase):
         second = generate_map(
             "URBAN_MICROCELL", 2.38, 43, cell_number=33)
         self.assertNotEqual(first["map"], second["map"])
+
+    def test_components_match_serialized_map(self) -> None:
+        components = generate_components(
+            "URBAN_MICROCELL", 2.38, 42, cell_number=33)
+        payload = generate_map(
+            "URBAN_MICROCELL", 2.38, 42, cell_number=33)
+        np.testing.assert_array_equal(
+            components.link_gain_db,
+            np.asarray(payload["map"]),
+        )
 
     def test_production_metadata_is_complete(self) -> None:
         payload = generate_map(

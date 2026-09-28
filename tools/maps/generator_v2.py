@@ -25,6 +25,19 @@ class ScenarioParameters:
     nlos_sigma_db: float
 
 
+@dataclass(frozen=True)
+class MapComponents:
+    cell_size_m: float
+    distance_m: np.ndarray
+    los_probability: np.ndarray
+    los_state: np.ndarray
+    los_shadow_db: np.ndarray
+    nlos_shadow_db: np.ndarray
+    los_pathloss_db: np.ndarray
+    nlos_pathloss_db: np.ndarray
+    link_gain_db: np.ndarray
+
+
 SCENARIO_PARAMETERS = {
     "RURAL_MACROCELL": ScenarioParameters(37.0, 120.0, 1.7, 6.7),
     "URBAN_MICROCELL": ScenarioParameters(10.0, 13.0, 4.3, 6.8),
@@ -159,13 +172,13 @@ def parameter_hash(parameters: dict) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
-def generate_map(
+def generate_components(
     scenario: str,
     frequency_ghz: float,
     seed: int,
     cell_number: int = 291,
     ue_height_m: float = 1.5,
-) -> dict:
+) -> MapComponents:
     parameters = SCENARIO_PARAMETERS[scenario]
     cell_size_m = 0.5 * min(
         parameters.los_correlation_m,
@@ -210,6 +223,34 @@ def generate_map(
     final_map = np.where(
         los_state, macroscopic_los, macroscopic_nlos)
 
+    return MapComponents(
+        cell_size_m=cell_size_m,
+        distance_m=distance,
+        los_probability=probability,
+        los_state=los_state,
+        los_shadow_db=shadow_los,
+        nlos_shadow_db=shadow_nlos,
+        los_pathloss_db=los_pathloss,
+        nlos_pathloss_db=nlos_pathloss,
+        link_gain_db=final_map,
+    )
+
+
+def generate_map(
+    scenario: str,
+    frequency_ghz: float,
+    seed: int,
+    cell_number: int = 291,
+    ue_height_m: float = 1.5,
+) -> dict:
+    parameters = SCENARIO_PARAMETERS[scenario]
+    components = generate_components(
+        scenario,
+        frequency_ghz,
+        seed,
+        cell_number,
+        ue_height_m,
+    )
     los_coefficients = abg_coefficients(
         scenario, True, frequency_ghz)
     nlos_coefficients = abg_coefficients(
@@ -219,7 +260,7 @@ def generate_map(
         "frequency_ghz": frequency_ghz,
         "seed": seed,
         "cell_number": cell_number,
-        "cell_size_m": cell_size_m,
+        "cell_size_m": components.cell_size_m,
         "ue_height_m": ue_height_m,
         "los_abg": {
             "alpha": los_coefficients[0],
@@ -256,8 +297,8 @@ def generate_map(
         "schema_version": 2,
         "metadata": metadata,
         "cell_number": cell_number,
-        "cell_size": cell_size_m,
-        "map": final_map.tolist(),
+        "cell_size": components.cell_size_m,
+        "map": components.link_gain_db.tolist(),
     }
 
 

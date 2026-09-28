@@ -500,7 +500,7 @@ def report(manifest: dict, summaries: list[dict], warmup_s: float) -> str:
             "UEs classified as permanent PHY outage. A PHY-outage UE has MCS "
             "below zero in at least 99% of post-warm-up radio samples.",
             "",
-            "A zero-service window has positive offered traffic and no delivered "
+            "A zero-delivery window has positive offered traffic and no delivered "
             "payload in that non-overlapping window. This avoids interpreting "
             "every unassigned TTI as user starvation.",
             "",

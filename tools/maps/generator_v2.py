@@ -12,6 +12,10 @@ from pathlib import Path
 
 import numpy as np
 
+GENERATOR_NAME = "fikore-map-generator"
+GENERATOR_VERSION = "2.0.0"
+MAP_SEMANTIC_VERSION = "2.0.0"
+
 
 @dataclass(frozen=True)
 class ScenarioParameters:
@@ -241,12 +245,12 @@ def generate_map(
             f"seed-{seed}-{realization_hash[:12]}"
         ),
         "generator": {
-            "name": "fikore-map-generator",
-            "version": 2,
+            "name": GENERATOR_NAME,
+            "version": GENERATOR_VERSION,
         },
         "grid_origin": "explicit-center-cell",
         "pathloss_family": "ABG",
-        "semantic_version": "v2-pending-production-activation",
+        "semantic_version": MAP_SEMANTIC_VERSION,
     }
     return {
         "schema_version": 2,

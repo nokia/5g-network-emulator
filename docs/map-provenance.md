@@ -2,21 +2,24 @@
 
 ## Current production set
 
-FikoRE ships 20 legacy-v1 stochastic map realizations under
-`include/maps_scenarios/`. Their current hashes and basic statistics are
-recorded in `MANIFEST.json`.
+FikoRE ships 21 deterministic v2 map realizations under
+`include/maps_scenarios/`. The catalog includes an exact 2.38 GHz UMi map.
+`CATALOG.json` records the master seed (`20260927`) and derived realization
+seeds; `MANIFEST.json` records embedded metadata, statistics, and byte hashes.
 
-The current files were inherited from the 2025 physical-layer redesign. Their
-numeric arrays are intentionally unchanged by the PHY Model V2 infrastructure
-work.
+Production v2 properties:
 
-Known limitations:
+- maintained Python generator version `2.0.0`;
+- map semantic version `2.0.0`;
+- odd 291×291 grids with one explicit centre cell;
+- correlated binary LOS state;
+- corrected UMa UE-height LOS term;
+- unchanged approved ABG coefficient values;
+- deterministic compact JSON serialization.
 
-- original RNG seeds are unavailable;
-- the exact MATLAB session/version is not recorded;
-- generation was performed manually per scenario/frequency;
-- JSON files contain no model metadata;
-- several historical versions exist for the same filename.
+The production arrays exactly match the 21 owner-approved candidate arrays.
+Only the metadata changed when their status moved from pending activation to
+production.
 
 ## Historical lineage
 
@@ -61,22 +64,22 @@ The deterministic batch wrapper in this repository sets an explicit MATLAB
 RNG seed and preserves these legacy operations. It is a reproduction tool, not
 an approval of the current LOS-mask or origin semantics.
 
-## Pending semantic review
+## Approved v2 semantics
 
-The following items require an owner-approved design note before any production
-map is regenerated:
+The signed design review in `map-o2i-design-review.md` approves:
 
-- UMa LOS height correction;
-- floating-point smoothed LOS-mask combination;
-- even-grid origin convention;
-- MATLAB/Python equivalence;
-- ABG coefficient/source catalog;
-- valid dimensions and distance ranges;
-- exact-frequency selection, including n40 2.38 GHz;
-- realization count per scenario;
-- replacement tolerances;
-- O2I and vehicle-loss interaction;
-- Rayleigh versus Rician small-scale fading.
+- configured UE height in the UMa LOS-probability correction;
+- correlated binary LOS selection instead of a floating smoothed mask;
+- an odd grid with an explicit centre-cell origin;
+- Python as the maintained generator;
+- preservation of the current ABG coefficient values;
+- exact 2.38 GHz lookup for the canonical n40 profile;
+- one shipped deterministic realization per scenario-frequency pair;
+- separate runtime ownership of building and vehicle penetration.
+
+Source-fit distance ranges and site-specific calibration remain limitations,
+not inferred properties of a large generated square. Rayleigh-only
+small-scale fading also remains an explicit Phase 3 limitation.
 
 ## Reproduction policy
 
@@ -89,3 +92,13 @@ Every future map must have:
 - input/output hashes;
 - statistical validation report;
 - explicit approval before replacing a shipped realization.
+
+Production regeneration command:
+
+```bash
+python3 tools/maps/generate_v2_catalog.py \
+  --master-seed 20260927 \
+  --output include/maps_scenarios
+python3 tools/maps/build_manifest.py
+python3 tools/maps/validate_maps.py
+```

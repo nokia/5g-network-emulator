@@ -5,8 +5,9 @@
 The v2 generator was used to create 21 deterministic candidate maps with
 master seed `20260927`, including the new exact 2.38 GHz UMi map.
 
-No production map was replaced. Comparison runs select candidate maps through
-the explicit `map_file` scenario setting.
+At the time of this controlled comparison, no production map had been
+replaced. Comparison runs selected candidate maps through the explicit
+`map_file` scenario setting.
 
 Changes represented together in these candidates:
 
@@ -77,11 +78,8 @@ The machine-readable profile results are in
 5. The RMa change warrants explicit owner review before candidate maps become
    production defaults.
 
-## Activation options
+## Activation decision
 
-1. Keep legacy maps as production and retain v2 as opt-in.
-2. Activate v2 maps for all canonical profiles.
-3. Activate moderate-delta profiles first and retain legacy RMa pending a
-   multi-seed review.
-
-Production activation remains pending owner approval.
+The owner approved option 2: activate all v2 maps, including RMa. Production
+activation on 2026-09-28 preserved every reviewed numeric array and changed
+only the metadata semantic version from pending to production.

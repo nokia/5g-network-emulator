@@ -2,7 +2,7 @@
 
 ## Legacy v1
 
-Current production map files contain:
+Historical map files contain:
 
 ```json
 {
@@ -21,53 +21,40 @@ The v1 format does not identify scenario, carrier frequency, model
 coefficients, generator version, RNG, seed, or coordinate-origin convention.
 Those properties are inferred from filenames and historical context.
 
-`include/maps_scenarios/MANIFEST.json` records immutable characterization and
-checksums for the shipped v1 files without changing their bytes.
+The runtime retains v1 reading so archived studies can select historical maps
+explicitly. Production maps use v2.
 
-## Proposed v2 metadata
+## Production v2 metadata
 
-The v2 schema is a design contract for deterministic generation. It is not yet
-used by production maps.
+The v2 schema is the production contract for deterministic generation.
 
 ```json
 {
   "schema_version": 2,
   "metadata": {
     "scenario": "URBAN_MICROCELL",
-    "frequency_ghz": 3.5,
-    "realization_id": "umi-3p5-seed-42",
-    "rng": "approved-generator-and-version",
+    "frequency_ghz": 2.38,
     "seed": 42,
+    "cell_number": 291,
+    "cell_size_m": 5.0,
+    "ue_height_m": 1.5,
+    "realization_id": "urban_microcell-2.38-seed-42-parameterhash",
     "generator": {
       "name": "fikore-map-generator",
-      "version": "2",
-      "source_commit": "git-sha"
+      "version": "2.0.0"
     },
-    "grid": {
-      "cell_number": 290,
-      "cell_size_m": 5.0,
-      "origin": "cell-centred"
-    },
-    "pathloss": {
-      "family": "ABG",
-      "los": {"alpha": 2.27, "beta": 27.02, "gamma": 2.0},
-      "nlos": {"alpha": 2.8, "beta": 31.4, "gamma": 2.7},
-      "source": "approved-reference"
-    },
-    "shadow": {
-      "los_sigma_db": 4.3,
-      "nlos_sigma_db": 6.8,
-      "los_decorrelation_m": 10.0,
-      "nlos_decorrelation_m": 13.0,
-      "filter": "approved-filter-profile"
-    },
-    "los_state": {
-      "model": "pending-internal-review",
-      "smoothing": "pending-internal-review"
-    },
-    "input_hashes": {}
+    "grid_origin": "explicit-center-cell",
+    "pathloss_family": "ABG",
+    "semantic_version": "2.0.0",
+    "los_abg": {"alpha": 2.27, "beta": 27.02, "gamma": 2.0},
+    "nlos_abg": {"alpha": 2.8, "beta": 31.4, "gamma": 2.7},
+    "los_shadow_sigma_db": 4.3,
+    "nlos_shadow_sigma_db": 6.8,
+    "los_decorrelation_m": 10.0,
+    "nlos_decorrelation_m": 13.0,
+    "los_state_model": "correlated-gaussian-cdf-threshold"
   },
-  "cell_number": 290,
+  "cell_number": 291,
   "cell_size": 5.0,
   "map": [[-80.0]]
 }
@@ -76,9 +63,9 @@ used by production maps.
 ## Compatibility policy
 
 - The runtime must continue to read v1 files during migration.
-- Optional v2 metadata must not change the interpretation of the numeric map
-  array without an approved semantic version.
-- Exact-frequency lookup is preferred for v2.
+- V2 metadata does not change the interpretation of the numeric map array
+  without a new approved semantic version.
+- Canonical profiles use exact scenario-frequency lookup.
 - If nearest-frequency fallback is used, the runtime must report both requested
   and selected frequencies.
 - A map realization is immutable: changed bytes require a new realization ID
@@ -97,5 +84,6 @@ For every generated realization:
 7. Runtime interpolation and generator origin conventions agree.
 8. Input and output hashes are recorded.
 
-Map semantics—LOS smoothing, UMa LOS correction, origin, coefficient tables,
-and O2I interaction—remain pending internal review.
+LOS selection, UMa LOS correction, origin, the preserved coefficient table,
+and O2I ownership were approved in `map-o2i-design-review.md`. Their external
+validity and deployment-specific calibration remain explicitly limited.

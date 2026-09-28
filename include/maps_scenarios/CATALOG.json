@@ -1,0 +1,180 @@
+{
+  "cell_number": 291,
+  "generator": {
+    "name": "fikore-map-generator",
+    "version": "2.0.0"
+  },
+  "maps": [
+    {
+      "file": "macroscopic_fading_map_INDOOR_MIXED_OFFICE_3.5.json",
+      "frequency_ghz": 3.5,
+      "realization_id": "indoor_mixed_office-3.5-seed-14503379264785282668-d6022f0ae214",
+      "scenario": "INDOOR_MIXED_OFFICE",
+      "seed": 14503379264785282668,
+      "sha256": "4e24fea09219000a51de38bb2628f0b9fb7ad81430df23621a24d3e487576d3d"
+    },
+    {
+      "file": "macroscopic_fading_map_INDOOR_MIXED_OFFICE_26.json",
+      "frequency_ghz": 26.0,
+      "realization_id": "indoor_mixed_office-26-seed-11519599696689788420-b98550e1177c",
+      "scenario": "INDOOR_MIXED_OFFICE",
+      "seed": 11519599696689788420,
+      "sha256": "c1b0fd13f67361798ae0996eb3cd6087d67569710c5ffaa8889227ebf05bfde1"
+    },
+    {
+      "file": "macroscopic_fading_map_INDOOR_MIXED_OFFICE_28.json",
+      "frequency_ghz": 28.0,
+      "realization_id": "indoor_mixed_office-28-seed-2040724940785949421-e709d6c289a5",
+      "scenario": "INDOOR_MIXED_OFFICE",
+      "seed": 2040724940785949421,
+      "sha256": "f46a5047159498194684a640452c66bc6d3c250033324cdd92d2531d4667d637"
+    },
+    {
+      "file": "macroscopic_fading_map_INDOOR_OPEN_OFFICE_3.5.json",
+      "frequency_ghz": 3.5,
+      "realization_id": "indoor_open_office-3.5-seed-527046780482870288-ddb33f87b526",
+      "scenario": "INDOOR_OPEN_OFFICE",
+      "seed": 527046780482870288,
+      "sha256": "cbad4a6995c1b4fb4ad21a93e56665ce22cbcd61b57370be62ec0861d1e75d27"
+    },
+    {
+      "file": "macroscopic_fading_map_INDOOR_OPEN_OFFICE_26.json",
+      "frequency_ghz": 26.0,
+      "realization_id": "indoor_open_office-26-seed-15415687294932343425-d1cff0896a94",
+      "scenario": "INDOOR_OPEN_OFFICE",
+      "seed": 15415687294932343425,
+      "sha256": "c7a6a9537ad7f85706e0e606082eb63d6dcea9a57989652768f3d14fc5b3fac1"
+    },
+    {
+      "file": "macroscopic_fading_map_INDOOR_OPEN_OFFICE_28.json",
+      "frequency_ghz": 28.0,
+      "realization_id": "indoor_open_office-28-seed-16841497497860892267-e0a9f2975523",
+      "scenario": "INDOOR_OPEN_OFFICE",
+      "seed": 16841497497860892267,
+      "sha256": "0cfc4e20ed04879113f12a199621f5a2a4f3752555ee50353c0c0ccf6e9310af"
+    },
+    {
+      "file": "macroscopic_fading_map_INDOOR_SHOPPING_MALL_3.5.json",
+      "frequency_ghz": 3.5,
+      "realization_id": "indoor_shopping_mall-3.5-seed-14228510927908974534-fabf9cc54643",
+      "scenario": "INDOOR_SHOPPING_MALL",
+      "seed": 14228510927908974534,
+      "sha256": "32bb9a964d7ccd336932baccbdbdc7113da980aadf9305d2629a5b78bba0dca9"
+    },
+    {
+      "file": "macroscopic_fading_map_INDOOR_SHOPPING_MALL_26.json",
+      "frequency_ghz": 26.0,
+      "realization_id": "indoor_shopping_mall-26-seed-16492334553237964607-2573b903e69b",
+      "scenario": "INDOOR_SHOPPING_MALL",
+      "seed": 16492334553237964607,
+      "sha256": "5b16a19bcde92c29a1fff2be91f4dfbd2e6ad6a8a2fefcd28170f3674ed396af"
+    },
+    {
+      "file": "macroscopic_fading_map_INDOOR_SHOPPING_MALL_60.json",
+      "frequency_ghz": 60.0,
+      "realization_id": "indoor_shopping_mall-60-seed-2782584399572180400-035a516c02ff",
+      "scenario": "INDOOR_SHOPPING_MALL",
+      "seed": 2782584399572180400,
+      "sha256": "20ddc4ad5e3ec0841e9642ba523ab045cf645ca6c5c7c6e8201f70ff56cddccc"
+    },
+    {
+      "file": "macroscopic_fading_map_RURAL_MACROCELL_0.7.json",
+      "frequency_ghz": 0.7,
+      "realization_id": "rural_macrocell-0.7-seed-4016734348989624775-697956795b83",
+      "scenario": "RURAL_MACROCELL",
+      "seed": 4016734348989624775,
+      "sha256": "f95b8324402dc33c8d7a28b9a3c1b23c75654e533c669f88f497ca94eba98ec8"
+    },
+    {
+      "file": "macroscopic_fading_map_RURAL_MACROCELL_0.8.json",
+      "frequency_ghz": 0.8,
+      "realization_id": "rural_macrocell-0.8-seed-9100998270995454544-2252d88d76e6",
+      "scenario": "RURAL_MACROCELL",
+      "seed": 9100998270995454544,
+      "sha256": "b5fb8a7531823f5529a4a6b7d712cf89a5fdd6a0f07f93657159d0f131ccc5f5"
+    },
+    {
+      "file": "macroscopic_fading_map_RURAL_MACROCELL_3.5.json",
+      "frequency_ghz": 3.5,
+      "realization_id": "rural_macrocell-3.5-seed-4311708892289223397-143033a3aaca",
+      "scenario": "RURAL_MACROCELL",
+      "seed": 4311708892289223397,
+      "sha256": "3233f3c3fe2fbb61be2e250f42c41de8dd94a2b4ded9df6d6d6c898e70704de7"
+    },
+    {
+      "file": "macroscopic_fading_map_URBAN_MACROCELL_3.5.json",
+      "frequency_ghz": 3.5,
+      "realization_id": "urban_macrocell-3.5-seed-4828336182809713892-bdf23bdb695c",
+      "scenario": "URBAN_MACROCELL",
+      "seed": 4828336182809713892,
+      "sha256": "5c584b641bb00c239c64b706bb71cfeecba30b3c078884d19f7b7d36ea7be7dc"
+    },
+    {
+      "file": "macroscopic_fading_map_URBAN_MACROCELL_4.9.json",
+      "frequency_ghz": 4.9,
+      "realization_id": "urban_macrocell-4.9-seed-7160396483658374079-1eec04b9e891",
+      "scenario": "URBAN_MACROCELL",
+      "seed": 7160396483658374079,
+      "sha256": "0ac691d9d7fe30ea43a271cfc76447b8374bb00170f6a0cba922b52d56e661aa"
+    },
+    {
+      "file": "macroscopic_fading_map_URBAN_MACROCELL_26.json",
+      "frequency_ghz": 26.0,
+      "realization_id": "urban_macrocell-26-seed-8441644063325235683-068cc0cc7c69",
+      "scenario": "URBAN_MACROCELL",
+      "seed": 8441644063325235683,
+      "sha256": "7dd82401d3fb8a27ea0e3b4c9b96c563a6d507970dd63823b743ffb1a612bb9f"
+    },
+    {
+      "file": "macroscopic_fading_map_URBAN_MACROCELL_28.json",
+      "frequency_ghz": 28.0,
+      "realization_id": "urban_macrocell-28-seed-11502460150553870589-32f633eb2e82",
+      "scenario": "URBAN_MACROCELL",
+      "seed": 11502460150553870589,
+      "sha256": "dc3c5236057fe8f833ad21004485261d4c8731d4953c8a014ef4a399473f3c3a"
+    },
+    {
+      "file": "macroscopic_fading_map_URBAN_MICROCELL_2.38.json",
+      "frequency_ghz": 2.38,
+      "realization_id": "urban_microcell-2.38-seed-17658170683946555616-f4716f8682de",
+      "scenario": "URBAN_MICROCELL",
+      "seed": 17658170683946555616,
+      "sha256": "9442a60cbf37714edd9dc0aad366a7ecc034a93bff1b621911580c6d34a39497"
+    },
+    {
+      "file": "macroscopic_fading_map_URBAN_MICROCELL_3.5.json",
+      "frequency_ghz": 3.5,
+      "realization_id": "urban_microcell-3.5-seed-6747503825093100248-a6a60036d37c",
+      "scenario": "URBAN_MICROCELL",
+      "seed": 6747503825093100248,
+      "sha256": "e55daee9d6b3255d8e55305cd0fe8ea55985c1ff96ba3f49b12dc9bb12b07aa6"
+    },
+    {
+      "file": "macroscopic_fading_map_URBAN_MICROCELL_4.9.json",
+      "frequency_ghz": 4.9,
+      "realization_id": "urban_microcell-4.9-seed-1424487407586626294-4d8a08947d4f",
+      "scenario": "URBAN_MICROCELL",
+      "seed": 1424487407586626294,
+      "sha256": "4029be5c5d8ae617e8d1e6c041e556d7e26c705c12f5759732b9f9b6c90a53c2"
+    },
+    {
+      "file": "macroscopic_fading_map_URBAN_MICROCELL_26.json",
+      "frequency_ghz": 26.0,
+      "realization_id": "urban_microcell-26-seed-4596863232196585428-ea6438f9b43b",
+      "scenario": "URBAN_MICROCELL",
+      "seed": 4596863232196585428,
+      "sha256": "0780a035503344380b8375cf84837617e0c1aaac19bb0686885564c1b9f72d8c"
+    },
+    {
+      "file": "macroscopic_fading_map_URBAN_MICROCELL_28.json",
+      "frequency_ghz": 28.0,
+      "realization_id": "urban_microcell-28-seed-17970366407180223696-5bb45923e44d",
+      "scenario": "URBAN_MICROCELL",
+      "seed": 17970366407180223696,
+      "sha256": "d3d59589cadcef67c6d174fb3362c0e810f6fa164ab19c7d2e84c5eb302a9e91"
+    }
+  ],
+  "master_seed": 20260927,
+  "schema_version": 2,
+  "semantic_version": "2.0.0"
+}

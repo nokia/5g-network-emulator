@@ -118,7 +118,7 @@ int main()
             8,
             6,
             OUTDOOR,
-            "macroscopic_fading_map_URBAN_MICROCELL_3.5.json",
+            "macroscopic_fading_map_URBAN_MICROCELL_2.38.json",
             true,
         },
         {

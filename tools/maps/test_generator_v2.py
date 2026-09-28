@@ -3,14 +3,21 @@
 
 from __future__ import annotations
 
+import tempfile
 import unittest
+from pathlib import Path
 
 import numpy as np
 
+from build_manifest import build_manifest
 from generator_v2 import (
+    GENERATOR_NAME,
+    GENERATOR_VERSION,
+    MAP_SEMANTIC_VERSION,
     correlated_gaussian,
     generate_map,
     los_probability,
+    write_map,
 )
 
 
@@ -28,6 +35,37 @@ class GeneratorV2Test(unittest.TestCase):
         second = generate_map(
             "URBAN_MICROCELL", 2.38, 43, cell_number=33)
         self.assertNotEqual(first["map"], second["map"])
+
+    def test_production_metadata_is_complete(self) -> None:
+        payload = generate_map(
+            "URBAN_MICROCELL", 2.38, 42, cell_number=33)
+        metadata = payload["metadata"]
+        self.assertEqual(metadata["semantic_version"], MAP_SEMANTIC_VERSION)
+        self.assertEqual(
+            metadata["generator"],
+            {"name": GENERATOR_NAME, "version": GENERATOR_VERSION},
+        )
+        self.assertEqual(metadata["seed"], 42)
+        self.assertEqual(metadata["grid_origin"], "explicit-center-cell")
+
+    def test_manifest_preserves_v2_provenance(self) -> None:
+        payload = generate_map(
+            "URBAN_MICROCELL", 2.38, 42, cell_number=33)
+        with tempfile.TemporaryDirectory() as directory:
+            path = (
+                Path(directory)
+                / "macroscopic_fading_map_URBAN_MICROCELL_2.38.json"
+            )
+            write_map(payload, path)
+            manifest = build_manifest(Path(directory))
+        self.assertEqual(manifest["schema_version"], 2)
+        self.assertEqual(manifest["map_schema"], "v2")
+        entry = manifest["maps"][0]
+        self.assertEqual(entry["semantic_version"], MAP_SEMANTIC_VERSION)
+        self.assertEqual(entry["generator"]["name"], GENERATOR_NAME)
+        self.assertEqual(entry["seed"], 42)
+        self.assertEqual(
+            entry["realization_id"], payload["metadata"]["realization_id"])
 
     def test_grid_has_explicit_center(self) -> None:
         payload = generate_map(

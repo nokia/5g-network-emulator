@@ -8,7 +8,13 @@ import hashlib
 import json
 from pathlib import Path
 
-from generator_v2 import generate_map, write_map
+from generator_v2 import (
+    GENERATOR_NAME,
+    GENERATOR_VERSION,
+    MAP_SEMANTIC_VERSION,
+    generate_map,
+    write_map,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -29,6 +35,14 @@ def derived_seed(master_seed: int, scenario: str, frequency_ghz: float) -> int:
 
 def frequency_text(value: float) -> str:
     return f"{value:g}"
+
+
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def main() -> None:
@@ -68,13 +82,18 @@ def main() -> None:
                     "frequency_ghz": frequency_ghz,
                     "seed": seed,
                     "realization_id": payload["metadata"]["realization_id"],
+                    "sha256": file_sha256(path),
                 }
             )
             print(path)
 
     manifest = {
         "schema_version": 2,
-        "generator": "fikore-map-generator-v2",
+        "semantic_version": MAP_SEMANTIC_VERSION,
+        "generator": {
+            "name": GENERATOR_NAME,
+            "version": GENERATOR_VERSION,
+        },
         "master_seed": args.master_seed,
         "cell_number": args.cell_number,
         "maps": entries,

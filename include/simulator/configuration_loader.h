@@ -305,7 +305,7 @@ private:
         {4, "INDOOR_MIXED_OFFICE"},
         {5, "INDOOR_SHOPPING_MALL"}};
     const std::map<std::string, std::vector<double>> AVAILABLE_FREQUENCIES = {
-        {"URBAN_MICROCELL", {3.5, 4.9, 26, 28}},
+        {"URBAN_MICROCELL", {2.38, 3.5, 4.9, 26, 28}},
         {"URBAN_MACROCELL", {3.5, 4.9, 26, 28}},
         {"RURAL_MACROCELL", {0.7, 0.8, 3.5}},
         {"INDOOR_OPEN_OFFICE", {3.5, 26, 28}},

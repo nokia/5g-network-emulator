@@ -1,88 +1,34 @@
 {
-  "schema_version": 1,
-  "study": "FikoRE PHY Model V2",
-  "protocol_date": "2026-09-28",
-  "source": {
-    "branch": "feature/phy-model-v2",
-    "feature_baseline_sha": "dc81da62f59ca93e36a02c36bdcecd45ec6cd2bd",
-    "dev_baseline_sha": "e995563fd3e8fa300f4b0accca3b494f7177101c",
-    "feature_baseline_clean": true,
-    "validated_source_sha": null
-  },
-  "environment": {
-    "hostname": "pitahaya",
-    "architecture": "x86_64",
-    "cpu": "AMD Ryzen 7 5800H with Radeon Graphics",
-    "logical_cpus": 16,
-    "kernel": "Linux 5.15.0-58-generic",
-    "compiler": "g++ 11.4.0",
-    "python": "3.10.4",
-    "numpy": "2.2.6",
-    "node": "24.5.0"
-  },
-  "map_generation": {
-    "master_seed": 20260927,
-    "catalog_size": 21,
-    "cell_number": 291,
-    "candidate_catalog": {
-      "path": "results/maps-v2-candidates/CATALOG.json",
-      "sha256": "2b9f2dc568804650dca7c1bc1efe0b543da1fa72e2563dedc5520eb7429e41b7",
-      "tracked": false
-    }
-  },
   "canonical_profiles": [
     {
       "id": "umi-n40-npn",
       "path": "config/offline_umi_n40_npn.ini",
-      "protocol_baseline_sha256": "f15f1d959e356be4c5403e1628df061cb0554117b881a951e24ac700f66bd6ac"
+      "protocol_baseline_sha256": "f15f1d959e356be4c5403e1628df061cb0554117b881a951e24ac700f66bd6ac",
+      "validated_sha256": "f7f103374e1447cb4f8f1f201fd9d58bd0aaa3df330764a2e9a7b81e6e121710"
     },
     {
       "id": "uma-n78-pedestrian",
       "path": "config/offline_uma_n78_pedestrian.ini",
-      "protocol_baseline_sha256": "9d9d83e1a46bc5626b69fd3f625be359675725daf33169a1ef9216c638c403a4"
+      "protocol_baseline_sha256": "9d9d83e1a46bc5626b69fd3f625be359675725daf33169a1ef9216c638c403a4",
+      "validated_sha256": "88c1193d33878a17abdd72effc95b7de68b8d4078b43acab8afb8cf5cab8668d"
     },
     {
       "id": "rma-n78-vehicular",
       "path": "config/offline_rural_n78_vehicular.ini",
-      "protocol_baseline_sha256": "d3669745449ca60dd117b590003bac255f8c425c234f70ba34aadcefcfdaa260"
+      "protocol_baseline_sha256": "d3669745449ca60dd117b590003bac255f8c425c234f70ba34aadcefcfdaa260",
+      "validated_sha256": "9a65853cadb47f8ba021004b6f38f01c4ebf3c063c6c19b4576a257b78bf3706"
     },
     {
       "id": "indoor-n78-pedestrian",
       "path": "config/offline_indoor_hotspot_n78_pedestrian.ini",
-      "protocol_baseline_sha256": "a9ee97ceb1ffe3d98d68afc2f589911877d39820d5a4e2e9860b69c83a83ce1e"
+      "protocol_baseline_sha256": "a9ee97ceb1ffe3d98d68afc2f589911877d39820d5a4e2e9860b69c83a83ce1e",
+      "validated_sha256": "3d55adb27ef73e94339dc600d8e284c6da7cffd9361a4b24331bcab0ecef0116"
     },
     {
       "id": "umi-n258-fwa",
       "path": "config/offline_umi_n258_fwa.ini",
-      "protocol_baseline_sha256": "3f791536bf7a04e61e199ea4b09e9dfe646a00a37580e68b2c8bca91d97c609b"
-    }
-  ],
-  "run_batches": [
-    {
-      "id": "phy-v2-baseline-e995563-seed20260924",
-      "source_sha": "e995563fd3e8fa300f4b0accca3b494f7177101c",
-      "seed": 20260924,
-      "duration_s": 180,
-      "summary": "docs/baselines/phy-model-v2-baseline.csv",
-      "summary_sha256": "a3fd4386f0951af11de3740839ef30dc3a2345b76fc03b229a933526f9e2dc8e"
-    },
-    {
-      "id": "phy-v2-legacy-maps-current-code",
-      "source_sha": "dc81da62f59ca93e36a02c36bdcecd45ec6cd2bd",
-      "seed": 20260927,
-      "duration_s": 180,
-      "local_manifest": "results/phy-v2-legacy-maps-current-code/manifest.json",
-      "local_manifest_sha256": "a80b54e825365701a38e1895f4d5108cf49f7f7c368c1f4980ba5547e70de559"
-    },
-    {
-      "id": "phy-v2-candidate-maps",
-      "source_sha": "dc81da62f59ca93e36a02c36bdcecd45ec6cd2bd",
-      "seed": 20260927,
-      "duration_s": 180,
-      "local_manifest": "results/phy-v2-candidate-maps/manifest.json",
-      "local_manifest_sha256": "8c52bd9c8ad19380a98ff72e2057d313d47f21668975bbfbc3a1a3448ae4af9d",
-      "paired_summary": "docs/baselines/map-v2-profile-deltas.csv",
-      "paired_summary_sha256": "9aaa63afae4c5bd32e7681fff8bed6394db6f93d7be3065700160270b71d3e93"
+      "protocol_baseline_sha256": "3f791536bf7a04e61e199ea4b09e9dfe646a00a37580e68b2c8bca91d97c609b",
+      "validated_sha256": "30c5096f5f5a9bd5c4bdf8eec809dadcdc2c42eae85584bf93f87f53ed0c2998"
     }
   ],
   "committed_evidence": [
@@ -95,14 +41,123 @@
       "id": "optimized-pf-granularity",
       "path": "docs/baselines/pf-granularity-benchmark.csv",
       "sha256": "1a04c4329437abdc97c905538693ef0a068d3720ce22ab11324641d4e6ed653d"
+    },
+    {
+      "id": "production-profile-ue-summary",
+      "path": "docs/baselines/phy-v2-production-ue-summary.csv",
+      "sha256": "27bbfd29b1e00f64db095be05ebc4fc5171ffa1efcb4d3d5c1c533b86adea3a3"
+    },
+    {
+      "id": "map-v2-multiseed-summary",
+      "path": "docs/baselines/map-v2-multiseed-summary.csv",
+      "sha256": "b573f2f49ecbc96cc18e115d81a2cbcaf7f6f1a9ec33846abaeda7d95ea2df85"
+    },
+    {
+      "id": "map-v2-multiseed-los-radial",
+      "path": "docs/baselines/map-v2-multiseed-los-radial.csv",
+      "sha256": "9779777e3d4e3a56238b6f902c70bdfbb5e3d6173a31a2fdde1c42a4c29f7c29"
+    },
+    {
+      "id": "pf-runtime-envelope",
+      "path": "docs/baselines/pf-runtime-envelope.csv",
+      "sha256": "361980c5dfadc5ab9ac64f43f00c015e6fdff3c54be565aa2f07ba1e1eb74d21"
+    },
+    {
+      "id": "pf-runtime-samples",
+      "path": "docs/baselines/pf-runtime-samples.csv",
+      "sha256": "a3be31fa6e00e1cd0a2f1bd9a7e0efc9920b9e91869b0fc4bfdda14190053a5b"
+    },
+    {
+      "id": "original-production-comparison",
+      "path": "docs/baselines/phy-v2-production-comparison.csv",
+      "sha256": "1cb28315e79c8ac29bcbc106bb2006f622ce6bcb3fe57f4ed80d253d3b6bf0fc"
+    },
+    {
+      "id": "controlled-o2i-comparison",
+      "path": "docs/baselines/phy-v2-o2i-controlled-comparison.csv",
+      "sha256": "f64c267c1880cdc89aacc73122f1431410d52f010842fda725d94931c93acf0e"
     }
   ],
-  "pending_evidence": [
-    "production-v2-map-byte-verification",
-    "production-five-profile-run",
-    "map-ensemble-confidence-intervals",
-    "grouping-and-ul-power-sweeps",
-    "repeated-runtime-percentiles"
+  "environment": {
+    "architecture": "x86_64",
+    "compiler": "g++ 11.4.0",
+    "cpu": "AMD Ryzen 7 5800H with Radeon Graphics",
+    "hostname": "pitahaya",
+    "kernel": "Linux 5.15.0-58-generic",
+    "logical_cpus": 16,
+    "node": "24.5.0",
+    "numpy": "2.2.6",
+    "python": "3.10.4"
+  },
+  "map_generation": {
+    "candidate_catalog": {
+      "path": "results/maps-v2-candidates/CATALOG.json",
+      "sha256": "2b9f2dc568804650dca7c1bc1efe0b543da1fa72e2563dedc5520eb7429e41b7",
+      "tracked": false
+    },
+    "catalog_size": 21,
+    "cell_number": 291,
+    "master_seed": 20260927,
+    "production_catalog": {
+      "path": "include/maps_scenarios/CATALOG.json",
+      "sha256": "3a1c020b1873aec0a06e7a443e8dac69cd2840067ebc3154392bc7547f75a6d2"
+    },
+    "production_manifest": {
+      "path": "include/maps_scenarios/MANIFEST.json",
+      "sha256": "f4e84042f2a9a760cc84023246814a568a1f5c0e9e4b29cee960b4ab198cfcd3"
+    }
+  },
+  "pending_evidence": [],
+  "protocol": "docs/phy-model-v2-evidence-protocol.md",
+  "protocol_date": "2026-09-28",
+  "run_batches": [
+    {
+      "duration_s": 180,
+      "id": "phy-v2-baseline-e995563-seed20260924",
+      "seed": 20260924,
+      "source_sha": "e995563fd3e8fa300f4b0accca3b494f7177101c",
+      "summary": "docs/baselines/phy-model-v2-baseline.csv",
+      "summary_sha256": "a3fd4386f0951af11de3740839ef30dc3a2345b76fc03b229a933526f9e2dc8e"
+    },
+    {
+      "duration_s": 180,
+      "id": "phy-v2-legacy-maps-current-code",
+      "local_manifest": "results/phy-v2-legacy-maps-current-code/manifest.json",
+      "local_manifest_sha256": "a80b54e825365701a38e1895f4d5108cf49f7f7c368c1f4980ba5547e70de559",
+      "seed": 20260927,
+      "source_sha": "dc81da62f59ca93e36a02c36bdcecd45ec6cd2bd"
+    },
+    {
+      "duration_s": 180,
+      "id": "phy-v2-candidate-maps",
+      "local_manifest": "results/phy-v2-candidate-maps/manifest.json",
+      "local_manifest_sha256": "8c52bd9c8ad19380a98ff72e2057d313d47f21668975bbfbc3a1a3448ae4af9d",
+      "paired_summary": "docs/baselines/map-v2-profile-deltas.csv",
+      "paired_summary_sha256": "9aaa63afae4c5bd32e7681fff8bed6394db6f93d7be3065700160270b71d3e93",
+      "seed": 20260927,
+      "source_sha": "dc81da62f59ca93e36a02c36bdcecd45ec6cd2bd"
+    },
+    {
+      "duration_s": 180,
+      "id": "phy-v2-production-cd1e5834-seed20260927",
+      "manifest": "docs/baselines/phy-v2-production-run-manifest.json",
+      "manifest_sha256": "351d02c4880e9bfb15b4cf8d2e4ee845cc8fe4b639e84ff6502bec7a31c92b3f",
+      "seed": 20260927,
+      "source_sha": "cd1e583407793a69ff558124f6dcb5b605f903e2",
+      "summary": "docs/baselines/phy-v2-production-profile-summary.csv",
+      "summary_sha256": "d2551191529fa02f9f14b369d28011d7b090fda5348f7cd10db3ae1875d3842a",
+      "warmup_s": 20
+    }
   ],
-  "protocol": "docs/phy-model-v2-evidence-protocol.md"
+  "schema_version": 1,
+  "source": {
+    "branch": "feature/phy-model-v2",
+    "dev_baseline_sha": "e995563fd3e8fa300f4b0accca3b494f7177101c",
+    "feature_baseline_clean": true,
+    "feature_baseline_sha": "dc81da62f59ca93e36a02c36bdcecd45ec6cd2bd",
+    "map_statistics_source_sha": "cd1e583407793a69ff558124f6dcb5b605f903e2",
+    "runtime_benchmark_source_sha": "38202afe9b31f9e8c63a5f09617850d3ab87b2f1",
+    "validated_source_sha": "cd1e583407793a69ff558124f6dcb5b605f903e2"
+  },
+  "study": "FikoRE PHY Model V2"
 }

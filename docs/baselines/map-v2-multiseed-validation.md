@@ -5,7 +5,7 @@
 - Independent master seeds: 30
 - Master-seed sequence: `20270000` through `20270029`
 - Catalog entries per seed: 21
-- Runtime: 33.04 seconds
+- Runtime: 32.04 seconds
 - Confidence intervals: two-sided 95% intervals over independent realizations; spatial cells are not treated as replicates.
 - Coverage proxy: fraction of map cells with map-only, pre-interference full-channel DL SNR >= 0 dB.
 

@@ -1,0 +1,3 @@
+direction,outdoor_throughput_mbps,high_loss_throughput_mbps,throughput_delta_pct,outdoor_error_mbps,high_loss_error_mbps,outdoor_outage_ues,high_loss_outage_ues,outdoor_median_ue_sinr_db,high_loss_median_ue_sinr_db,sinr_delta_db
+dl,500.0192719322854,495.8602987472501,-0.8317625776629073,0.0,4.160638926986332,0,0,61.579464,19.518171,-42.061293000000006
+ul,156.73153852326104,146.88216914170303,-6.284229373589815,43.27429304767578,53.122671566814105,0,1,62.551161,24.715702,-37.835459

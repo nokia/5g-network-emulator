@@ -92,6 +92,34 @@ def service_gaps(
     return gaps
 
 
+def positive_offer_segments(
+    samples: list[tuple[float, float, float]],
+) -> list[list[tuple[float, float, float]]]:
+    if not samples:
+        return []
+    interval = sampled_interval([sample[0] for sample in samples])
+    segments: list[list[tuple[float, float, float]]] = []
+    current: list[tuple[float, float, float]] = []
+    previous_timestamp = None
+    for sample in samples:
+        timestamp, _, generated = sample
+        discontinuity = (
+            previous_timestamp is not None
+            and interval > 0.0
+            and timestamp - previous_timestamp > 1.5 * interval
+        )
+        if generated <= 0.0 or discontinuity:
+            if current:
+                segments.append(current)
+                current = []
+        if generated > 0.0:
+            current.append(sample)
+        previous_timestamp = timestamp
+    if current:
+        segments.append(current)
+    return segments
+
+
 def parse_ue(
     path: Path,
     profile: str,
@@ -113,7 +141,10 @@ def parse_ue(
             if timestamp is None:
                 continue
             maximum_timestamp = max(maximum_timestamp, timestamp)
-            if timestamp < warmup_s:
+            if timestamp < warmup_s or (
+                configured_duration_s is not None
+                and timestamp >= configured_duration_s
+            ):
                 continue
             if "rul" in values:
                 for direction in DIRECTIONS:
@@ -154,12 +185,25 @@ def parse_ue(
         active_samples = [
             (timestamp, received, offered)
             for timestamp, received, offered, _ in samples
-            if offered > 0.0
         ]
+        active_segments = positive_offer_segments(active_samples)
         gaps = (
             []
             if outage
-            else service_gaps(active_samples, warmup_s, end_s)
+            else [
+                gap
+                for segment in active_segments
+                for gap in service_gaps(
+                    segment,
+                    segment[0][0],
+                    min(
+                        end_s,
+                        segment[-1][0]
+                        + sampled_interval(
+                            [sample[0] for sample in segment]),
+                    ),
+                )
+            ]
         )
         row = {
             "profile": profile,
@@ -206,7 +250,11 @@ def parse_ue(
     return rows
 
 
-def parse_grid(path: Path, warmup_s: float) -> dict:
+def parse_grid(
+    path: Path,
+    warmup_s: float,
+    configured_duration_s: float | None,
+) -> dict:
     expected_units = 0
     grants = 0
     nominal_bits = 0.0
@@ -215,6 +263,8 @@ def parse_grid(path: Path, warmup_s: float) -> dict:
     assigned_by_timestamp: dict[float, int] = defaultdict(int)
     summary_available = 0
     summary_assigned = 0
+    summary_effective = 0
+    summary_wasted = 0
     summary_empty = 0
     summary_structural = 0
     summary_rows = 0
@@ -226,11 +276,20 @@ def parse_grid(path: Path, warmup_s: float) -> dict:
                     values.get("f", 0) * values.get("t", 0))
                 continue
             timestamp = values.get("ts")
-            if timestamp is None or timestamp < warmup_s:
+            if (
+                timestamp is None
+                or timestamp < warmup_s
+                or (
+                    configured_duration_s is not None
+                    and timestamp >= configured_duration_s
+                )
+            ):
                 continue
             if "summary" in values:
                 summary_available += int(values.get("available", 0.0))
                 summary_assigned += int(values.get("assigned", 0.0))
+                summary_effective += int(values.get("effective", 0.0))
+                summary_wasted += int(values.get("wasted", 0.0))
                 summary_empty += int(values.get("empty", 0.0))
                 summary_structural += int(values.get("structural", 0.0))
                 summary_rows += 1
@@ -259,6 +318,16 @@ def parse_grid(path: Path, warmup_s: float) -> dict:
         "assigned_units": assigned,
         "resource_fill_fraction": (
             assigned_for_fill / available if available else math.nan),
+        "effective_resource_fill_fraction": (
+            summary_effective / available
+            if summary_rows and available
+            else math.nan
+        ),
+        "zero_effective_assigned_fraction": (
+            summary_wasted / summary_assigned
+            if summary_rows and summary_assigned
+            else math.nan
+        ),
         "grant_payload_efficiency": (
             effective_bits / nominal_bits if nominal_bits > 0.0 else math.nan),
         "sampled_nominal_grant_bits": nominal_bits,
@@ -382,7 +451,8 @@ def report(manifest: dict, summaries: list[dict], warmup_s: float) -> str:
         "",
         "| Profile | Dir. | Offered | Delivered | Errors | Outage UEs | "
         "Zero-service windows (10/100/1000 ms) | "
-        "UE max-gap P50/P95/P99/max (ms) | Grid fill | "
+        "UE max delivery-gap P50/P95/P99/max (ms) | "
+        "Grid assigned/effective | "
         "Payload/grant | Wall time |",
         "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
@@ -399,6 +469,14 @@ def report(manifest: dict, summaries: list[dict], warmup_s: float) -> str:
             if not isinstance(fill, float) or not math.isfinite(fill)
             else f"{100.0 * fill:.1f}%"
         )
+        effective_fill = row.get(
+            "effective_resource_fill_fraction", math.nan)
+        effective_fill_text = (
+            "n/a"
+            if not isinstance(effective_fill, float)
+            or not math.isfinite(effective_fill)
+            else f"{100.0 * effective_fill:.1f}%"
+        )
         lines.append(
             f"| {row['profile']} | {row['direction'].upper()} | "
             f"{row['generated_mbps']:.2f} | "
@@ -411,28 +489,30 @@ def report(manifest: dict, summaries: list[dict], warmup_s: float) -> str:
             f"{row['ue_max_service_gap_p95_ms']:.0f} / "
             f"{row['ue_max_service_gap_p99_ms']:.0f} / "
             f"{row['ue_max_service_gap_ms']:.0f} | "
-            f"{fill_text} | {efficiency_text} | "
+            f"{fill_text} / {effective_fill_text} | "
+            f"{efficiency_text} | "
             f"{row['wall_seconds']:.2f} s |"
         )
     lines.extend(
         [
             "",
-            "Rates are Mbit/s. Service-window and service-gap statistics exclude "
+            "Rates are Mbit/s. Delivery-window and delivery-gap statistics exclude "
             "UEs classified as permanent PHY outage. A PHY-outage UE has MCS "
-            "below zero in at least 99% of post-warm-up channel samples.",
+            "below zero in at least 99% of post-warm-up radio samples.",
             "",
             "A zero-service window has positive offered traffic and no delivered "
             "payload in that non-overlapping window. This avoids interpreting "
             "every unassigned TTI as user starvation.",
             "",
-            "The service-gap distribution in the table is the distribution of "
-            "each non-outage UE's maximum post-warm-up gap. Pooled inter-service "
-            "gap quantiles remain available in the CSV.",
+            "The delivery-gap distribution in the table is the distribution of "
+            "each non-outage UE's maximum observed gap inside contiguous "
+            "positive-offer segments. It is not a queue-backlog or scheduler-"
+            "starvation metric. Pooled gap quantiles remain available in the CSV.",
             "",
-            "Grid fill is the assigned fraction of physically available "
-            "frequency-time allocation units for that direction. Per-TTI grid "
-            "summaries separate TDD-unavailable units from available-but-empty "
-            "units.",
+            "Grid assigned/effective values are fractions of physically "
+            "available frequency-time units. Per-TTI summaries separate "
+            "TDD-unavailable, available-but-empty, and assigned-with-zero-"
+            "effective-payload units.",
             "",
             "Payload/grant efficiency is sampled from logged grid grants and is "
             "the sum of effective payload bits divided by nominal grant bits.",
@@ -469,7 +549,7 @@ def main() -> None:
             grid_path = log_dir / "mac" / f"grid_log_{direction}.txt"
             if grid_path.is_file():
                 grid_metrics[(profile, direction)] = parse_grid(
-                    grid_path, args.warmup_s)
+                    grid_path, args.warmup_s, configured_duration)
 
     summaries = summarize(
         manifest, ue_rows, grid_metrics, args.warmup_s)
@@ -487,7 +567,10 @@ def main() -> None:
         "warmup_s": args.warmup_s,
         "service_windows_s": WINDOWS_S,
         "outage_definition": "MCS below zero in >=99% of eligible samples",
-        "service_conditioning": "positive offered traffic, non-outage UE",
+        "service_conditioning": (
+            "contiguous positive-offer segments, non-outage UE; "
+            "queue backlog is not observed"
+        ),
     }
     (output / "analysis-metadata.json").write_text(
         json.dumps(analysis_metadata, indent=2, sort_keys=True) + "\n")

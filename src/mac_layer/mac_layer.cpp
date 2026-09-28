@@ -167,6 +167,8 @@ void mac_layer::step(float current_t)
         dl_point.fields["available_rbg_sum"] = make_metric_field(dl_metrics.available_rbg_count, field_aggregation::sum);
         dl_point.fields["structural_unavailable_rbg_sum"] = make_metric_field(dl_metrics.structural_unavailable_rbg_count, field_aggregation::sum);
         dl_point.fields["scheduled_rbg_sum"] = make_metric_field(dl_metrics.scheduled_rbg_count, field_aggregation::sum);
+        dl_point.fields["effective_rbg_sum"] = make_metric_field(dl_metrics.effective_rbg_count, field_aggregation::sum);
+        dl_point.fields["zero_effective_rbg_sum"] = make_metric_field(dl_metrics.zero_effective_rbg_count, field_aggregation::sum);
         dl_point.fields["empty_rbg_sum"] = make_metric_field(dl_metrics.empty_rbg_count, field_aggregation::sum);
         dl_point.fields["scheduled_ues_sum"] = make_metric_field(dl_metrics.scheduled_ue_count, field_aggregation::sum);
         dl_point.fields["active_ues_with_data_mean"] = make_metric_field(dl_metrics.active_ues_with_data, field_aggregation::mean);
@@ -185,6 +187,8 @@ void mac_layer::step(float current_t)
         ul_point.fields["available_rbg_sum"] = make_metric_field(ul_metrics.available_rbg_count, field_aggregation::sum);
         ul_point.fields["structural_unavailable_rbg_sum"] = make_metric_field(ul_metrics.structural_unavailable_rbg_count, field_aggregation::sum);
         ul_point.fields["scheduled_rbg_sum"] = make_metric_field(ul_metrics.scheduled_rbg_count, field_aggregation::sum);
+        ul_point.fields["effective_rbg_sum"] = make_metric_field(ul_metrics.effective_rbg_count, field_aggregation::sum);
+        ul_point.fields["zero_effective_rbg_sum"] = make_metric_field(ul_metrics.zero_effective_rbg_count, field_aggregation::sum);
         ul_point.fields["empty_rbg_sum"] = make_metric_field(ul_metrics.empty_rbg_count, field_aggregation::sum);
         ul_point.fields["scheduled_ues_sum"] = make_metric_field(ul_metrics.scheduled_ue_count, field_aggregation::sum);
         ul_point.fields["active_ues_with_data_mean"] = make_metric_field(ul_metrics.active_ues_with_data, field_aggregation::mean);

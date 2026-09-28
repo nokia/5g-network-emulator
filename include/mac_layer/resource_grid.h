@@ -23,6 +23,8 @@ struct grid_step_metrics
     int available_rbg_count = 0;
     int structural_unavailable_rbg_count = 0;
     int scheduled_rbg_count = 0;
+    int effective_rbg_count = 0;
+    int zero_effective_rbg_count = 0;
     int empty_rbg_count = 0;
     int scheduled_ue_count = 0;
     int active_ues_with_data = 0;

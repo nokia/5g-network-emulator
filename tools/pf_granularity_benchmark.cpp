@@ -47,12 +47,20 @@ int main(int argc, char **argv)
     simulator sim(config_path);
 
     sim.run_steps(warmup_steps);
-    const auto start = std::chrono::steady_clock::now();
-    sim.run_steps(steps);
-    const double wall_ms =
-        std::chrono::duration<double, std::milli>(
-            std::chrono::steady_clock::now() - start)
-            .count();
+    std::vector<double> tti_us;
+    tti_us.reserve(steps);
+    double wall_us = 0.0;
+    for (unsigned int step = 0; step < steps; step++)
+    {
+        const auto start = std::chrono::steady_clock::now();
+        sim.run_steps(1);
+        const double elapsed_us =
+            std::chrono::duration<double, std::micro>(
+                std::chrono::steady_clock::now() - start)
+                .count();
+        tti_us.push_back(elapsed_us);
+        wall_us += elapsed_us;
+    }
 
     std::vector<float> dl_throughputs;
     std::vector<float> ul_throughputs;
@@ -80,14 +88,21 @@ int main(int argc, char **argv)
         << "\"steps\":" << steps
         << ",\"warmup_steps\":" << warmup_steps
         << ",\"ues\":" << dl_throughputs.size()
-        << ",\"wall_ms\":" << wall_ms
-        << ",\"us_per_tti\":" << wall_ms * 1000.0 / steps
+        << ",\"wall_ms\":" << wall_us / 1000.0
+        << ",\"us_per_tti\":" << wall_us / steps
         << ",\"dl_total_mbps\":" << dl_total
         << ",\"ul_total_mbps\":" << ul_total
         << ",\"dl_jain\":" << jain_index(dl_throughputs)
         << ",\"ul_jain\":" << jain_index(ul_throughputs)
         << ",\"dl_max_service_gap_ttis\":" << max_dl_gap
         << ",\"ul_max_service_gap_ttis\":" << max_ul_gap
-        << "}\n";
+        << ",\"tti_us\":[";
+    for (size_t index = 0; index < tti_us.size(); index++)
+    {
+        if (index > 0)
+            std::cout << ",";
+        std::cout << tti_us[index];
+    }
+    std::cout << "]}\n";
     return 0;
 }

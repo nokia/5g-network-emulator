@@ -147,8 +147,9 @@ private:
     void average_sinr();
     void reset_cqi();
     float compute_losses(float distance);//this method includes the oxygen absortion, the penetration and in_building losses
-    float compute_d_in(float _d);
-    float compute_penetration_losses();
+    float compute_penetration_losses(
+        float building_sample,
+        float vehicle_sample);
     float compute_pathloss_ABG(float d, bool LOS);
     float calculateOxygenLoss();
     void check_boundaries();
@@ -163,11 +164,12 @@ private:
     int get_n_layers();
 
 private:
-    std::mt19937 gen;
+    std::mt19937 fading_gen;
+    std::mt19937 interference_gen;
+    std::mt19937 cqi_distance_gen;
     std::uniform_real_distribution<float> distance_cqi_dist{-1, 1};
     std::uniform_real_distribution<float> uniform_stochastics{0.0, 1.0};
     std::normal_distribution<float> sinr_stochastics{0.0, 1.0};
-    std::normal_distribution<float> penetration_stochastics{0.0, 1.0};
 
 private:
     int modulation_m;

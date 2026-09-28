@@ -20,6 +20,7 @@ bool near(double a, double b, double tol = 1e-4)
 
 const char *TIMELINE = "build/tests/control_apply_timeline.ndjson";
 const char *CONFIG = "build/tests/control_apply.ini";
+const char *MAP = "build/tests/control_apply_map.json";
 
 void write_file(const char *path, const std::string &text)
 {
@@ -43,6 +44,8 @@ void write_config(const std::string &timeline, int metric_type = -1, int n_ues =
         if (n_ues > 0 && line.rfind("n_ues:", 0) == 0)
             line = "n_ues: " + std::to_string(n_ues);
         text += line + "\n";
+        if (line.rfind("scenario_type:", 0) == 0)
+            text += std::string("map_file: ") + MAP + "\n";
     }
     write_file(CONFIG, text);
 }
@@ -210,6 +213,12 @@ void test_rate_cap_holds_the_rate()
 
 int main()
 {
+    write_file(
+        MAP,
+        "{\"schema_version\":2,"
+        "\"metadata\":{\"grid_origin\":\"explicit-center-cell\"},"
+        "\"cell_number\":3,\"cell_size\":500.0,"
+        "\"map\":[[-80,-80,-80],[-80,-80,-80],[-80,-80,-80]]}\n");
     test_command_lands_on_its_tti();
     test_priority_is_absolute();
     test_disable_removes_the_ue();
@@ -218,5 +227,6 @@ int main()
     test_rate_cap_holds_the_rate();
     std::remove(TIMELINE);
     std::remove(CONFIG);
+    std::remove(MAP);
     return 0;
 }

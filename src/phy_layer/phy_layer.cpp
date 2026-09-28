@@ -98,8 +98,12 @@ void phy_layer::init_rank(int _period, int _n_antennas,int _mimo_layers)
 }
 
 phy_layer::phy_layer(int _tx, int _id, scenario_config _scenario_config, phy_ue_config _phy_ue_config, phy_enb_config _phy_enb_config, bool _stochastics, int _verbosity)
-    : distance_cqi_dist(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()),
-      gen(rng_seed(_stochastics, RNG_PHY_LAYER, 2ULL * (std::uint64_t)_id + (std::uint64_t)_tx)),
+    : fading_gen(phy_rng_seed(
+          _stochastics, _id, _tx, PHY_STREAM_FADING)),
+      interference_gen(phy_rng_seed(
+          _stochastics, _id, _tx, PHY_STREAM_INTERFERENCE)),
+      cqi_distance_gen(phy_rng_seed(
+          _stochastics, _id, _tx, PHY_STREAM_CQI_DISTANCE)),
       metric_h(
           _phy_enb_config.metric_type,
           _phy_ue_config.beta,
@@ -265,7 +269,10 @@ void phy_layer::init(int _n_rbs, int _bandwidth)
 
 float phy_layer::compute_rayleigh()
 {
-    return 10 * log10(sqrt(pow(sinr_stochastics(gen), 2) + pow(sinr_stochastics(gen), 2)));
+    return 10 * log10(
+        sqrt(
+            pow(sinr_stochastics(fading_gen), 2)
+            + pow(sinr_stochastics(fading_gen), 2)));
 }
 
 float phy_layer::compute_pathloss_ABG(float distance, bool los) 
@@ -390,18 +397,24 @@ float phy_layer::compute_pathloss_ABG(float distance, bool los)
         break;
     }
 
-    float plb = 10 * alpha * log10(distance - d_in) + beta + 10 * gamma * log10(freq_ghz);
+    const float effective_distance = std::max(distance - d_in, 1.0f);
+    float plb =
+        10 * alpha * log10(effective_distance)
+        + beta
+        + 10 * gamma * log10(freq_ghz);
 
     return plb;
 }
-float phy_layer::compute_penetration_losses()
+float phy_layer::compute_penetration_losses(
+    float building_sample,
+    float vehicle_sample)
 {
     if (o2i == OUTDOOR)
         return pltw = 0.0f;
 
     if (o2i == IN_CAR)
         return pltw = vehicle_penetration_loss_db(
-                   vehicle_profile, penetration_stochastics(gen));
+                   vehicle_profile, vehicle_sample);
 
     if (o2i != IN_BUILDING || penetration_profile == PENETRATION_NONE)
         return pltw = 0.0f;
@@ -419,7 +432,7 @@ float phy_layer::compute_penetration_losses()
     pltw = building_penetration_loss_db(
         penetration_profile,
         freq_ghz,
-        penetration_stochastics(gen));
+        building_sample);
     return pltw;
 }
 
@@ -481,47 +494,6 @@ float phy_layer::calculateOxygenLoss()
 
     return a_oxygen;
 }
-float phy_layer::compute_d_in(float _d)
-{
-    // The indoor penetration distance is drawn until it fits inside the UE distance. With
-    // _d <= 0 no draw can ever fit and the loop never ends, which is reachable in
-    // practice: a UE placed at the origin, or any scenario whose fading map fails to load,
-    // where MapHandler leaves the apothem at 0 and every position collapses to (0,0).
-    // Now that positions are a runtime knob, a single command could hang the emulator.
-    if (_d <= 0.0f) return 0.0f;
-
-    // 100 attempts is far beyond what the geometry needs: the draw is bounded by 25 m
-    // (urban) or 10 m (rural), so for any usual cell distance the first one already fits
-    // and the number of random draws is the same as before.
-    for (int attempt = 0; attempt < 100; attempt++)
-    {
-        float urban_distance1 = uniform_stochastics(gen) * 25.0f;
-        float urban_distance2 = uniform_stochastics(gen) * 25.0f;
-        float rma_distance1 = uniform_stochastics(gen) * 10.0f;
-        float rma_distance2 = uniform_stochastics(gen) * 10.0f;
-
-        switch (scenario)
-        {
-        case RURAL_MACROCELL:
-            d_in = std::min(rma_distance1, rma_distance2);
-            break;
-
-        case URBAN_MICROCELL:
-        case URBAN_MACROCELL:
-            d_in = std::min(urban_distance1, urban_distance2);
-            break;
-
-        default:
-            return 0.0f;
-        }
-
-        if (d_in < _d) return d_in;
-    }
-
-    // Very close to the gNB: the penetration distance cannot exceed the distance itself.
-    return std::min(d_in, _d);
-}
-
 float phy_layer::compute_losses(float distance)
 {
 
@@ -627,7 +599,14 @@ int phy_layer::get_n_layers()
 
 int phy_layer::estimate_cqi_from_distance(float distance)
 {
-    return (int)std::min(15.0, std::max(1.0, pow(int(15 * ((ENB_MAX_RANGE - distance) / ENB_MAX_RANGE)), 0.5) + distance_cqi_dist(gen)));
+    return (int)std::min(
+        15.0,
+        std::max(
+            1.0,
+            pow(
+                int(15 * ((ENB_MAX_RANGE - distance) / ENB_MAX_RANGE)),
+                0.5)
+                + distance_cqi_dist(cqi_distance_gen)));
 }
 
 float phy_layer::estimate_eff_from_sinr(float sinr)
@@ -662,7 +641,7 @@ int phy_layer::get_mcs_index(float sinr)
     int i = 0;
     if (mcs_lookup[0] > sinr)
         return -1;
-    for (i = 0; i < MCS_INDEX_MAX - 1 && mcs_lookup[i + 1] < sinr; i++)
+    for (i = 0; i < MCS_INDEX_MAX - 1 && mcs_lookup[i + 1] <= sinr; i++)
         ;
     return i;
 }
@@ -727,7 +706,8 @@ void phy_layer::estimate_noise_interference(float _tx_power, int _n_ues, float _
     {
         // Until explicit neighbor allocations exist, UL interference is represented as
         // an aggregate per-PRB power spectral density.
-        tx_power = -23 + uniform_stochastics(gen) * 46;
+        tx_power =
+            -23 + uniform_stochastics(interference_gen) * 46;
     }
     else
     {
@@ -743,7 +723,7 @@ void phy_layer::estimate_noise_interference(float _tx_power, int _n_ues, float _
     linear_noise = dBmToLinear(noise);
 
     const float n_interference = _n_ues;
-    const float random = uniform_stochastics(gen);
+    const float random = uniform_stochastics(interference_gen);
     d_interference = _d_interference + random * 100;
 
     float linear_interference = 0.0f;
@@ -1001,9 +981,11 @@ void phy_layer::estimate_channel_state(float distance, phy_shared &phy_s, float 
         d_in =
             o2i == IN_BUILDING
                     && penetration_profile != PENETRATION_NONE
-                ? compute_d_in(distance)
+                ? phy_s.get_indoor_depth(distance)
                 : 0.0f;
-        pltw = compute_penetration_losses();
+        pltw = compute_penetration_losses(
+            phy_s.get_building_penetration_sample(),
+            phy_s.get_vehicle_penetration_sample());
         plin =
             o2i == IN_BUILDING
                 ? 0.5f * d_in

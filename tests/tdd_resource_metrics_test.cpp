@@ -61,6 +61,10 @@ int main()
         assert(
             ul_metrics.empty_rbg_count
             == ul_metrics.available_rbg_count);
+        assert(dl_metrics.effective_rbg_count == 0);
+        assert(ul_metrics.effective_rbg_count == 0);
+        assert(dl_metrics.zero_effective_rbg_count == 0);
+        assert(ul_metrics.zero_effective_rbg_count == 0);
         assert(dl_metrics.utilization_ratio == 0.0f);
         assert(ul_metrics.utilization_ratio == 0.0f);
 
@@ -81,5 +85,21 @@ int main()
     assert(fdd_metrics.available_rbg_count == fdd.get_n_freq_rbg());
     assert(fdd_metrics.structural_unavailable_rbg_count == 0);
     assert(fdd_metrics.empty_rbg_count == fdd_metrics.available_rbg_count);
+
+    grid mu4(
+        TX_DL,
+        1,
+        4,
+        12,
+        14,
+        METRIC_PF,
+        100000000,
+        SCH_LOCALIZED_MODE,
+        1,
+        1,
+        TDD,
+        0.5f,
+        tdd_config(7, 3, 54));
+    assert(mu4.get_n_freq_rb() == 34);
     return 0;
 }

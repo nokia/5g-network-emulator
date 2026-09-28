@@ -128,6 +128,9 @@ def main() -> None:
     if unknown:
         raise SystemExit(f"unknown profiles: {unknown}")
     output = args.output.resolve()
+    if output.exists():
+        raise SystemExit(
+            f"refusing to reuse evidence output directory: {output}")
     input_dir = output / "inputs"
     stdout_dir = output / "stdout"
     input_dir.mkdir(parents=True, exist_ok=True)
@@ -142,6 +145,10 @@ def main() -> None:
     for profile in profiles:
         source = ROOT / "config" / f"{profile}.ini"
         run_id = f"{batch_id}-{profile}"
+        log_dir = ROOT / "logs" / run_id
+        if log_dir.exists():
+            raise SystemExit(
+                f"refusing to append to existing run log directory: {log_dir}")
         rendered = render_config(
             source, args.seed, run_id, args.duration_s)
         input_path = input_dir / source.name
@@ -168,7 +175,6 @@ def main() -> None:
         if observed_map is not None and not observed_map.endswith(expected_map):
             raise SystemExit(
                 f"{profile}: selected {observed_map}, expected {expected_map}")
-        log_dir = ROOT / "logs" / run_id
         if not log_dir.is_dir():
             raise SystemExit(f"{profile}: expected log directory {log_dir}")
         map_entry = map_by_name[expected_map]

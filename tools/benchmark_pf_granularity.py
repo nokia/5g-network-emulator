@@ -183,6 +183,7 @@ def markdown_table(rows: list[dict]) -> str:
         "us_per_tti_p50",
         "us_per_tti_p95",
         "us_per_tti_p99",
+        "deadline_miss_pct",
         "dl_total_mbps",
         "dl_jain",
         "dl_max_service_gap_ttis",
@@ -221,6 +222,9 @@ def main() -> None:
         default=ROOT / "results" / "pf-granularity",
     )
     args = parser.parse_args()
+    if args.steps <= 0 or args.repeats <= 0 or args.warmup_steps < 0:
+        raise SystemExit(
+            "steps/repeats must be positive and warmup-steps non-negative")
 
     binary = ROOT / "bin" / "pf_granularity_benchmark"
     if not binary.is_file():
@@ -289,18 +293,22 @@ def main() -> None:
             print(case_name, "FAILED", failure["error"])
             continue
         for repeat, sample in enumerate(samples):
-            sample_rows.append(
-                {
-                    "case": case_name,
-                    "repeat": repeat,
-                    "warmup_steps": args.warmup_steps,
-                    "steps": args.steps,
-                    "us_per_tti": sample["us_per_tti"],
-                }
-            )
+            for tti, elapsed_us in enumerate(sample["tti_us"]):
+                sample_rows.append(
+                    {
+                        "case": case_name,
+                        "repeat": repeat,
+                        "tti": tti,
+                        "warmup_steps": args.warmup_steps,
+                        "us_per_tti": elapsed_us,
+                    }
+                )
         representative = samples[0]
         runtime_samples = [
-            sample["us_per_tti"] for sample in samples]
+            elapsed_us
+            for sample in samples
+            for elapsed_us in sample["tti_us"]
+        ]
         row = {
             "grid": grid_name,
             "ues": ue_count,
@@ -319,6 +327,12 @@ def main() -> None:
                 percentile(runtime_samples, 0.95), 3),
             "us_per_tti_p99": round(
                 percentile(runtime_samples, 0.99), 3),
+            "deadline_miss_pct": round(
+                100.0
+                * sum(value > 1000.0 for value in runtime_samples)
+                / len(runtime_samples),
+                3,
+            ),
             "dl_total_mbps": round(representative["dl_total_mbps"], 3),
             "ul_total_mbps": round(representative["ul_total_mbps"], 3),
             "dl_jain": round(representative["dl_jain"], 5),
@@ -367,6 +381,9 @@ def main() -> None:
         f"Warm-up steps: {args.warmup_steps}; measured steps per sample: "
         f"{args.steps}; repeats: {args.repeats}.",
         "",
+        "P50/P95/P99 are computed from individually timed warmed-up TTIs "
+        "across all repeats. A deadline miss is a TTI above 1,000 us.",
+        "",
         f"Host: `{socket.gethostname()}`; platform: `{platform.platform()}`.",
         "",
         "Time modes: `localized` uses one time allocation group per 1 ms; "
@@ -408,6 +425,8 @@ def main() -> None:
         "steps": args.steps,
         "warmup_steps": args.warmup_steps,
         "repeats": args.repeats,
+        "timing_samples_per_case": args.steps * args.repeats,
+        "timing_unit": "individual warmed-up TTI",
         "ue_counts": ue_counts,
         "modes": modes,
         "grids": GRID_PROFILES,

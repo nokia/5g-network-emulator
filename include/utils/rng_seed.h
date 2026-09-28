@@ -35,6 +35,10 @@ enum rng_domain
     RNG_TRAFFIC
 };
 
+#define PHY_STREAM_FADING 0
+#define PHY_STREAM_INTERFERENCE 1
+#define PHY_STREAM_CQI_DISTANCE 2
+
 // Set once from [Global] seed, before any UE is built and before any worker thread starts.
 inline std::uint64_t &rng_run_seed()
 {
@@ -78,4 +82,18 @@ inline unsigned int rng_seed(bool stochastics, int domain, std::uint64_t index)
 inline unsigned int pdcp_rng_seed(bool stochastics, int ue_id, int tx_dir, int stream)
 {
     return rng_seed(stochastics, RNG_PDCP, 8ULL * (std::uint64_t)ue_id + 2ULL * (std::uint64_t)stream + (std::uint64_t)tx_dir);
+}
+
+inline unsigned int phy_rng_seed(
+    bool stochastics,
+    int ue_id,
+    int tx_dir,
+    int stream)
+{
+    return rng_seed(
+        stochastics,
+        RNG_PHY_LAYER,
+        8ULL * (std::uint64_t)ue_id
+            + 4ULL * (std::uint64_t)tx_dir
+            + (std::uint64_t)stream);
 }

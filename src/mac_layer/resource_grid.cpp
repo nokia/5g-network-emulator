@@ -135,7 +135,7 @@ void grid::step()
         {
             if (it->is_enabled())
                 n_enabled++;
-            if (it->has_packets(tx))
+            if (it->is_enabled() && it->has_packets(tx))
                 last_step_metrics.active_ues_with_data++;
             bool scheduler_active =
                 it->is_enabled() && it->has_packets(tx);
@@ -178,6 +178,8 @@ void grid::step()
                 last_step_metrics.scheduled_rbg_count++;
                 last_step_metrics.scheduled_bits += rb_grid[t][f].last_scheduled_bits();
                 last_step_metrics.effective_bits += rb_grid[t][f].last_effective_bits();
+                if (rb_grid[t][f].last_effective_bits() > 0.0f)
+                    last_step_metrics.effective_rbg_count++;
                 int ue_index = rb_grid[t][f].last_ue_index();
                 if (ue_index >= 0 && ue_index < (int)scheduled_ues.size() && !scheduled_ues[ue_index])
                 {
@@ -237,6 +239,9 @@ void grid::step()
     last_step_metrics.empty_rbg_count =
         last_step_metrics.available_rbg_count
         - last_step_metrics.scheduled_rbg_count;
+    last_step_metrics.zero_effective_rbg_count =
+        last_step_metrics.scheduled_rbg_count
+        - last_step_metrics.effective_rbg_count;
     if (last_step_metrics.available_rbg_count > 0)
         last_step_metrics.utilization_ratio =
             (float)last_step_metrics.scheduled_rbg_count
@@ -245,12 +250,15 @@ void grid::step()
         last_step_metrics.scheduling_efficiency_ratio = last_step_metrics.effective_bits / last_step_metrics.scheduled_bits;
     if (log)
     {
-        logger->log_partial(
-            "summary:1 tx:{} available:{} assigned:{} empty:{} "
-            "structural:{} capacity:{} utilization:{} ts:{} \n",
+        logger->log_force(
+            "summary:1 tx:{} available:{} assigned:{} effective:{} "
+            "wasted:{} empty:{} structural:{} capacity:{} "
+            "utilization:{} ts:{} \n",
             tx,
             last_step_metrics.available_rbg_count,
             last_step_metrics.scheduled_rbg_count,
+            last_step_metrics.effective_rbg_count,
+            last_step_metrics.zero_effective_rbg_count,
             last_step_metrics.empty_rbg_count,
             last_step_metrics.structural_unavailable_rbg_count,
             last_step_metrics.grid_capacity_bits,

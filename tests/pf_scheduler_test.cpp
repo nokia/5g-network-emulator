@@ -9,7 +9,7 @@
 
 namespace
 {
-void write_config(const std::string &path)
+void write_config(const std::string &path, int cqi_period)
 {
     std::ofstream out(path);
     out << "[Global]\n"
@@ -25,7 +25,7 @@ void write_config(const std::string &path)
         << "n_antennas: 1\n"
         << "set_ul_pow: true\n"
         << "tx_power_ul: 23\n"
-        << "cqi_period: 5\n"
+        << "cqi_period: " << cqi_period << "\n"
         << "ri_period: 5\n"
         << "random_v: false\n"
         << "traffic_type: 0\n"
@@ -79,6 +79,31 @@ void write_config(const std::string &path)
         << "ut_noise_figure: 9\n";
 }
 
+struct scheduler_result
+{
+    std::vector<float> throughputs;
+    std::vector<float> pf_averages;
+};
+
+scheduler_result run_scheduler(
+    const std::string &path,
+    int cqi_period)
+{
+    write_config(path, cqi_period);
+    simulator sim(path);
+    sim.run_steps(1000);
+
+    scheduler_result result;
+    for (ue &terminal : *sim.ue_list())
+    {
+        result.throughputs.push_back(terminal.get_avg_tp(TX_DL));
+        result.pf_averages.push_back(
+            terminal.get_pf_average_throughput_bits_per_tti(TX_DL));
+        assert(terminal.get_pkt_delay_budget() == 10.0f);
+    }
+    return result;
+}
+
 float jain_index(const std::vector<float> &values)
 {
     float sum = 0.0f;
@@ -95,20 +120,24 @@ float jain_index(const std::vector<float> &values)
 
 int main()
 {
-    const std::string path = "build/tests/pf_scheduler.ini";
-    write_config(path);
-    simulator sim(path);
-    sim.run_steps(1000);
+    const scheduler_result fast_cqi = run_scheduler(
+        "build/tests/pf_scheduler_cqi_1.ini", 1);
+    const scheduler_result slow_cqi = run_scheduler(
+        "build/tests/pf_scheduler_cqi_20.ini", 20);
 
-    std::vector<float> throughputs;
-    for (ue &terminal : *sim.ue_list())
+    assert(fast_cqi.throughputs.size() == 16);
+    assert(slow_cqi.throughputs.size() == fast_cqi.throughputs.size());
+    for (size_t index = 0; index < fast_cqi.throughputs.size(); index++)
     {
-        const float throughput = terminal.get_avg_tp(TX_DL);
-        assert(throughput > 0.0f);
-        assert(terminal.get_pkt_delay_budget() == 10.0f);
-        throughputs.push_back(throughput);
+        assert(fast_cqi.throughputs[index] > 0.0f);
+        assert(slow_cqi.throughputs[index] > 0.0f);
+        assert(
+            std::fabs(
+                fast_cqi.pf_averages[index]
+                - slow_cqi.pf_averages[index])
+            < 1e-3f);
     }
-    assert(throughputs.size() == 16);
-    assert(jain_index(throughputs) > 0.98f);
+    assert(jain_index(fast_cqi.throughputs) > 0.98f);
+    assert(jain_index(slow_cqi.throughputs) > 0.98f);
     return 0;
 }

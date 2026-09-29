@@ -161,7 +161,7 @@
     {
       "id": "manuscript",
       "path": "docs/phy-model-evolution-external-review.md",
-      "sha256": "84380b80eac6d5670554669de5f970298bc43e27df8358441493248ee68cc79d"
+      "sha256": "6c8b4cf43d6013495fc36ca0246162e83fc1f90bd3fcdf1f5d3ce45e1fd93769"
     },
     {
       "id": "python-dependency-lock",

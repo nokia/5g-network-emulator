@@ -1,599 +1,365 @@
-# A Reproducible Resource-Consistent PHY/MAC Abstraction for 5G Application Emulation
-
-**Status:** External technical-review manuscript
-**Model under test:** `feature/phy-model-v2`
-**Model implementation source:** `1b55ca191e27a368936476fff33fc622833d8d13`
-**Packet-profile source:** `1b55ca191e27a368936476fff33fc622833d8d13`
-**Runtime-benchmark source:** `1b55ca191e27a368936476fff33fc622833d8d13`
-**Evidence protocol:** `docs/phy-model-v2-evidence-protocol.md`
-**Date:** 2026-09-28
+# Physical and MAC-Layer Abstractions in FikoRE for 5G Application Emulation
 
 ## Abstract
 
-FikoRE is a packet-carrying, single-cell 5G emulator whose 1 ms loop must
-remain fast enough to expose real applications to coverage, capacity, delay,
-loss, and scheduling effects. It therefore uses a system-level PHY/MAC
-abstraction rather than waveform processing. We identify three classes of
-internal inconsistency in the previous abstraction: mixed bandwidth references
-in the link budget, uplink power reuse across independently scheduled grants,
-and proportional-fair (PF) history coupled to CQI update cadence. We introduce
-a per-PRB signal/noise reference, allocation-aware two-stage uplink power
-finalization, and a TTI-updated PF state with optional intra-TTI reranking. We
-also activate 21 deterministic spatial maps with explicit origin and
-provenance, separate map loss from runtime penetration, and make physical UE
-environment state explicit.
+FikoRE is a single-cell 5G radio-access-network emulator designed to expose real or generated application traffic to controlled variations in coverage, capacity, latency, loss, mobility, and scheduling. Its physical layer is therefore a system-level abstraction: it represents the main relationships between position, propagation, received power, interference, modulation and coding, radio-resource allocation, and effective packet delivery, but it does not generate waveforms or emulate a complete receiver. This paper gives a self-contained description of the physical and MAC-layer model currently implemented in FikoRE, explains the simplifications that define its validity boundary, presents deterministic and statistical validation results, and describes the planned evolution toward multicell interference, explicit beam state, carrier aggregation, calibrated MIMO, and link-to-system error prediction. The current model uses deterministic spatial maps based on Alpha-Beta-Gamma path loss and correlated shadowing, explicit building and vehicle penetration states, resource-consistent signal and noise accounting, allocation-aware uplink power finalization, threshold-based link adaptation, and proportional-fair scheduling with optional intra-TTI reranking. Validation covers 630 independently seeded maps, five 180-second packet-level scenarios, a controlled penetration-loss comparison, and repeated scheduler timing for 1 to 256 UEs. The results establish deterministic reproducibility and internal consistency, but not deployment-level predictive accuracy. Long delivery gaps remain possible in challenging UMa and RMa scenarios, the present interference and MIMO abstractions are deliberately limited, and BLER-driven HARQ is not enabled in the evaluated implementation.
 
-Validation combines unit invariants, byte reproduction, 630 independently
-seeded map realizations, five 180 s packet-level profiles, a controlled O2I
-stress pair, and repeated timing over 1–256 UEs. All promoted numeric map
-arrays are byte-reproducible from their v2.1 metadata. Within the inscribed
-map disks, the largest absolute bias of the 30-realization ensemble-mean
-radial LOS probability is 0.038; the largest ensemble-mean axial
-shadow-correlation error is 0.007, and the largest absolute ensemble-mean
-opposite-edge correlation after padded generation is 0.026. Grouped PF
-reranking materially reduces 64-UE maximum service gaps while long-run Jain
-fairness is already near one, with sub-millisecond P99 cost on
-the measured host, whereas distributed per-PRB 100/400 MHz grids exceed the
-real-time budget. Windowed delivery metrics show that per-TTI zero grants need
-not imply application-visible starvation, but UMa and RMa retain
-multi-second delivery gaps whose queue/scheduler/radio causes are not
-separable from current logs. These results establish internal
-consistency and reproducibility, not predictive validity. Multicell
-interference, beam state, carrier aggregation, calibrated MIMO, and
-link-to-system error prediction remain open design decisions.
+## 1. Purpose and modelling philosophy
 
-## 1. Contributions and claim boundary
+FikoRE occupies a middle ground between a static link-budget calculator and a complete link- or system-level NR simulator. A link-budget calculator can estimate received power and theoretical capacity at one position, but it cannot expose an application to mobility, packet queues, TDD availability, scheduling competition, delay expiry, or changes in effective delivered payload. A full NR simulator can model many of those effects with substantially greater radio fidelity, but it also requires more scenario state, calibration data, runtime, and specialist knowledge. FikoRE instead models the radio mechanisms that are most visible to an application while retaining a 1 ms execution loop and a configuration surface that can be understood and modified without implementing a complete baseband chain.
 
-This work makes four falsifiable contributions.
+The current model is intended to answer questions such as how offered traffic is divided among users with different radio conditions, how coverage and MCS affect nominal radio capacity, how uplink power limits interact with the number of allocated PRBs, how TDD and scheduler granularity affect service continuity, and how packet demand differs from nominal grid capacity. It is not intended to predict the exact BLER of a commercial receiver, perform site planning, reproduce beam-management procedures, or replace deployment-specific propagation calibration.
 
-1. **Resource-consistent link accounting.** Desired signal, thermal noise,
-   aggregate interference, uplink power, and grant capacity share a per-PRB
-   reference. With stochastic fading disabled, equivalent grouping does not
-   change estimated per-PRB SINR.
-2. **Scheduler state with explicit temporal semantics.** PF achievable rate is
-   refreshed by channel reporting, while service history is committed exactly
-   once per active TTI using effective payload. Optional reranking uses only a
-   provisional current-TTI denominator.
-3. **Reproducible propagation inputs.** A 21-map catalog records generator
-   version, seed, realization identity, coefficients, grid origin, and byte
-   hash. The UE environment and penetration state are not hidden in the map.
-4. **Controlled evidence.** Code, exact inputs, map bytes, summary data,
-   confidence units, runtime samples, and figure generation are linked by a
-   hash-verified manifest.
+The original FikoRE architecture was introduced as an application-level RAN emulator rather than a standards-calibration simulator [21]. The physical-model work described here refines that architecture by making the bandwidth reference, uplink power semantics, map generation, penetration state, scheduler history, and validation boundary explicit. Comparable open simulators such as 5G-LENA and Simu5G provide broader NR system models and useful calibration precedents [19], [20], while the Vienna methodology illustrates the link-level calibration process that remains necessary before FikoRE can claim predictive MCS or BLER accuracy [18].
 
-The work does **not** propose a new propagation model, prove 3GPP calibration,
-validate the emulator against a held-out deployment, or claim a complete NR
-PHY. The deliberately selected ABG path-loss family is preserved. Its external
-validity, and that of the current MCS/BLER and MIMO abstractions, remains an
-open calibration problem.
+## 2. End-to-end architecture
 
-The original FikoRE publication positions the system as a modifiable RAN
-emulator for application experimentation rather than a standards-calibration
-simulator [21]. This work refines that existing architecture; its contribution
-is audited resource/temporal semantics and reproducible evidence, not a new
-general-purpose simulator. 5G-LENA and Simu5G provide broader system-level NR
-models and calibration precedents [19], [20], while the Vienna methodology
-demonstrates the missing link-to-system validation step [18].
+FikoRE advances the serving cell in transmission time intervals of \(\Delta t=1\ \mathrm{ms}\). During each interval, UE positions are updated; when a channel-state refresh is due, the macroscopic map is sampled at the current position and penetration and small-scale effects are applied; the physical layer then supplies per-resource SINR and nominal capacity to the MAC scheduler, which allocates available time-frequency units before the packet queues consume the resulting grants. The packet layer records effective delivered bits and queue or expiry losses; these effective bits update scheduler history at the end of the TTI.
 
-## 2. Emulator scope and processing boundary
+The evaluated model contains one serving cell and one configured carrier. It supports TDD and symmetric FDD, although all reference evidence uses TDD. A carrier is represented by a rectangular time-frequency grid. Frequency resources may be scheduled as individual physical resource blocks or grouped into resource-block groups, while the time dimension may be localized over the complete 1 ms interval or distributed over the numerology-dependent slots inside that interval.
 
-FikoRE executes one application-facing MAC step every
-\(\Delta t=1\ \mathrm{ms}\). It carries generated or captured packets through
-traffic, queue, scheduling, grant consumption, and delay-expiry logic. HARQ
-timing/buffer scaffolding exists, but the compiled V2 branch disables the
-BLER-driven retransmission decision. The physical abstraction supplies
-resource-level rates; it does not synthesize IQ samples, reference signals,
-decoding, or channel matrices.
+The physical layer supplies nominal bits per scheduling unit. The packet layer may deliver fewer useful bits because a queue does not contain enough data, a packet does not fit the available grant, or a packet expires under its delay budget. The evaluated implementation contains HARQ timing and buffering structures, but its BLER-driven retransmission decision is disabled; consequently, the reported error throughput is queue- and expiry-related rather than a calibrated radio-decoding failure rate.
 
-![PHY Model V2 processing pipeline](figures/phy-v2-pipeline.svg)
+### 2.1 Nomenclature
 
-The intended operating boundary is:
+| Symbol or term | Meaning |
+|---|---|
+| UE | User equipment attached to the emulated serving cell |
+| DL / UL | Downlink from gNB to UE / uplink from UE to gNB |
+| TTI | One 1 ms MAC scheduling interval |
+| PRB | Physical resource block containing 12 adjacent subcarriers |
+| RBG | Configurable group of complete PRBs used as one scheduling unit |
+| CQI | Channel-quality indicator derived from the selected spectral efficiency |
+| MCS | Modulation-and-coding index selected from an SINR-threshold table |
+| RI / rank | Number of simultaneously modelled spatial layers |
+| O2I | Outdoor-to-indoor or environmental penetration state |
+| PF | Proportional-fair scheduler |
+| \(N_{\mathrm{RB,car}}\) | Number of modelled frequency-domain PRBs in the carrier |
+| \(n_b\) | Number of PRBs in scheduling unit \(b\) |
+| \(\Gamma_{i,b}\) | SINR of UE \(i\) on scheduling unit \(b\) |
+| \(B_{i,b}\) | Nominal capacity bits granted to UE \(i\) on unit \(b\) |
+| \(B^{\mathrm{eff}}_{i,b}\) | Effective packet payload delivered from that grant |
+| \(\bar R_i\) | PF exponentially weighted service history for UE \(i\) |
 
-- one serving cell and one configured carrier;
-- scenario-level large-scale gain with optional stochastic small-scale fading;
-- resource-grid scheduling with selectable frequency/time aggregation;
-- scalar antenna gains and threshold-based rank;
-- actual packet queues and effective delivered payload;
-- reproducible accelerated offline execution and configuration-dependent
-  per-TTI timing measurements.
+## 3. Time-frequency resource model
 
-This boundary is narrower than 3GPP calibration simulators and wider than a
-static link-budget calculator. In particular, packet demand can leave resources
-unused even when radio capacity exists, and an allocated grant can carry less
-effective payload because of packet size, queue state, or expiry.
-
-## 3. Formal model
-
-### 3.1 Grid and scheduling units
-
-For numerology \(\mu\), subcarrier spacing is
+For numerology \(\mu\), FikoRE uses the NR subcarrier-spacing relation
 
 \[
 \Delta f = 15\cdot 2^\mu\ \mathrm{kHz}.
 \]
 
-Given usable RF bandwidth \(B_{\mathrm{RF}}\), the modeled PRB count is
+Given a configured usable radio bandwidth \(B_{\mathrm{RF}}\), the frequency-domain PRB count is
 
 \[
-N_{\mathrm{RB,car}}
-=\left\lfloor\frac{B_{\mathrm{RF}}}{12\Delta f}\right\rfloor.
+N_{\mathrm{RB,car}}=\left\lfloor\frac{B_{\mathrm{RF}}}{12\Delta f}\right\rfloor.
 \]
 
-A frequency allocation unit contains \(n_b\) PRBs and therefore
-\(N_{\mathrm{SC},b}=12n_b\) subcarriers. A localized time unit spans all
-numerology slots in the 1 ms TTI; a distributed unit schedules each slot
-separately. The decision count per direction is
+A scheduling unit that groups \(n_b\) PRBs contains \(N_{\mathrm{SC},b}=12n_b\) subcarriers. Grouped scheduling uses only complete RBGs, so a carrier may contain a small remainder of modelled PRBs that is not represented by a scheduling unit. This is a resource-granularity limitation rather than an SINR-bandwidth ambiguity: total downlink carrier power is divided by the physical carrier PRB count, not by the number of scheduled groups.
+
+Localized scheduling uses one time group over the complete TTI. Distributed scheduling divides the TTI into \(2^\mu\) time groups. The number of independent scheduler decisions per direction and TTI is therefore
 
 \[
-N_{\mathrm{dec}}
-=N_{\mathrm{freq\ units}}N_{\mathrm{time\ units}}.
+N_{\mathrm{dec}}=N_{\mathrm{freq\ units}}N_{\mathrm{time\ units}}.
 \]
 
-The current grid uses configured usable-bandwidth approximations and does not
-apply a standards-table PRB cap. Grouped scheduling uses only complete RBGs;
-any remainder PRBs are not represented. Canonical profiles are tested
-explicitly rather than inferred to cover every NR bandwidth/numerology pair.
-Canonical evidence is TDD. V2 rejects asymmetric FDD because the current PHY
-shares one direction-independent grid descriptor; symmetric 0.5/0.5 FDD
-remains available.
+This decision count is a primary runtime parameter. A grouped 100 MHz grid may require only 17 decisions per direction and TTI, whereas a distributed per-PRB 400 MHz grid requires approximately 2,000.
 
-For TDD, the configured pattern determines the usable symbols for each
-direction. A DL-ineligible UL slot, an UL-ineligible DL slot, and configured
-transition symbols are intentional duplexing structure, not unassigned
-scheduler resources. Reported grid fill is therefore
+For TDD, a configured symbol pattern determines which symbols are physically available to each direction. DL-ineligible UL symbols, UL-ineligible DL symbols, and transition symbols are structural duplexing resources and must not be counted as scheduler failures. FikoRE reports structural unavailability separately from available-but-empty, assigned, and effective-payload units. Directional assignment fill is
 
 \[
-U_d=
-\frac{N_{\mathrm{assigned},d}}
-     {N_{\mathrm{available\ units},d}},
+U_d=\frac{N_{\mathrm{assigned},d}}{N_{\mathrm{available},d}},
 \]
 
-where the denominator contains physically available units for direction \(d\);
-per-TTI summaries record structurally unavailable, empty, assigned, and
-effective-payload units separately.
+and effective fill uses the same denominator but counts only assigned units that produce positive effective payload.
 
-### 3.2 Deterministic macroscopic gain
+The current implementation supports symmetric FDD bandwidth division. Asymmetric FDD is rejected because DL and UL presently share one carrier-grid descriptor; supporting asymmetric division safely would require direction-specific PRB, RBG, coherence, and HARQ state.
 
-The map stores macroscopic **link gain**, not positive path loss. For
-LOS state \(q\in\{\mathrm{L},\mathrm{N}\}\),
+## 4. Current physical-layer model
+
+### 4.1 Scenario geometry and spatial maps
+
+The serving gNB is placed at the origin of a two-dimensional horizontal coordinate system. Each UE has a configured or randomly generated position and a mobility model. The physical model samples one deterministic spatial map for the selected scenario and carrier frequency. The production catalog contains Rural Macrocell, Urban Macrocell, Urban Microcell, indoor open office, indoor mixed office, and indoor shopping-mall maps at the frequencies required by the reference scenarios and associated studies.
+
+Each current map contains 291 by 291 samples with one explicit center cell. If \(c\) is the map spacing and \(N=291\), runtime coordinates are transformed to map indexes as
 
 \[
-PL_q(d,f)
-=10\alpha_q\log_{10}\!\left(
-\frac{\max(d,1\ \mathrm{m})}{1\ \mathrm{m}}\right)
-+\beta_q
-+10\gamma_q\log_{10}\!\left(\frac{f}{1\ \mathrm{GHz}}\right),
+i_x=\frac{x}{c}+\frac{N-1}{2},\qquad i_y=\frac{y}{c}+\frac{N-1}{2}.
 \]
 
-and the corresponding map field is
+The runtime obtains off-grid gain by bilinear interpolation. The generated nodes have a binary LOS or NLOS state, but interpolation between unlike nodes blends their already-selected dB gains; the runtime map should therefore be interpreted as a continuous effective large-scale-gain field rather than a categorical LOS decision at every possible coordinate.
+
+Map dimensions are chosen to provide a reusable finite field, not to assert that a propagation fit is valid over the entire square. Current corner distances are approximately 1.03 km for UMi and shopping-mall maps, 0.62 km for office maps, and 3.79 km for UMa and RMa maps. Mobility emits a warning when the requested radius exceeds the map corner.
+
+### 4.2 ABG path loss
+
+The map stores negative path loss plus shadowing, expressed as link gain in dB. For propagation state \(q\in\{\mathrm{LOS},\mathrm{NLOS}\}\), the retained Alpha-Beta-Gamma model is
 
 \[
-G_q(\mathbf{x})=S_q(\mathbf{x})-PL_q(d(\mathbf{x}),f)
-\quad[\mathrm{dB}],
+PL_q(d,f)=10\alpha_q\log_{10}\!\left(\frac{\max(d,1\ \mathrm{m})}{1\ \mathrm{m}}\right)+\beta_q+10\gamma_q\log_{10}\!\left(\frac{f}{1\ \mathrm{GHz}}\right).
 \]
 
-where \(S_q\) is zero-mean correlated shadowing. The target shadow covariance
-is the Gudmundson form, implemented through a 2D filtered-field approach [9],
+The corresponding state-specific gain field is
 
 \[
-\rho_q(\Delta r)=\exp\!\left(-\frac{|\Delta r|}{d_{\mathrm{cor},q}}\right).
+G_q(\mathbf{x})=S_q(\mathbf{x})-PL_q(d(\mathbf{x}),f),
 \]
 
-V2.1 generates a correlated Gaussian field \(Z(\mathbf{x})\) by embedding the
-target covariance in a grid twice as wide and cropping its center, transforms it to
-\(U(\mathbf{x})=\Phi(Z(\mathbf{x}))\), and selects the binary LOS state
+where \(S_q\) is correlated lognormal shadowing represented as a zero-mean Gaussian field in dB. The ABG family was selected in the earlier FikoRE physical-layer redesign because it provides one computationally simple structure across outdoor, indoor, sub-6-GHz, and millimetre-wave profiles [6]. The retained coefficients originate from measurement-derived fits, but their exact campaign ranges and extrapolation limits still require a consolidated provenance table before deployment-level predictions can be claimed.
+
+### 4.3 LOS state and correlated shadowing
+
+The target shadow covariance follows the exponential Gudmundson form
 
 \[
-L(\mathbf{x})
-=\mathbb{1}\!\left[
-U(\mathbf{x})\le p_{\mathrm{LOS}}(d(\mathbf{x}),h_{\mathrm{UT}})
-\right].
+\rho_q(\Delta r)=\exp\!\left(-\frac{|\Delta r|}{d_{\mathrm{cor},q}}\right),
 \]
 
-The final stored gain is
+with a scenario- and state-specific decorrelation distance. A zero-mean Gaussian field is generated from this covariance by padded FFT embedding followed by center cropping. Padding prevents the opposite production-map edges from becoming artificial periodic neighbours.
+
+The LOS state is generated from a separate correlated Gaussian field \(Z(\mathbf{x})\). Transforming that field with the standard normal cumulative distribution gives \(U(\mathbf{x})=\Phi(Z(\mathbf{x}))\), and the binary state is
 
 \[
-G_{\mathrm{map}}(\mathbf{x})
-=L(\mathbf{x})G_{\mathrm{L}}(\mathbf{x})
-+(1-L(\mathbf{x}))G_{\mathrm{N}}(\mathbf{x}).
+L(\mathbf{x})=\mathbb{1}\!\left[U(\mathbf{x})\le p_{\mathrm{LOS}}(d(\mathbf{x}),h_{\mathrm{map}})\right].
 \]
 
-The LOS marginal follows the retained scenario equations from TR 38.901
-[1], including the corrected UMa dependence on UE height, except for the
-shopping-mall profile, which is explicitly labelled as a legacy FikoRE
-heuristic with pending provenance. UMa height is a fixed map-generation
-parameter (1.5 m in the production catalog), not runtime per-UE state. This
-does not make the complete map a TR 38.901 channel realization: path loss
-remains the measurement-derived ABG family selected in the 2025 redesign.
-The design rationale and coefficient lineage originate in the associated
-thesis [6].
-
-V2 uses an odd 291×291 grid. For cell spacing \(c\), runtime coordinates map to
+The final node gain is
 
 \[
-i_x=\frac{x}{c}+\frac{N-1}{2},\qquad
-i_y=\frac{y}{c}+\frac{N-1}{2},
+G_{\mathrm{map}}(\mathbf{x})=L(\mathbf{x})G_{\mathrm{LOS}}(\mathbf{x})+\left(1-L(\mathbf{x})\right)G_{\mathrm{NLOS}}(\mathbf{x}).
 \]
 
-followed by bilinear interpolation. Thus \((0,0)\) is one explicit center cell.
-Binary LOS semantics apply at generated nodes; off-grid interpolation blends
-already-selected dB gains and is therefore an effective-gain field, not a
-categorical LOS decision. V1 files retain their historical origin rule when
-explicitly selected.
+The RMa, UMi, UMa, and indoor-office LOS probabilities follow the retained scenario formulas from TR 38.901 [1]. The UMa height term is evaluated when the map is generated, using \(h_{\mathrm{map}}=1.5\ \mathrm{m}\) for the production catalog; runtime UE height does not regenerate the LOS state. The shopping-mall LOS probability is a legacy FikoRE heuristic and is explicitly not attributed to a fixed TR 38.901 shopping-mall equation.
 
-### 3.3 Runtime penetration and additional loss
+### 4.4 Environmental and penetration loss
 
-The canonical configuration surface is
+UE environment is represented independently from the macroscopic map. A UE can be configured as outdoor, indoor, inside a vehicle, or randomly assigned according to a scenario-specific probability. Explicit states are preserved in every scenario; only the random state invokes scenario probabilities. The building-penetration profile can be disabled or set to low-loss or high-loss, and the vehicle profile can use standard or metallized glazing.
 
-```ini
-ue_location_type: outdoor | indoor | vehicle | random
-building_penetration: none | low_loss | high_loss
-vehicle_penetration: standard | metallized
-```
-
-The feature-branch-only key `location` is rejected. The older integer `o2i`
-key is retained solely as a pre-feature migration path.
-
-Additional runtime loss is
+For an indoor UE with an enabled facade profile, additional loss is
 
 \[
-L_{\mathrm{add}}
-=L_{\mathrm{wall}}+0.5d_{\mathrm{in}}
-+a_{\mathrm{O_2}}(f)\frac{d}{1000}
-\quad[\mathrm{dB}]
+L_{\mathrm{add}}=L_{\mathrm{wall}}+0.5d_{\mathrm{in}}+a_{\mathrm{O_2}}(f)\frac{d}{1000}\quad[\mathrm{dB}],
 \]
 
-for an indoor UE with an enabled facade profile. The low- and high-loss wall
-terms use the material-mixture form
+where \(d_{\mathrm{in}}\) is indoor depth in metres and \(a_{\mathrm{O_2}}(f)\) is the frequency-dependent oxygen attenuation in dB/km. Oxygen attenuation is applied independently of environment type. An indoor scenario in which gNB and UE are already in the same building uses no exterior-facade loss.
+
+Wall loss uses a material-mixture model
 
 \[
-L_{\mathrm{wall}}
-=\max\!\left[
-0,\,
-5-10\log_{10}
-\left(\sum_m p_m10^{-L_m(f)/10}\right)+X_\sigma
-\right],
+L_{\mathrm{wall}}=\max\!\left[0,\ 5-10\log_{10}\!\left(\sum_m p_m10^{-L_m(f)/10}\right)+X_\sigma\right].
 \]
 
-with \(\sigma=4.4\ \mathrm{dB}\) and \(6.5\ \mathrm{dB}\), respectively,
-and one deterministic UE-shared draw. Indoor depth, building loss, and vehicle
-loss are shared by DL and UL. Separate keyed streams isolate environment,
-fast-fading, interference, and distance-CQI draws. Indoor-scenario profiles in
-which both endpoints are indoors set facade penetration to `none`; they do not
-apply an outdoor wall a second time. Oxygen loss applies independently of UE
-environment type.
-
-For low loss, material weights are 0.3 standard glass and 0.7 concrete; for
-high loss they are 0.7 IRR glass and 0.3 concrete, with
-\(L_{\mathrm{glass}}=2+0.2f_{\mathrm{GHz}}\),
-\(L_{\mathrm{IRR}}=23+0.3f_{\mathrm{GHz}}\), and
-\(L_{\mathrm{concrete}}=5+4f_{\mathrm{GHz}}\) dB. A shared environment stream
-pre-generates 100 candidates
-\[
-d_j=\min(U_{j,1},U_{j,2})D_{\max},
-\]
-where \(D_{\max}=25\) m for UMi/UMa and 10 m for RMa. At first channel
-evaluation, the first \(d_j<d\) is selected (or the final candidate is clipped
-to \(d\)) and each direction freezes that same result. Explicit
-`outdoor|indoor|vehicle` states are preserved in every scenario; only
-`random` applies scenario probabilities.
-
-Vehicle loss is separate:
+For low-loss facades, the material weights are 0.3 standard glass and 0.7 concrete with \(\sigma=4.4\ \mathrm{dB}\). For high-loss facades, the weights are 0.7 IRR glass and 0.3 concrete with \(\sigma=6.5\ \mathrm{dB}\). Material losses are
 
 \[
-L_{\mathrm{vehicle}}
-=\max(0,\mu_v+5Z)\ \mathrm{dB},
+L_{\mathrm{glass}}=2+0.2f_{\mathrm{GHz}},\qquad L_{\mathrm{IRR}}=23+0.3f_{\mathrm{GHz}},\qquad L_{\mathrm{concrete}}=5+4f_{\mathrm{GHz}}\quad[\mathrm{dB}].
 \]
 
-with \(\mu_v=9\ \mathrm{dB}\) for standard glazing and
-\(20\ \mathrm{dB}\) for metallized glazing. Vehicle UEs do not receive the
-building indoor-depth term.
-
-### 3.4 Per-resource power, noise, and SINR
-
-Downlink total carrier power \(P_{\mathrm{DL,tot}}\) is spread uniformly over
-carrier PRBs:
+A UE-shared environment stream supplies one building-loss draw, one vehicle-loss draw, and a deterministic sequence of indoor-depth candidates. For UMi and UMa, candidate depth is based on \(D_{\max}=25\ \mathrm{m}\); for RMa it uses \(D_{\max}=10\ \mathrm{m}\):
 
 \[
-P_{\mathrm{DL,PRB}}
-=P_{\mathrm{DL,tot}}-10\log_{10}N_{\mathrm{RB,car}}
-\quad[\mathrm{dBm}].
+d_j=\min(U_{j,1},U_{j,2})D_{\max}.
 \]
 
-Thermal noise is referenced to the same PRB:
+At first channel evaluation, the first candidate satisfying \(d_j<d\) is selected, or the final candidate is clipped to the link distance. DL and UL use the same environmental realization, and separate keyed random streams prevent penetration configuration from shifting fast-fading or interference sequences.
+
+Vehicle loss is
 
 \[
-P_{N,\mathrm{PRB}}
-=N_0+NF+10\log_{10}(12\Delta f)
-\quad[\mathrm{dBm}],
+L_{\mathrm{vehicle}}=\max(0,\mu_v+5Z)\quad[\mathrm{dB}],
 \]
 
-where canonical profiles use \(N_0=-174\ \mathrm{dBm/Hz}\).
+where \(\mu_v=9\ \mathrm{dB}\) for standard glazing and \(\mu_v=20\ \mathrm{dB}\) for metallized glazing. Vehicle UEs do not receive the building indoor-depth term.
 
-For fractional uplink control, the nominal per-PRB power is
+### 4.5 Small-scale fading and spatial update
+
+When stochastic fading is enabled, the resource-level power gain is
 
 \[
-P_{\mathrm{nom,PRB}}
-=P_0+\alpha PL_{\mathrm{pc}}(\max[d-d_{\mathrm{in}},1\ \mathrm{m}]),
+F_{i,b}=10\log_{10}\!\left(\frac{X^2+Y^2}{2}\right),\qquad X,Y\sim\mathcal N(0,1),
 \]
 
-and for \(M_i\) granted PRBs,
+which has unit mean in linear power. Independent keyed streams are used for DL and UL. The present implementation applies Rayleigh fading to both LOS and NLOS links and holds or redraws the coefficient according to a coherence approximation expressed on scheduling units. Consequently, changing resource grouping can change the number and placement of stochastic fading samples even though deterministic carrier power and noise remain grouping-invariant. A future calibrated LOS model may replace universal Rayleigh fading with scenario-dependent Rician or beam-conditioned statistics.
+
+The macroscopic map is spatially consistent by construction. Runtime samples the map at the current UE position whenever the SINR refresh cadence expires. The implementation also tracks movement relative to a scenario correlation distance and updates its reference position after that distance is exceeded, but this movement state does not currently gate map sampling; it is retained as preparation for a future spatial-consistency update policy.
+
+### 4.6 Downlink power
+
+Configured downlink power is interpreted as total power over the modelled carrier. It is distributed uniformly over the physical frequency-domain PRBs:
+
+\[
+P_{\mathrm{DL,PRB}}=P_{\mathrm{DL,tot}}-10\log_{10}N_{\mathrm{RB,car}}\quad[\mathrm{dBm}].
+\]
+
+This denominator is independent of RBG size. Grouping can still change the final represented capacity because only complete RBGs are scheduled and because the current stochastic fading and MCS-threshold resolution follow scheduling units.
+
+### 4.7 Uplink power control
+
+FikoRE supports fixed total UE power and a simplified fractional power-control mode. In fixed mode, the configured value is the UE total transmit-power budget. In fractional mode, the nominal per-PRB value is
+
+\[
+P_{\mathrm{nom,PRB}}=P_0+\alpha PL_{\mathrm{pc}}\!\left(\max[d-d_{\mathrm{in}},1\ \mathrm{m}]\right),
+\]
+
+where \(P_0\) is a configured nominal target, \(\alpha\) is the fractional path-loss compensation factor, and \(PL_{\mathrm{pc}}\) is a LOS ABG control-path estimate rather than the complete map and penetration realization. If UE \(i\) receives \(M_i\) PRBs, final power is
 
 \[
 \begin{aligned}
-P_{i,\mathrm{tot}}
-&=\operatorname{clip}\!\left(
-P_{\mathrm{nom,PRB}}+10\log_{10}M_i,
-P_{\min},P_{\max}\right),\\
-P_{i,\mathrm{PRB}}
-&=P_{i,\mathrm{tot}}-10\log_{10}M_i.
+P_{i,\mathrm{tot}}&=\operatorname{clip}\!\left(P_{\mathrm{nom,PRB}}+10\log_{10}M_i,\ P_{\min},P_{\max}\right),\\
+P_{i,\mathrm{PRB}}&=P_{i,\mathrm{tot}}-10\log_{10}M_i.
 \end{aligned}
 \]
 
-This is a deliberately reduced form of the PUSCH power-control structure in
-TS 38.213 [3].
+The implementation currently uses \(P_{\min}=10\ \mathrm{dBm}\) and \(P_{\max}=23\ \mathrm{dBm}\). This is a reduced form of NR PUSCH power control [3]; it omits closed-loop commands, transport-format compensation, several numerology-dependent reference details, and simultaneous-carrier power sharing.
 
-The present implementation uses \(P_{\min}=10\ \mathrm{dBm}\) and
-\(P_{\max}=23\ \mathrm{dBm}\); fixed-power mode treats the configured value as
-total UE power. \(PL_{\mathrm{pc}}\) is the LOS ABG control-path estimate, not
-the complete map/O2I realization. Both choices must remain visible because the
-10 dBm floor and control-path simplification are not universal NR behavior.
+Uplink scheduling is two-stage. Candidate grants are first evaluated with the most recently finalized per-PRB power. After all assignments in one time group are known, the UE total power is redistributed over the current PRBs and SINR, MCS, and nominal bits are recomputed. The scheduler does not perform a second allocation pass after that correction, so the mechanism prevents repeated use of the complete UE power budget but remains an order-dependent heuristic rather than a joint power-and-scheduling optimum.
 
-The scheduler first evaluates UL candidates using nominal power corrected by
-the most recently finalized allocation when power-limited. There is one such
-state per UE: in localized mode it comes from the previous TTI, while later
-distributed time groups inherit the preceding group's state. After all
-assignments in the current time group are known, the emulator recomputes
-\(P_{i,\mathrm{PRB}}\), SINR, MCS, and grant bits. It does not reschedule.
-This prevents each independently considered grant from reusing the complete
-23 dBm budget, but remains an order-dependent heuristic rather than a joint
-power/scheduling optimum.
+All reference UE classes use fixed total-power mode. Study UEs use 23 dBm. UMa, RMa, and n40 background UEs also use 23 dBm, whereas indoor and n258 background UEs use 10 dBm. Fractional power control has algebraic and UE-level finalization tests but has not yet been calibrated through a packet-level campaign.
 
-Let \(I_{\mathrm{PRB}}\) be configured aggregate co-channel interference in
-linear power, \(F_b\) a small-scale term, \(v_i\) the selected rank, and
-\(\Delta_i\) a configured SINR offset. Resource-level SINR is
+### 4.8 Thermal noise and interference
+
+Thermal noise is integrated over the same per-PRB bandwidth used by desired signal and interference:
 
 \[
-P_{N+I,\mathrm{PRB,dBm}}
-=10\log_{10}\!\left(
-1000\,[P_{N,\mathrm{PRB,W}}+P_{I,\mathrm{PRB,W}}]
-\right),
+P_{N,\mathrm{PRB}}=N_0+NF+10\log_{10}(12\Delta f)\quad[\mathrm{dBm}],
 \]
+
+where \(N_0=-174\ \mathrm{dBm/Hz}\) in the reference configurations and \(NF\) is receiver noise figure. Noise and interference are combined in linear power:
 
 \[
-\Gamma_{i,b}
-=P_{i,\mathrm{PRB}}+G_{\mathrm{tx}}+G_{\mathrm{rx}}
-+G_{\mathrm{map}}(\mathbf{x}_i)-L_{\mathrm{add},i}
-+F_{i,b}
--10\log_{10}v_i
--P_{N+I,\mathrm{PRB,dBm}}
-+\Delta_i.
+P_{N+I,\mathrm{PRB,dBm}}=10\log_{10}\!\left(1000\left[P_{N,\mathrm{PRB,W}}+P_{I,\mathrm{PRB,W}}\right]\right).
 \]
 
-All remaining additive terms are in dB/dBm as appropriate.
-Current interference is an aggregate per-PRB PSD approximation using a
-configured interferer count, overlap ratio, random power, distance offset, and
-LOS ABG loss. It has no neighbor geometry, load, beam, or scheduler state.
-The UL surrogate samples \([-23,+23]\) dBm on the per-PRB reference and omits
-interferer antenna gain and penetration; it must not be interpreted as a
-total-power UE model or calibrated received interference.
+The current interference model is an aggregate per-PRB surrogate. It uses a configured interferer count, overlap ratio, random power, distance offset, and LOS ABG attenuation. It has no neighbouring-cell geometry, load state, antenna pattern, beam state, or neighbour scheduler. The UL surrogate samples a per-PRB value over \([-23,+23]\ \mathrm{dBm}\) and omits interferer penetration and antenna gain; it must not be interpreted as a calibrated total-power UE model or as deployment-predictive received interference.
 
-When enabled, small-scale power gain is
+### 4.9 Resource-level SINR
+
+Let \(G_{\mathrm{map}}(\mathbf{x}_i)\) be the interpolated map gain of UE \(i\), \(L_{\mathrm{add},i}\) its environmental loss, \(G_{\mathrm{tx}}\) and \(G_{\mathrm{rx}}\) scalar antenna gains, \(F_{i,b}\) small-scale power gain, \(v_i\) rank, and \(\Delta_i\) an optional configured offset. Resource-level SINR is
 
 \[
-F_{i,b}=10\log_{10}\!\left(\frac{X^2+Y^2}{2}\right),
-\qquad X,Y\sim\mathcal N(0,1),
+\Gamma_{i,b}=P_{i,\mathrm{PRB}}+G_{\mathrm{tx}}+G_{\mathrm{rx}}+G_{\mathrm{map}}(\mathbf{x}_i)-L_{\mathrm{add},i}+F_{i,b}-10\log_{10}v_i-P_{N+I,\mathrm{PRB,dBm}}+\Delta_i.
 \]
 
-which has unit mean in linear power. Independent keyed streams are used by
-direction. The implementation applies Rayleigh fading to both LOS and NLOS and
-holds/redraws it on coherence blocks expressed in scheduling units; changing
-grouping can therefore change stochastic sample resolution even though the
-deterministic PSD/SINR reference is invariant.
+All additive terms are expressed in dB or dBm according to their role. The equal-power rank penalty is a scalar abstraction; it is not a post-processing SINR obtained from a channel matrix.
 
-### 3.5 MCS, rank, and grant bits
+### 4.10 MCS, rank, and nominal capacity
 
-With table mode enabled, MCS is
+With table-based adaptation enabled, MCS is selected as
 
 \[
-m_{i,b}
-=\max\{m:\Gamma_{i,b}\ge\theta_{m,n_b,\ell_{\mathrm{cfg}}}\},
+m_{i,b}=\max\left\{m:\Gamma_{i,b}\ge\theta_{m,n_b,\ell_{\mathrm{cfg}}}\right\},
 \]
 
-where thresholds depend on table, allocation-size class, and configured layer
-count. The zero-based table axis is derived from the one-based layer count; an
-off-by-one defect found during adversarial review was corrected and bounded for
-one through four layers. If \(\Gamma_{i,b}<\theta_0\), FikoRE returns \(m=-1\),
-sets spectral efficiency to zero, and the UE is not a positive-rate candidate
-on that unit. This is an MCS-table boundary, not a separate configured
-minimum-SINR admission rule.
-NR MCS, code-rate, layer, and TBS semantics are defined in TS 38.214 [4];
-FikoRE's threshold/grant abstraction is not a full implementation of that
-procedure.
+where \(\theta\) depends on MCS, allocation-size class, and configured layer count. If SINR is below the first threshold, MCS is set to \(-1\), spectral efficiency is zero, and the UE is not a positive-rate candidate on that unit. This threshold is an internal table boundary, not a separately configured minimum-SINR admission rule.
 
-For spectral efficiency \(\eta_m\), allocation subcarriers
-\(N_{\mathrm{SC},b}\), usable symbols \(N_{\mathrm{sym},b}\), rank \(v_i\),
-overhead \(o(f,d)\), and scaling \(s_i\), nominal grant bits are
+For spectral efficiency \(\eta_m\), usable symbols \(N_{\mathrm{sym},b}\), subcarriers \(N_{\mathrm{SC},b}\), rank \(v_i\), direction- and frequency-dependent overhead \(o\), and scaling factor \(s_i\), nominal capacity is
 
 \[
-B_{i,b}
-=v_iN_{\mathrm{SC},b}N_{\mathrm{sym},b}
-\eta_m(1-o)s_i.
+B_{i,b}=v_iN_{\mathrm{SC},b}N_{\mathrm{sym},b}\eta_m(1-o)s_i.
 \]
 
-This is a capacity proxy with fixed frequency/direction overhead. It does not
-perform NR TBS rounding, CRC/code-block segmentation, rate matching, DMRS or
-codeword mapping.
+This quantity is a continuous capacity proxy, not an NR transport-block calculation. It does not perform TBS rounding, CRC and code-block segmentation, rate matching, DMRS allocation, or codeword mapping. MCS thresholds likewise have no committed link-level receiver and BLER calibration dataset.
 
-The current rank abstraction is threshold-based in mean SINR, capped by UE
-antenna count and configured layer count; UL rank is one. The selected MCS
-threshold family remains tied to configured layers rather than dynamically
-changing rank. The model neither represents a channel matrix nor predicts
-post-processing layer SINR. Packet/queue handling maps nominal grant bits
-\(B_{i,b}\) to effective payload \(B^{\mathrm{eff}}_{i,b}\le B_{i,b}\) for
-new transmissions. Reported error throughput is queue/expiry accounting, not a
-calibrated radio-BLER outcome. The disabled HARQ retry path is excluded from
-the evidence and requires a grant-cap invariant and actual grant-rank/RBG
-context before re-enablement; its current initialization uses UE antenna count,
-not selected rank.
+DL rank is selected from thresholds applied to mean SINR and is bounded by configured UE antennas and available layers; UL rank is one. The table axis is safely converted from one-based layer count to zero-based storage. Rank above one remains weakly modelled: selection observes SINR after the previous rank's equal-power penalty, no hysteresis is applied, and MCS thresholds remain tied to configured layers rather than selected dynamic rank. The evaluated reference profiles are rank one.
 
-For rank above one, rank selection also observes SINR after the previous
-rank's equal-power penalty, without hysteresis; oscillation is possible.
-Canonical evidence is rank one and does not validate this behavior.
+## 5. Interaction with packet handling and MAC scheduling
 
-### 3.6 Proportional-fair state and reranking
+### 5.1 Nominal grants and effective payload
 
-The implemented PF metric is
+The scheduler assigns nominal capacity bits \(B_{i,b}\), but the packet layer reports effective bits \(B^{\mathrm{eff}}_{i,b}\). Effective payload can be lower because a queue does not contain enough bits, because grant and packet boundaries do not align, or because packets expire. Resource summaries therefore distinguish available units, assigned units, units with positive effective payload, and assigned units that produce no effective payload.
+
+The current BLER-driven HARQ decision is disabled. HARQ state must not be re-enabled without calibrated link-error curves, actual grant rank and allocation context, and an invariant that prevents a retry from delivering more bits than its current grant.
+
+### 5.2 Proportional-fair scheduler
+
+The PF metric is
 
 \[
-M_{i,b}(t)
-=\frac{w_i r_{i,b}(t)^\alpha}
-       {\max(\bar R_i(t),\epsilon)},
+M_{i,b}(t)=\frac{w_i r_{i,b}(t)^\alpha}{\max(\bar R_i(t),\epsilon)},
 \]
 
-The rate-over-history structure follows proportional-fair utility and
-stochastic scheduling foundations [10], [11].
+where \(w_i\) is priority, \(r_{i,b}\) is the current nominal achievable rate, \(\alpha\) is a cell-wide throughput-versus-fairness exponent, and \(\bar R_i\) is service history. This rate-over-history structure follows established proportional-fair scheduling principles [10], [11].
 
-where \(w_i\) is UE priority, \(r_{i,b}\) is current achievable nominal rate,
-and \(\alpha\) is cell-wide. Per-UE PF exponents are rejected.
-
-Service history is committed once per active 1 ms TTI:
+PF history is updated once per active 1 ms TTI:
 
 \[
 \begin{aligned}
 a&=1-\exp(-1/\tau_{\mathrm{ms}}),\\
-\bar R_i(t+1)
-&=(1-a)\bar R_i(t)+a\,x_i(t),
+\bar R_i(t+1)&=(1-a)\bar R_i(t)+a\,x_i(t),
 \end{aligned}
 \]
 
-where \(x_i(t)\) is effective payload served in the TTI. An active,
-positive-rate, backlogged UE that receives no payload contributes zero. An
-idle UE freezes state. Detach resets state, and cold start uses the standalone
-achievable rate rather than epsilon. CQI cadence changes \(r_{i,b}\); it does
-not gate the EWMA update.
+where \(x_i(t)\) is effective payload served during the TTI. An active positive-rate UE that receives no effective payload contributes zero. An idle UE freezes its history, detach resets it, and a newly active UE starts from its standalone achievable rate. CQI reporting changes the instantaneous numerator but does not control the service-history update cadence.
 
-In `allocation_unit` mode, after each planned grant the scheduler projects
+Exact metric comparisons use an absolute tolerance of \(10^{-6}\). Candidates within that tolerance share a persistent round-robin tie cursor so container order does not define long-term service.
+
+### 5.3 Intra-TTI reranking
+
+Without intra-TTI reranking, all allocation units in a TTI see the same committed PF denominator, so a user with the best initial metric can win several units before history changes. In `allocation_unit` mode, the scheduler maintains a provisional current-TTI service value
 
 \[
-\tilde R_i(t,b)
-=(1-a)\bar R_i(t)+a\,x^{\mathrm{nom}}_i(t,b)
+\tilde R_i(t,b)=(1-a)\bar R_i(t)+a\,x_i^{\mathrm{nom}}(t,b),
 \]
 
-using cumulative nominal bits already planned in the current TTI, then reranks
-the next unit. The committed EWMA still updates once, using effective payload.
-For UL, all units are planned and provisionally reranked before final
-allocation-aware power is known; the final power correction does not trigger a
-second scheduling pass. Exact metric ties use a persistent round-robin cursor.
+where \(x_i^{\mathrm{nom}}(t,b)\) is cumulative nominal service already planned in the current TTI. The next unit is reranked with this projected denominator. At TTI end, only one committed update is made, using effective payload rather than provisional nominal bits.
 
-## 4. Accepted corrections
+For UL, planning and provisional reranking occur before allocation-aware power is finalized. Final power and rate corrections do not trigger a second scheduling pass. This preserves bounded runtime but is an explicit approximation.
 
-| Defect | Accepted correction | Verification |
-|---|---|---|
-| Invalid or ambiguous reference carriers | n40 20 MHz/30 kHz; UMa and RMa n78 100 MHz/30 kHz; n258 400 MHz/120 kHz; explicit power/gain/NF profiles | Profile parser/grid tests |
-| One-PRB noise combined with grouped signal/capacity | Physical carrier PRBs separated from scheduling units; per-PRB signal, noise, and interference reference | Unit sweep plus grouped/per-PRB runtime SINR invariant |
-| UL total power reused by independently considered grants | Nominal planning plus allocation-aware total-power finalization | 1–275 PRB power conservation and 23 dBm cap |
-| PF exponent and history embedded in per-UE/CQI behavior | Common \(\alpha\); 1 ms EWMA of effective service; fair ties | State, metric, migration, homogeneous-scheduler tests |
-| Same-TTI repeated winners in grouped grids | Configurable provisional allocation-unit reranking | Fairness/gap/runtime benchmark |
-| One-based layer count used as zero-based table index | Bounded `layers - 1` conversion at PHY and disabled-HARQ call sites; bounded RI threshold loop | Layer/rank index regression test |
-| Unseeded, origin-ambiguous production maps | 21 deterministic v2 files, odd grid, binary LOS, manifest, exact n40 map | Two-catalog byte equality; origin test; 630-realization study |
-| O2I overloaded into one integer/map assumption | Explicit UE environment, building, and vehicle fields; indoor-gNB profiles omit facade loss | Unit formulas and controlled high-loss n258 pair |
+## 6. Reference physical configurations
 
-## 5. Experimental method and artifacts
+The following profiles define representative, internally consistent single-carrier configurations used for validation. They are not universal deployment defaults.
 
-The protocol was fixed before final profile analysis
-(`docs/phy-model-v2-evidence-protocol.md`). The validation host was `pitahaya`,
-an AMD Ryzen 7 5800H with 8 cores/16 threads, Linux 5.15.0-58, g++ 11.4.0,
-Python 3.10.4, and NumPy 2.2.6.
+| Profile | Scenario and carrier | DL carrier power | Scalar gNB/UE gain | NF gNB/UE | UL power |
+|---|---|---:|---:|---:|---|
+| UMi n40 NPN | UMi, 2.38 GHz, 20 MHz, \(\mu=1\) | 43 dBm | 8.7/0 dBi | 2/9 dB | 23 dBm |
+| UMa n78 pedestrian | UMa, 3.5 GHz, 100 MHz, \(\mu=1\) | 46 dBm | 8.7/0 dBi | 2/9 dB | 23 dBm |
+| RMa n78 vehicular | RMa, 3.5 GHz, 100 MHz, \(\mu=1\) | 46 dBm | 8.7/0 dBi | 2/9 dB | 23 dBm |
+| Indoor n78 pedestrian | Indoor open office, 3.5 GHz, 100 MHz, \(\mu=1\) | 24 dBm | 8.7/0 dBi | 2/9 dB | 23 dBm study UE; 10 dBm background |
+| UMi n258 FWA | UMi, 26 GHz, 400 MHz, \(\mu=3\) | 35 dBm | 24/26 dBi | 7/10 dB | 23 dBm study UE; 10 dBm background |
 
-### 5.1 Map ensemble
+Configured DL power is treated as total carrier power. The distinction between conducted power, total radiated power, and EIRP must remain explicit when mapping these profiles to equipment. The n258 gains are equivalent aligned FWA gains and do not constitute a beamforming model.
 
-Thirty independent master seeds (`20270000`–`20270029`) generated every one of
-the 21 scenario-frequency entries: 630 maps total. Confidence intervals use
-the realization as the independent unit; spatial cells are never counted as
-replicates. Reported quantities are radial LOS probability, link-gain
-quantiles, shadow moments, and axial correlation at the nearest
-grid-representable physical lag. Per-realization shadow standard deviation is
-normalized by construction and is therefore a generator sanity check, not
-independent validation.
+## 7. Validation methodology
 
-### 5.2 Packet-level profiles
+### 7.1 Deterministic and unit-level validation
 
-Five profiles ran for 180 simulated seconds with seed `20260927`; analysis
-excluded the first 20 seconds:
+Implementation-level tests verify per-PRB thermal noise, physical-carrier power distribution, deterministic grouped-versus-per-PRB SINR, total UL power conservation over 1 to 275 PRBs, FR1 and FR2 overhead selection, MIMO table indexes, CQI-independent PF history cadence, TDD structural-resource accounting, shared DL/UL environment state, map origin, exact-frequency lookup, and rejection of unsupported asymmetric FDD. Map catalogs and evidence artifacts are hash-verified recursively.
 
-- UMi n40 NPN, 11 UEs;
-- UMa n78 pedestrian, 21 UEs;
-- RMa n78 vehicular, 11 UEs;
-- indoor open-office n78, 11 UEs;
-- outdoor UMi n258 FWA, 11 UEs.
+### 7.2 Map ensemble
 
-An additional n258 pair changed only
-`outdoor + no penetration` to `indoor + high-loss penetration`.
+Thirty independent master seeds are evaluated for each of the 21 scenario-frequency entries, giving 630 maps. The realization, not the spatial cell, is the independent statistical unit. Diagnostics include radial LOS probability over the inscribed disk, link-gain quantiles, shadow mean and standard deviation, axial correlation at the nearest representable target lag, and opposite-edge correlation to detect periodic seams. Confidence intervals are pointwise and describe generator variability; they are not simultaneous goodness-of-fit tests or field-prediction intervals.
 
-An outage UE has MCS below zero in at least 99% of post-warm-up radio samples.
-Starvation is not inferred from a zero-grant TTI. For non-outage UEs, the
-analysis uses non-overlapping 10 ms, 100 ms, and 1 s zero-delivery windows and
-each UE's maximum observed delivery gap inside contiguous positive-offer
-segments. Queue backlog is not logged, so these are application-delivery—not
-scheduler-starvation—metrics.
+### 7.3 Packet-level profiles
 
-The `Errors` field in committed summaries counts queue/expiry fate recorded by
-the packet layer. It is not radio BLER because the V2 HARQ/BLER decision is
-disabled.
+Five profiles are run for 180 simulated seconds with one common seed and a 20-second analysis warm-up. The profiles contain 11 UEs for UMi n40, RMa, indoor n78, and n258, and 21 UEs for UMa n78. Reported quantities include offered and delivered throughput, queue or expiry errors, SINR and MCS quantiles, sampled outage classification, non-overlapping zero-delivery windows, observed delivery gaps inside contiguous positive-offer segments, resource assignment, effective-unit fill, and sampled payload-to-grant efficiency.
 
-### 5.3 Runtime
+A UE is classified as sampled radio outage when its MCS is below zero in at least 99% of post-warm-up radio samples. Delivery gaps are not scheduler-starvation measurements because queue backlog is not present in the current logs and the observations combine traffic generation, queueing, scheduling, expiry, and radio state.
 
-The PF envelope uses one process/thread, disabled verbose logging, 20 warm-up
-TTIs, 100 individually measured TTIs, and ten process repetitions per case
-(1,000 TTI timings). A separate functional run uses 500 warm-up and 2,000
-measured TTIs at 64 UEs.
-Populations are 1, 16, 64, and 256 UEs. The low-resolution case is localized
-grouped RBG; the high-resolution case is distributed per-PRB. Aggregate
-offered traffic is approximately 4 Gbit/s per direction, divided over UEs.
-This bounded full-backlog input replaces an invalid 100 Gbit/s-per-UE stress
-configuration that measured queue growth rather than scheduler cost.
+### 7.4 Controlled map and penetration comparisons
 
-The complete matrix, commands, and limitations are in
-`docs/baselines/phy-v2-validation-matrix.md`. Hashes are verified by
-`tools/verify_phy_v2_evidence.py`; figures are regenerated by
-`tools/generate_phy_v2_figures.py`.
+The legacy-map and current-map batches use identical code, traffic, mobility, seed, duration, and analysis; only the selected map catalog differs. The historical n40 batch uses the previous nearest 3.5 GHz UMi map, while the current catalog includes an exact 2.38 GHz map.
 
-## 6. Results
+The penetration comparison uses the same map, traffic, mobility, powers, gains, scheduler, duration, and keyed fast-fading and interference streams. The control arm is outdoor with no building penetration; the stress arm is indoor with high-loss penetration. The experiment is a one-seed controlled ablation rather than a population estimate.
 
-### 6.1 Map activation and ensemble behavior
+### 7.5 Runtime and PF functional evaluation
 
-Two independent v2.1 production generations were byte-identical. V2.1 changes
-the v2.0 arrays because padded embedding removes periodic edge seams; it
-preserves the approved coefficients, dimensions, frequencies, and master-seed
-policy. A same-code, same-seed legacy-v1/v2.1 profile pair isolates the catalog
-change for one realization.
+Runtime tests use one emulator thread, disabled verbose logging, 20 warm-up TTIs, 100 individually timed TTIs, and ten process repetitions per case, giving 1,000 TTI timings. Populations are 1, 16, 64, and 256 UEs, and the benchmark spans 20 MHz, 100 MHz, and 400 MHz grouped and distributed per-PRB grids. The 1 ms threshold is a compute-budget threshold for this host and benchmark configuration, not an end-to-end real-time guarantee.
 
-Across 630 maps:
+PF functional behavior is measured separately for 64 UEs after 500 warm-up TTIs and over 2,000 measured TTIs. This duration is long relative to the configured 100 ms EWMA window but does not constitute a proof of asymptotic PF convergence.
 
-- largest absolute bias of the 30-realization ensemble-mean radial LOS
-  probability within each map's inscribed disk was 0.038;
-- largest absolute error of the ensemble-mean axial correlation at the sampled
-  physical lag was 0.007;
-- largest absolute ensemble-mean opposite-edge correlation was 0.026;
-- normalized shadow standard deviations equaled their configured values;
-- exact-frequency UMi 2.38 GHz lookup replaced nearest 3.5 GHz lookup.
+## 8. Validation results
 
-Exact scenario-frequency lookup is now the default. Nearest fallback requires
-`allow_nearest_map_fallback: true` and logs both frequencies.
+### 8.1 Spatial-map diagnostics
 
-![LOS-state ensemble validation](figures/phy-v2-map-los.svg)
+Two independent generations of the complete 21-map catalog are byte-identical. Across the 30-realization ensembles, the largest absolute bias of ensemble-mean radial LOS probability is 0.038, the largest absolute error of ensemble-mean axial shadow correlation is 0.007, and the largest absolute ensemble-mean opposite-edge correlation is 0.026. Per-realization shadow standard deviation matches the configured value because each field is normalized by construction.
 
-The map-only 0 dB full-channel-SNR proxy was 100.0% for UMi 2.38 GHz, 98.5%
-for gain-assisted UMi 26 GHz, 78.5% for RMa 3.5 GHz, 38.2% for UMa 3.5 GHz,
-and 26.4% for indoor open-office 3.5 GHz. These fractions cover the complete
-generated square, including distances that are not representative indoor
-layouts and may exceed source-fit ranges. They expose a geometry/range
-limitation; they are not coverage predictions.
+The map-only full-channel 0 dB SNR proxy is 100.0% for UMi 2.38 GHz, 98.5% for gain-assisted UMi 26 GHz, 78.5% for RMa 3.5 GHz, 38.2% for UMa 3.5 GHz, and 26.4% for indoor open office at 3.5 GHz. These fractions cover the complete stored map, including distances outside typical indoor layouts and potentially outside the source measurement ranges; they are diagnostics, not coverage predictions.
 
-### 6.2 Five packet-level profiles
+In the same-code fixed-seed legacy-versus-current catalog comparison, current maps change DL throughput by \(-2.0\%\) for indoor n78, \(+14.1\%\) for RMa n78, \(-8.5\%\) for UMa n78, approximately \(0\%\) for demand-saturated n258, and \(-2.5\%\) for n40. These are one-realization deltas rather than expected field-performance changes.
 
-| Profile | Dir. | Offered | Delivered | Outage UEs | Zero-delivery 1 s | Maximum UE delivery gap | Grid assigned/effective | Payload/grant |
+### 8.2 Packet-level reference profiles
+
+| Profile | Dir. | Offered (Mbit/s) | Delivered (Mbit/s) | Sampled outage UEs | Zero-delivery 1 s | Maximum observed UE delivery gap | Assigned/effective units | Payload/grant |
 |---|---|---:|---:|---:|---:|---:|---:|---:|
 | Indoor n78 | DL | 65.00 | 42.54 | 0 | 0.0% | 0.81 s | 86.7% / 86.7% | 21.4% |
 | Indoor n78 | UL | 90.00 | 60.35 | 0 | 0.0% | 0.09 s | 100.0% / 60.8% | 46.5% |
@@ -606,380 +372,235 @@ limitation; they are not coverage predictions.
 | UMi n40 | DL | 50.00 | 46.55 | 0 | 0.0% | 0.07 s | 100.0% / 100.0% | 71.9% |
 | UMi n40 | UL | 35.00 | 24.29 | 0 | 0.0% | 0.03 s | 100.0% / 83.8% | 76.5% |
 
-Rates are Mbit/s.
+The n40 profile illustrates why a zero grant in one TTI must not automatically be labelled starvation. It contains many 10 ms windows with no delivered payload, but no 1 s zero-delivery windows and maximum observed gaps of 70 ms DL and 30 ms UL in this run.
 
-Three conclusions follow.
+Longer application-delivery gaps occur in UMa and RMa. UMa combines a high assignment ratio with individual non-outage delivery gaps up to the observation boundary, while RMa DL shows long periods without delivered payload despite assigning most available resources. These observations do not identify a unique cause: traffic state, queue occupancy, MCS validity, scheduling, packet fit, and expiry are not separately classified in the current logs.
 
-First, a zero grant in an individual TTI is normal. UMi n40 has many 10 ms
-zero-delivery windows (10.1% DL and 31.8% UL), yet no 1 s zero-delivery windows
-and maximum observed gaps of 70 ms DL and 30 ms UL. Labeling every zero TTI as
-application-visible starvation substantially over-reports the problem.
+Resource assignment and useful occupancy must also be distinguished. RMa UL assigns 99.9% of available units but only 57.3% produce positive effective payload; UMa UL assigns 100.0% while only 17.8% produce effective payload. TDD-unavailable symbols are excluded from both denominators.
 
-Second, some long application-delivery gaps are observed. UMa has a high
-assignment ratio while individual non-outage UEs show gaps up to 160 s.
-RMa has low-MCS periods and substantial zero-delivery 1 s windows. These
-observations combine source state, queueing, scheduling, expiry, and radio
-state. They require
-backlog/eligibility/reason instrumentation and multiple seeds before causal
-classification.
+### 8.3 Controlled penetration result
 
-Third, fill below 100% does not imply structural TDD loss. Per-TTI summaries
-separate directionally unavailable units before the utilization denominator.
-RMa assigns 96.0% of available DL and 99.9% of available UL units, but only
-57.3% of UL units carry positive effective payload. UMa UL similarly assigns
-100.0% while only 17.8% carry effective payload. The original plots therefore
-mixed TDD-unavailable, empty, assigned, and useful units. Queue reservation and
-explicit empty/waste reasons remain required.
+For the n258 FWA pair, high-loss indoor penetration reduces median-UE SINR by 38.15 dB DL and 38.71 dB UL. Delivered throughput falls from 500.02 to 235.16 Mbit/s in DL and from 157.05 to 55.22 Mbit/s in UL, corresponding to reductions of 53.0% and 64.8%. The standard deviation of each UE's paired DL SINR difference is below \(6.2\times10^{-6}\) dB, confirming that the keyed fast-fading streams remain aligned. The result isolates configured environment loss for one seed; it does not validate the scalar FWA gains as a beamforming model.
 
-For historical context only, the original baseline and V2 run differ in seed,
-code, profiles, PF, PHY, and maps. The figure is deliberately unpaired and
-must not be interpreted as an effect estimate:
+### 8.4 PF reranking and execution cost
 
-![Unpaired historical baseline and PHY Model V2 runs](figures/phy-v2-throughput.svg)
+The longer PF functional campaign shows that Jain fairness approaches one with and without reranking in the homogeneous 64-UE cases, while allocation-unit reranking substantially reduces maximum effective-service gaps.
 
-The controlled catalog result is the one-factor legacy-v1/v2.1 pair: RMa DL
-rises 14.1%, while UMa DL falls 8.5%, indoor DL falls 2.0%, and n40 DL falls
-2.5% for the fixed seed; n258 DL remains demand-saturated.
+| Grid | Scheduling unit | DL Jain none → rerank | Maximum DL effective-service gap none → rerank |
+|---|---|---:|---:|
+| 20 MHz, \(\mu=1\) | grouped | 0.9990 → 0.9999 | 96 → 18 TTIs |
+| 100 MHz, \(\mu=1\) | grouped | 0.9990 → 1.0000 | 96 → 6 TTIs |
+| 400 MHz, \(\mu=3\) | grouped | 0.9994 → 1.0000 | 81 → 6 TTIs |
+| 20 MHz, \(\mu=1\) | per-PRB | 0.9990 → 1.0000 | 96 → 2 TTIs |
+| 100 MHz, \(\mu=1\) | per-PRB | 0.9990 → 1.0000 | 96 → 1 TTI |
+| 400 MHz, \(\mu=3\) | per-PRB | 0.9997 → 1.0000 | 83 → 0 TTIs |
 
-With common keyed fading/interference streams, the controlled high-loss n258
-pair reduced median-UE SINR by 38.15 dB DL and 38.71 dB UL. Throughput fell
-53.0% DL and 64.8% UL. This one-seed ablation isolates configured environment
-loss; the maximum per-UE standard deviation of the paired DL SINR delta was
-below \(6.2\times10^{-6}\) dB. Equivalent gains remain an alignment abstraction, not
-beamforming.
+Timing results show that grouped modes remain below the 1 ms compute budget through 64 UEs for every tested bandwidth on the measured host. At 256 UEs, grouped exceedance fractions are 0.0% at 20 MHz, 17.2–21.3% at 100 MHz, and 20.4–22.5% at 400 MHz. Distributed per-PRB 100 MHz already exceeds the budget in most TTIs at 16 UEs, and all tested 400 MHz per-PRB TTIs exceed it.
 
-### 6.3 PF reranking, fairness, and runtime
+| 64-UE grid | P99 none | P99 rerank | Compute-budget exceedance none / rerank |
+|---|---:|---:|---:|
+| 20 MHz grouped | 188 µs | 192 µs | 0.0% / 0.0% |
+| 100 MHz grouped | 364 µs | 377 µs | 0.0% / 0.0% |
+| 400 MHz grouped | 333 µs | 379 µs | 0.0% / 0.0% |
+| 20 MHz distributed per-PRB | 989 µs | 1,050 µs | 0.7% / 3.1% |
+| 100 MHz distributed per-PRB | 5,454 µs | 5,778 µs | 100.0% / 100.0% |
+| 400 MHz distributed per-PRB | 12,362 µs | 13,021 µs | 100.0% / 100.0% |
 
-At 64 homogeneous UEs, allocation-unit reranking improves grouped-grid
-fairness and continuity consistently:
+These measurements justify enabling allocation-unit reranking in the grouped reference profiles while retaining a configurable conservative default for high-resolution per-PRB studies. They do not establish end-to-end real-time application performance because process construction, packet capture, external application I/O, pacing, operating-system scheduling, and telemetry overhead are outside the timed interval.
 
-| Grid | Unit | Jain none → rerank | Maximum DL effective-service gap none → rerank | P99 runtime none → rerank |
-|---|---|---:|---:|---:|
-| 20 MHz, \(\mu=1\) | grouped | 0.9990 → 0.9999 | 96 → 18 TTIs | 188 → 192 µs |
-| 100 MHz, \(\mu=1\) | grouped | 0.9990 → 1.0000 | 96 → 6 TTIs | 364 → 377 µs |
-| 400 MHz, \(\mu=3\) | grouped | 0.9994 → 1.0000 | 81 → 6 TTIs | 333 → 379 µs |
-| 20 MHz, \(\mu=1\) | per-PRB | 0.9990 → 1.0000 | 96 → 2 TTIs | 989 → 1050 µs |
-| 100 MHz, \(\mu=1\) | per-PRB | 0.9990 → 1.0000 | 96 → 1 TTI | 5454 → 5778 µs |
-| 400 MHz, \(\mu=3\) | per-PRB | 0.9997 → 1.0000 | 83 → 0 TTIs | 12362 → 13021 µs |
+## 9. Current validity boundary
 
-![PF reranking fairness and service gaps](figures/phy-v2-reranking.svg)
+The current model is internally reproducible and dimensionally consistent for its declared abstractions, but several limitations prevent predictive deployment claims.
 
-The functional columns use 500 warm-up plus 2,000 measured TTIs; timing uses
-ten runs of 100 individually timed TTIs after 20 warm-up TTIs. Long-run Jain
-fairness converges near one in both modes, while reranking materially reduces
-maximum MAC effective-service gaps, especially in grouped grids. Canonical grouped-RBG PF
-profiles therefore opt into reranking; the global default remains `none` for
-high-resolution per-PRB experiments.
+First, the ABG coefficients, shadow deviations, and map dimensions are not accompanied by one consolidated source-campaign table containing frequency, distance, height, and environment ranges. Generated map extent must therefore not be interpreted as model-validity extent.
 
-Runtime is a property of the complete grid/population, not only reranking:
+Second, the interference surrogate does not represent neighbour geometry, antenna patterns, beams, load, scheduling, or penetration. It can perturb SINR but cannot reproduce the coupling between traffic load and inter-cell interference.
 
-![Measured PF runtime envelope](figures/phy-v2-runtime.svg)
+Third, rank and MIMO are scalar abstractions. The model has no channel matrix, precoder, receiver, layer-specific SINR, codeword mapping, or calibrated rank-transition distribution. The reference evidence validates rank one only.
 
-On the measured, non-isolated host, grouped modes have zero observed 1 ms
-compute-budget exceedances through 64 UEs for every tested bandwidth. At
-256 UEs, exceedance fractions are 0.0% at 20 MHz, 17.2–21.3% at 100 MHz,
-and 20.4–22.5% at 400 MHz. Distributed per-PRB 20 MHz first exceeds the budget at
-64 UEs; 100 MHz has no exceedance at one UE and 86.1–93.4% at
-16 UEs, while every 400 MHz TTI exceeds it. At 256 UEs, per-PRB P99 reaches
-19.94 ms for 100 MHz and 41.84 ms for 400 MHz.
-These are empirical host/case measurements, not a general real-time guarantee.
+Fourth, MCS and nominal capacity are not calibrated against a link-level NR implementation. Thresholds have no committed decoder, BLER, TBS, rank, or receiver provenance, and the packet evidence contains no BLER-driven HARQ.
 
-## 7. External validity and parameter realism
+Fifth, the five packet-level profiles use one traffic, map, mobility, and fading seed. They are deterministic characterizations rather than distributions over deployments or offered-load realizations.
 
-### 7.1 Carrier, power, gain, and noise assumptions
+Sixth, delivery metrics are sampled every 10 ms, and initial or final zero-delivery runs are lower bounds under censoring. Queue backlog and per-UE empty-resource reasons are not directly observed.
 
-| Profile | Carrier | Total DL power | Scalar gains gNB/UE | NF gNB/UE |
-|---|---|---:|---:|---:|
-| UMi n40 | 2.38 GHz, 20 MHz | 43 dBm | 8.7/0 dBi | 2/9 dB |
-| UMa n78 | 3.5 GHz, 100 MHz | 46 dBm | 8.7/0 dBi | 2/9 dB |
-| RMa n78 | 3.5 GHz, 100 MHz | 46 dBm | 8.7/0 dBi | 2/9 dB |
-| Indoor n78 | 3.5 GHz, 100 MHz | 24 dBm | 8.7/0 dBi | 2/9 dB |
-| UMi n258 FWA | 26 GHz, 400 MHz | 35 dBm | 24/26 dBi | 7/10 dB |
+Finally, timing results apply to one non-isolated host and an accelerated benchmark with bounded generated load. Their empirical tails are useful for implementation choices but are not operating-system or application-level timing guarantees.
 
-The carrier widths and numerologies are valid single-carrier configurations
-under TS 38.104 [2]. The powers are plausible classes of total-carrier values,
-and the noise figures are plausible receiver abstractions, but they are not a
-calibrated equipment table. In particular:
+## 10. Planned model evolution
 
-- the meaning of conducted power, TRP, and EIRP must remain explicit;
-- 8.7 dBi is lower than many macro-sector antenna gains, while 43/46 dBm may
-  already be interpreted differently by users;
-- 24/26 dBi n258 gains are equivalent aligned FWA gains, not beamforming;
-- the 10 dBm UL minimum and LOS-only power-control path loss are simplifications;
-- receiver implementation loss is represented only through scalar NF and the
-  MCS threshold data.
+### 10.1 Multicell interference
 
-All canonical UE classes use fixed UL total-power mode. Study UEs use 23 dBm;
-RMa, UMa, and n40 background UEs also use 23 dBm, while indoor and n258
-background UEs use 10 dBm. Fractional \(P_0+\alpha PL\) control has algebraic
-and UE-level finalization tests but no packet-level campaign in this evidence
-set. \(P_0\), numerology normalization, closed-loop terms, and the
-conducted/TRP/EIRP reference must be defined before using that mode for
-external claims.
+The next interference model should separate reference-signal strength from traffic-dependent SINR without turning FikoRE into a site-planning simulator. The minimum useful extension is a small explicit neighbour geometry with per-resource activity determined by cell load. A load-coupled model can represent the fixed point
 
-Thermal density \(-174\ \mathrm{dBm/Hz}\) is physically conventional. The
-important correction is integrating it over the resource bandwidth rather
-than replacing it with a fixed full-channel number.
+\[
+\rho_c=\sum_{u\in c}\frac{d_u}{W\log_2\!\left(1+\mathrm{SINR}_u(\boldsymbol{\rho})\right)},
+\]
 
-### 7.2 Propagation and link adaptation
+where cell load \(\rho_c\) changes the interference imposed on neighbouring cells [12]. Open decisions include explicit wraparound geometry versus scenario-calibrated neighbour gains, whether interference is updated per PRB or per RBG, and how scheduler runtime constrains the number of neighbours.
 
-The ABG family was an explicit product decision based on the prior thesis and
-published measurement fits. It is not automatically more valid than TR 38.901.
-Sun *et al.* show that ABG parameters can be less stable than CI/CIF under
-frequency/distance extrapolation [7], and the RMa literature specifically
-warns about model range and height assumptions [8]. The current coefficient
-values should therefore be accompanied by source campaign, fitted range,
-height range, and extrapolation warnings before predictive coverage claims.
+### 10.2 Beam state and blockage
 
-The 30-seed test validates generator behavior against its declared equations.
-It does not validate those equations against a physical site. The wide indoor
-map extent and low full-map coverage proxy reinforce the need for an approved
-indoor geometry/range contract. Production corner distances are approximately
-1.03 km for UMi/shopping-mall, 0.62 km for office maps, and 3.79 km for
-UMa/RMa; these extents are storage geometry, not source-fit validity. Mobility
-now warns when its requested radius exceeds the map corner. UMa maps also
-encode one 1.5 m UE-height class; runtime UE height does not regenerate LOS
-state.
+The existing n258 profiles use equivalent aligned scalar gains. A first explicit beam model should introduce serving and interfering Tx/Rx beam identifiers, alignment state, blockage state, measurement cadence, reporting delay, beam-sweep resource cost, and failure-recovery behavior. A possible link term is
 
-Current MCS thresholds have no committed link-level dataset, decoder
-assumption, BLER target provenance, or held-out calibration. Current rank is a
-scalar SINR threshold. Consequently, MCS, outage, and throughput are internally
-reproducible but not yet externally calibrated NR predictions. Link-to-system
-methodology requires per-MCS calibration and validation, as demonstrated by
-EESM/MIESM work [15].
+\[
+G_{\mathrm{beam}}(t)=G_{\mathrm{tx}}(b_{\mathrm{tx}})+G_{\mathrm{rx}}(b_{\mathrm{rx}})-L_{\mathrm{align}}(a_t)-L_{\mathrm{block}}(z_t).
+\]
 
-## 8. Open Phase 3 design space
+Alignment and blockage should be independent dimensions rather than mutually exclusive labels. The model must distinguish absolute antenna gain from a gain or loss delta relative to the current scalar profile [13].
 
-No Phase 3 option is approved by this manuscript.
+### 10.3 Carrier aggregation
 
-| Topic | Minimum useful option | Higher-fidelity option | State and cost | Required calibration |
+Carrier aggregation must not be represented as one invalidly wide carrier. One UE MAC entity should retain shared logical-channel and RLC queues, while each serving cell has its own frequency, bandwidth part, numerology, resource grid, channel state, CQI, MCS, HARQ state, and grants. PCell and SCell activation and optional cross-carrier scheduling add control state, and simultaneous UL carriers must share a joint \(P_{\mathrm{CMAX}}\) constraint rather than multiplying UE power [5], [14], [22]–[24].
+
+### 10.4 MIMO
+
+A practical next-stage MIMO abstraction should expose selected rank, post-processing SINR per layer, PRB, and codeword, power allocation, number of codewords, and MCS per codeword:
+
+\[
+\left(v,\Gamma_{\ell,k,\mathrm{cw}},P_{\ell,k},n_{\mathrm{cw}},m_{\mathrm{cw}}\right).
+\]
+
+The minimum implementation could use calibrated lookup distributions conditioned on scenario, antenna configuration, and reference SINR. A higher-fidelity option would add correlated channel matrices, codebook precoding, and an explicit receiver. Required calibration includes rank distributions, antenna correlation, layer-quality distributions, receiver type, and RI feedback cadence.
+
+### 10.5 Link-to-system abstraction, HARQ, and OLLA
+
+Before enabling BLER-driven HARQ, FikoRE needs reproducible AWGN BLER curves indexed by MCS, bounded TBS class, rank, receiver, and redundancy version. Frequency-selective SINR can then be compressed per codeword with a calibrated effective-SINR mapping. For EESM,
+
+\[
+\gamma_{\mathrm{eff}}=-\beta_m\ln\!\left(\frac{1}{K}\sum_{k=1}^{K}e^{-\gamma_k/\beta_m}\right),
+\]
+
+where \(\gamma_k\) and \(\beta_m\) are linear dimensionless SINR quantities and data-resource elements should be weighted appropriately. MIESM provides a modulation-aware alternative, while recursive effective-SINR methods can support HARQ accumulation [15], [16].
+
+Outer-loop link adaptation should maintain a separate bounded belief offset that is updated from ACK/NACK outcomes toward a declared BLER target [17]. The current generic SINR offset is unsuitable because it shifts both scheduling belief and reported physical SINR.
+
+### 10.6 Calibration and observability
+
+The highest-priority supporting work is not another channel feature but a calibration and observability layer. It should consolidate ABG coefficient provenance and validity ranges, generate link-level BLER reference data, compare selected scenarios against independent RSRP and SINR measurements, and record queue backlog, positive-rate eligibility, finalized MCS, nominal and effective grant bits, and empty-resource reason per UE. Those observations are needed to distinguish source idleness, sampled outage, scheduler starvation, packet-fit waste, expiry, and radio decoding loss.
+
+## 11. Conclusions
+
+The current FikoRE physical layer provides a deterministic, computationally bounded abstraction of a single serving carrier. It combines spatially correlated large-scale gain, explicit environment and penetration state, resource-consistent signal and noise accounting, bounded uplink total power, threshold-based MCS and rank, TDD-aware resource accounting, and a TTI-updated proportional-fair scheduler. This model is sufficient for controlled application-facing experiments in which relative effects and reproducibility are more important than exact receiver prediction.
+
+The validation demonstrates deterministic map generation, correct local covariance behavior, reproducible packet-level scenarios, clear separation between TDD structure and resource assignment, strong service-continuity benefits from grouped-grid PF reranking, and a measured compute envelope that depends sharply on scheduling resolution. It also shows why assignment, effective payload, and application delivery must be reported separately.
+
+The model remains intentionally incomplete. Predictive use requires propagation-range provenance, measured calibration, explicit multicell interference, better rank and MIMO state, link-level BLER data, and a calibrated HARQ and OLLA chain. The planned evolution therefore prioritizes calibration and observability before adding additional unvalidated detail.
+
+## Appendix A — Implementation and evidence traceability
+
+This appendix records the exact software and evidence identity used for the quantitative results. It is not required to understand the physical model described in the main text.
+
+### A.1 Document identity
+
+| Item | Value |
+|---|---|
+| Document revision | 1.0 |
+| Revision date | 2026-09-29 |
+| Review status | External technical-review manuscript |
+| Repository branch | `feature/phy-model-v2` |
+| Release tag | Not assigned |
+
+The document revision is assigned independently of Git because a document cannot stably contain the SHA of the same commit that introduces that SHA. A release tag may be assigned after review without changing the document contents.
+
+### A.2 Software revisions
+
+**Model implementation source:** `1b55ca191e27a368936476fff33fc622833d8d13`
+
+**Packet-profile source:** `1b55ca191e27a368936476fff33fc622833d8d13`
+
+**Runtime-benchmark source:** `1b55ca191e27a368936476fff33fc622833d8d13`
+
+| Component or campaign | Commit | Purpose |
+|---|---|---|
+| Integrated implementation and all rebased validation runs | `1b55ca191e27a368936476fff33fc622833d8d13` | Model, packet profiles, map statistics, analysis, and runtime benchmark |
+| Evidence refresh after rebase | `b3b33885e09c38193fc6c0ecd8df3559f40222e9` | Portable manifests, refreshed figures, and committed summaries |
+| Deterministic map-catalog implementation | `8e1b3680d76b21daf76fd43596a9918972368fb7` | Production map-generation semantics |
+| Legacy-map source used for the paired catalog comparison | `648aa7bedab82e55faed769ba16234c94f4d749d` | Historical v1 map bytes |
+| Development baseline before the original PHY feature series | `e995563fd3e8fa300f4b0accca3b494f7177101c` | Historical comparison baseline |
+
+### A.3 Model and schema versions
+
+| Item | Version or policy |
+|---|---|
+| Production map generator | `fikore-map-generator 2.1.0` |
+| Production map semantics | `2.1.0` |
+| Production map count | 21 |
+| Production grid | Odd 291×291 with `explicit-center-cell` origin |
+| Master map seed | `20260927` |
+| Canonical UE environment key | `ue_location_type` |
+| Nearest-frequency fallback | Disabled unless explicitly enabled |
+| Default MIMO configuration | One antenna and one layer |
+| Evaluated HARQ/BLER decision | Disabled |
+
+### A.4 Experiment provenance
+
+| Campaign | Source commit | Seed(s) | Duration or sample count | Date |
 |---|---|---|---|---|
-| Multicell interference | Load-coupled per-resource interferer activity with explicit neighbor geometry | Wraparound multicell scheduler/channel realization | Minimum adds cell load state and a fixed point; full option multiplies scheduler work | 3GPP calibration layouts, load curves, RSRP/SINR joint distributions |
-| Beamforming | Discrete serving/interfering beam states, aligned gain, sidelobe gain, misalignment/blockage loss, update cadence | 2D/3D array patterns and channel-aware beam selection | Discrete state is compatible with application emulation; full arrays require angle/channel state | Beam-sweep overhead, gain distributions, blockage and tracking traces |
-| Carrier aggregation | One UE MAC/RLC queue/LCP context with per-serving-cell grid, BWP, CQI/MCS, HARQ/grant state, and joint UL power constraint | PCell/SCell activation and cross-carrier scheduling/control overhead | Cannot be represented credibly by one wider carrier or independent per-CC queues | UE band combinations, simultaneous-UL power, scheduler traces, guard/control overhead |
-| MIMO | Direction-specific rank state and calibrated per-rank post-processing-SINR/BLER tables | Correlated channel matrices, precoding, codewords, receiver model | Table option is moderate; matrix option changes abstraction class | RI/rank distributions, antenna correlation, codebook/receiver and layer BLER |
-| Link abstraction | Provenanced AWGN BLER curves plus explicit target and OLLA | EESM/MIESM across PRBs, HARQ mutual-information accumulation | Curves are the prerequisite; ESM adds per-codeword aggregation and calibration | Link-level traces per MCS/rank/receiver/channel; independent validation |
+| Map ensemble | `1b55ca191e27a368936476fff33fc622833d8d13` | Master seeds `20270000`–`20270029` | 30 realizations × 21 catalog entries | 2026-09-29 |
+| Five packet-level profiles | `1b55ca191e27a368936476fff33fc622833d8d13` | `20260927` | 180 s/profile, 20 s warm-up | 2026-09-29 |
+| Controlled n258 O2I pair | `1b55ca191e27a368936476fff33fc622833d8d13` | `20260927` | 180 s/arm, 20 s warm-up | 2026-09-29 |
+| Legacy-v1 versus current-map pair | `1b55ca191e27a368936476fff33fc622833d8d13` | `20260927` | 180 s/profile, 20 s warm-up | 2026-09-29 |
+| Per-TTI runtime envelope | `1b55ca191e27a368936476fff33fc622833d8d13` | Deterministic benchmark | 1,000 TTI samples/case | 2026-09-29 |
+| Longer PF functional campaign | `1b55ca191e27a368936476fff33fc622833d8d13` | Deterministic benchmark | 500 warm-up + 2,000 measured TTIs/case | 2026-09-29 |
 
-### 8.1 Multicell interference
+The validation host used an AMD Ryzen 7 5800H with 8 physical cores and 16 logical CPUs, Linux 5.15.0-58, g++ 11.4.0, Python 3.10.4, NumPy 2.2.6, and Matplotlib 3.10.7. Runtime processes used one emulator thread and the host was not CPU-isolated.
 
-The current aggregate random interferer can raise or lower SINR but cannot
-represent the feedback loop
+### A.5 Validation and artifact record
 
-\[
-\rho_c
-=\sum_{u\in c}
-\frac{d_u}
-{W\log_2(1+\mathrm{SINR}_u(\boldsymbol{\rho}))},
-\]
+| Artifact or check | Repository location |
+|---|---|
+| Unified evidence manifest | `docs/baselines/phy-model-v2-evidence-manifest.json` |
+| Complete validation matrix and reproduction commands | `docs/baselines/phy-v2-validation-matrix.md` |
+| Map catalog and map hashes | `include/maps_scenarios/CATALOG.json`, `include/maps_scenarios/MANIFEST.json` |
+| Multi-seed map diagnostics | `docs/baselines/map-v2-multiseed-*.csv`, `docs/baselines/map-v2-multiseed-validation.md` |
+| Packet-profile summaries | `docs/baselines/phy-v2-production-*.csv` |
+| Controlled O2I comparison | `docs/baselines/phy-v2-o2i-controlled-comparison.*` |
+| Legacy/current catalog comparison | `docs/baselines/map-v2.1-paired-profile-comparison.*` |
+| PF runtime and functional results | `docs/baselines/pf-runtime-*`, `docs/baselines/pf-functional-long*` |
+| Figure-generation script | `tools/generate_phy_v2_figures.py` |
+| Evidence verifier | `tools/verify_phy_v2_evidence.py` |
+| Python evidence dependencies | `tools/requirements-phy-v2.txt` |
 
-in which neighbor load controls resource overlap and interference. A
-load-coupled model [12] is the lightest candidate that separates RSRP from
-traffic-dependent SINR. The external reviewer should decide whether explicit
-three-sector/hexagonal geometry is required or whether scenario-calibrated
-neighbor gains are sufficient.
+The final rebased validation passed the complete C++ and map test suite, smoke scenarios, API tests, transport-model unit and integration tests, deterministic figure regeneration, validation of all 21 production maps, and recursive verification of 89 committed evidence artifacts. Raw packet logs remain local because of their size; exact portable inputs, source identifiers, summaries, commands, and hashes are committed, so experiments can be regenerated but the original raw samples cannot be independently audited from the repository alone.
 
-### 8.2 Beam state
+### A.6 Revision history
 
-Scalar FWA gain closes the link budget but omits beam search, alignment,
-sidelobes, blockage, and tracking. A discrete state model should precede full
-arrays. Its link term should have explicit dB semantics, for example
+| Revision | Main change |
+|---|---|
+| Legacy physical model | Unseeded legacy maps, mixed resource-bandwidth references, CQI-coupled PF history, and overloaded O2I state |
+| Core PHY/MAC correction | Resource-consistent power and noise, allocation-aware UL power, common PF exponent, and TTI-updated PF state |
+| Initial deterministic maps | Seeded odd-grid maps, explicit origin, binary LOS generation, and exact 2.38 GHz UMi support |
+| Current deterministic maps | Padded FFT embedding removes periodic edge seams; explicit provenance and exact-frequency lookup are enforced |
+| Adversarial review corrections | Shared DL/UL environment state, normalized Rayleigh power, safe MIMO indexes, FR1/FR2 overhead correction, TDD-effective resource metrics, per-TTI timing, and portable evidence verification |
+| Development integration | Feature history rebased onto the updated `dev` branch, full profile and runtime evidence regenerated, and all validation suites rerun |
 
-\[
-G_{\mathrm{beam}}(t)
-=G_{\mathrm{tx}}(b_{\mathrm{tx}})
-+G_{\mathrm{rx}}(b_{\mathrm{rx}})
--L_{\mathrm{align}}(a_t)-L_{\mathrm{block}}(z_t),
-\]
+### A.7 Reproduction caveats
 
-where Tx/Rx beam IDs, alignment state \(a_t\), and blockage state \(z_t\) are
-separate rather than mutually exclusive labels. Transitions can be tied to
-mobility and measurement/report cadence, with explicit sweep resources,
-reporting delay, beam-failure detection, and recovery. This captures
-application-visible outages and latency without synthesizing a spatial
-channel. Giordani *et al.* [13] provide the relevant taxonomy.
-
-### 8.3 Carrier aggregation
-
-CA must not be emulated by setting one invalid channel bandwidth. One UE MAC
-entity retains shared logical-channel/RLC queues and logical-channel
-prioritization, while each serving cell needs its own frequency, BWP,
-numerology, grid, map/channel state, CQI/MCS, HARQ, and grant state. Simultaneous
-UL carriers share a joint \(P_{\mathrm{CMAX}}\) constraint rather than
-multiplying UE power. UE support is constrained by band combinations and
-per-CC features [5]. PCell/SCell activation, shared MAC behavior, and optional
-cross-carrier scheduling add control state [14], [22]–[24].
-
-### 8.4 MIMO and link abstraction
-
-A practical next MIMO model could expose
-
-\[
-(v,\Gamma_{\ell,k,\mathrm{cw}},n_{\mathrm{cw}},m_{\mathrm{cw}},
-P_{\ell,k})
-\]
-
-from calibrated lookup distributions conditioned on scenario, SINR, and
-antenna configuration. This would separate antenna count from rank and avoid
-multiplying one scalar efficiency by rank without layer-quality evidence.
-
-Before EESM/MIESM, FikoRE needs reproducible AWGN BLER curves. Given per-PRB
-SINR \(\gamma_k\), EESM would use
-
-\[
-\gamma_{\mathrm{eff}}
-=-\beta_m\ln\!\left(
-\frac{1}{K}\sum_{k=1}^{K}e^{-\gamma_k/\beta_m}
-\right),
-\]
-
-where \(\beta_m\) is calibrated per MCS. MIESM replaces the exponential
-mapping with modulation-specific mutual information and is better suited to
-rank/HARQ extensions; recursive EESM is one documented HARQ alternative [16].
-OLLA can then update a scheduling offset from ACK/NACK
-feedback toward a declared BLER target [17]. Adding any of these without a
-link-level calibration set would increase complexity without increasing known
-validity.
-
-In this equation \(\gamma_k\) and \(\beta_m\) are linear, dimensionless SINR
-quantities; aggregation should weight coded data REs rather than all PRBs
-equally. Calibration classes must identify TBS, rank, receiver, codeword, and
-HARQ redundancy version. OLLA also requires a separate bounded link-adaptation
-offset; the current generic `sinr_offset_db`, which shifts both scheduler and
-reported decoder SINR, is not an acceptable OLLA state.
-
-## 9. Threats to validity
-
-1. Five-profile outcomes use one traffic/mobility seed. They characterize
-   deterministic cases but do not provide confidence intervals over user
-   placement or traffic.
-2. Thirty map realizations test the generator, not ABG field accuracy. Shadow
-   variance is normalized by construction; confidence intervals are pointwise
-   and no simultaneous model-equivalence claim is made.
-3. Delivery is sampled every 10 ms; shorter delivery gaps are not observable.
-   Initial/final zero-delivery runs are observed lower bounds under censoring,
-   and queue backlog is unavailable.
-4. Outage is a sampled MCS classification, not a BLER or admission-control
-   event; changing warm-up or observation duration can change classification.
-5. PF functional results use 2,000 TTIs after 500 warm-up TTIs, sufficient for
-   the configured 100 ms EWMA to settle in this homogeneous case but not a
-   proof of stochastic-approximation convergence.
-6. Runtime P95/P99 use 1,000 individually timed TTIs from ten processes per
-   case. Samples within one process are correlated, and the host was not
-   CPU-isolated; empirical tails are not deployment guarantees.
-7. Timing includes the measured emulator loop but excludes process/UE
-   construction. Results apply only to the named host and bounded benchmark
-   traffic.
-8. Equivalent scalar gains remain an alignment abstraction; the controlled
-   high-loss pair is one seed and not a beam/blockage distribution.
-9. Interference, MIMO, and MCS/BLER lack a common held-out calibration oracle.
-   BLER-driven HARQ is disabled. These omissions can dominate field throughput.
-
-## 10. Recommendations
-
-1. Release the accepted core and v2 map catalog with the exact evidence
-   manifest and keep grouped allocation-unit reranking profile-specific.
-2. Expose empty-grid reasons directly: no backlog, no positive-rate candidate,
-   disabled UE, or packet-layer limitation. Do not infer them from TDD plots.
-3. Add multi-seed packet-level campaigns and backlog/eligibility/reason logs
-   before treating long delivery gaps as starvation distributions.
-4. Complete the ABG coefficient provenance/range table and validate selected
-   scenarios against independent RSRP/SINR measurements.
-5. Establish a link-level BLER dataset before changing MCS, MIMO, EESM/MIESM,
-   HARQ combining, or OLLA.
-6. Ask the external reviewer to select minimum Phase 3 state, calibration
-   sources, and runtime budget; do not implement multicell, beamforming, CA, or
-   MIMO redesign from this paper alone.
-
-## 11. Conclusion
-
-PHY Model V2 removes dimensionally inconsistent resource accounting,
-allocation-order UL power reuse, and CQI-coupled PF history. It activates a
-deterministic, origin-consistent map catalog and separates physical environment
-state from map semantics. The resulting implementation is reproducible and
-passes explicit invariants.
-
-The evidence also prevents an overly favorable conclusion. Per-TTI zero grants
-are not themselves starvation, TDD structure is not unreported resource loss,
-and padded map generation removes the v2.0 periodic seam. Nevertheless, long
-windowed delivery gaps remain in several profiles without enough logging for
-causal classification, and the current interference, MIMO, and
-link-adaptation models are not externally calibrated.
-The correct next step is targeted calibration and expert selection among the
-Phase 3 abstractions, not additional unvalidated detail.
+The evidence package separates implementation source, experiment source, and document revision. The document may evolve editorially without invalidating numerical artifacts, provided the appendix retains the source commit used for each campaign. The committed summaries are hash-verified, but raw logs are not archived. Runtime results are host-specific and profile campaigns use one traffic and mobility seed. Map confidence intervals are pointwise across independent realizations and do not establish external propagation accuracy.
 
 ## References
 
-1. 3GPP TR 38.901 v18.1.0, *Study on channel model for frequencies
-   from 0.5 to 100 GHz*, Release 18, 2024.
-2. 3GPP TS 38.104 v18.8.0, *NR; Base Station radio transmission and
-   reception*, Release 18, 2025.
-3. 3GPP TS 38.213 v18.7.0, *NR; Physical layer procedures for control*,
-   Release 18, 2025.
-4. 3GPP TS 38.214 v18.9.0, *NR; Physical layer procedures for data*,
-   Release 18, 2026.
-5. 3GPP TS 38.306 v18.8.0, *NR; User Equipment radio access
-   capabilities*, Release 18, 2025.
-6. J. M. Reyero Lobo, *Advancing 5G Network Emulation: Comprehensive
-   Enhancements to FikoRE's Physical and MAC Layers*, Universidad Politécnica
-   de Madrid, 2025.
-7. S. Sun *et al.*, “Investigation of Prediction Accuracy, Sensitivity, and
-   Parameter Stability of Large-Scale Propagation Path Loss Models for 5G
-   Wireless Communications,” *IEEE Transactions on Vehicular Technology*,
-   vol. 65, no. 5, 2016,
-   <https://doi.org/10.1109/TVT.2016.2543139>.
-8. G. R. MacCartney, Jr. and T. S. Rappaport, “Study on 3GPP Rural
-   Macrocell Path Loss Models for Millimeter Wave Wireless Communications,”
-   *IEEE ICC*, 2017, <https://doi.org/10.1109/ICC.2017.7996793>.
-9. C. Zhang, X. Chen, H. Yin, and G. Wei, “Two-Dimensional Shadow Fading
-   Modeling on System Level,” *IEEE PIMRC*, 2012,
-   <https://doi.org/10.1109/PIMRC.2012.6362617>.
-10. F. P. Kelly, “Charging and Rate Control for Elastic Traffic,”
-    *European Transactions on Telecommunications*, vol. 8, no. 1, 1997,
-    <https://doi.org/10.1002/ett.4460080106>.
-11. H. J. Kushner and P. A. Whiting, “Convergence of Proportional-Fair
-    Sharing Algorithms Under General Conditions,” *IEEE Transactions on
-    Wireless Communications*, vol. 3, no. 4, 2004,
-    <https://doi.org/10.1109/TWC.2004.830826>.
-12. I. Siomina and D. Yuan, “Analysis of Cell Load Coupling for LTE Network
-    Planning and Optimization,” *IEEE Transactions on Wireless
-    Communications*, vol. 11, no. 6, 2012,
-    <https://doi.org/10.1109/TWC.2012.051512.111532>.
-13. M. Giordani, M. Polese, A. Roy, D. Castor, and M. Zorzi, “A Tutorial on
-    Beam Management for 3GPP NR at mmWave Frequencies,”
-    *IEEE Communications Surveys & Tutorials*, vol. 21, no. 1, 2019,
-    <https://doi.org/10.1109/COMST.2018.2869411>.
-14. K. I. Pedersen *et al.*, “Carrier Aggregation for LTE-Advanced:
-    Functionality and Performance Aspects,” *IEEE Communications Magazine*,
-    vol. 49, no. 6, 2011,
-    <https://doi.org/10.1109/MCOM.2011.5783991>.
-15. I. Latif, F. Kaltenberger, N. Nikaein, and R. Knopp, “Large Scale
-    System Evaluations using PHY Abstraction for LTE with OpenAirInterface,”
-    *SIMUTools*, 2013,
-    <https://doi.org/10.4108/icst.simutools.2013.251738>.
-16. B. Classon *et al.*, “Efficient OFDM-HARQ System Evaluation Using a
-    Recursive EESM Link Error Prediction,” *IEEE WCNC*, 2006,
-    <https://doi.org/10.1109/WCNC.2006.1696579>.
-17. A. Sampath, P. S. Kumar, and J. M. Holtzman, “On Setting Reverse Link
-    Target SIR in a CDMA System,” *IEEE VTC*, 1997,
-    <https://doi.org/10.1109/VETEC.1997.600465>.
-18. C. Mehlführer *et al.*, “The Vienna LTE Simulators—Enabling
-    Reproducibility in Wireless Communications Research,” *EURASIP Journal on
-    Advances in Signal Processing*, 2011,
-    <https://doi.org/10.1186/1687-6180-2011-29>.
-19. N. Patriciello, S. Lagen, B. Bojovic, and L. Giupponi, “An E2E Simulator
-    for 5G NR Networks,” *Simulation Modelling Practice and Theory*, vol. 96,
-    2019, <https://doi.org/10.1016/j.simpat.2019.101933>.
-20. G. Nardini *et al.*, “Simu5G—An OMNeT++ Library for End-to-End
-    Performance Evaluation of 5G Networks,” *IEEE Access*, vol. 8, 2020,
-    <https://doi.org/10.1109/ACCESS.2020.3028550>.
-21. D. González Morín, M. J. López-Morales, P. Pérez, A. García Armada, and
-    Á. Villegas, “FikoRE: 5G and Beyond RAN Emulator for Application Level
-    Experimentation and Prototyping,” *IEEE Network*, vol. 37, no. 4,
-    pp. 48–55, 2023,
-    <https://doi.org/10.1109/MNET.002.2200595>.
-22. 3GPP TS 38.300, *NR; NR and NG-RAN Overall Description; Stage-2*,
-    Release 18.
-23. 3GPP TS 38.321, *NR; Medium Access Control (MAC) Protocol
-    Specification*, Release 18.
-24. 3GPP TS 38.331, *NR; Radio Resource Control (RRC) Protocol
-    Specification*, Release 18.
+1. 3GPP TR 38.901 v18.1.0, *Study on channel model for frequencies from 0.5 to 100 GHz*, Release 18, 2024.
+2. 3GPP TS 38.104 v18.8.0, *NR; Base Station radio transmission and reception*, Release 18, 2025.
+3. 3GPP TS 38.213 v18.7.0, *NR; Physical layer procedures for control*, Release 18, 2025.
+4. 3GPP TS 38.214 v18.9.0, *NR; Physical layer procedures for data*, Release 18, 2026.
+5. 3GPP TS 38.306 v18.8.0, *NR; User Equipment radio access capabilities*, Release 18, 2025.
+6. J. M. Reyero Lobo, *Advancing 5G Network Emulation: Comprehensive Enhancements to FikoRE's Physical and MAC Layers*, Universidad Politécnica de Madrid, 2025.
+7. S. Sun et al., “Investigation of Prediction Accuracy, Sensitivity, and Parameter Stability of Large-Scale Propagation Path Loss Models for 5G Wireless Communications,” *IEEE Transactions on Vehicular Technology*, vol. 65, no. 5, 2016, <https://doi.org/10.1109/TVT.2016.2543139>.
+8. G. R. MacCartney, Jr. and T. S. Rappaport, “Study on 3GPP Rural Macrocell Path Loss Models for Millimeter Wave Wireless Communications,” *IEEE ICC*, 2017, <https://doi.org/10.1109/ICC.2017.7996793>.
+9. C. Zhang, X. Chen, H. Yin, and G. Wei, “Two-Dimensional Shadow Fading Modeling on System Level,” *IEEE PIMRC*, 2012, <https://doi.org/10.1109/PIMRC.2012.6362617>.
+10. F. P. Kelly, “Charging and Rate Control for Elastic Traffic,” *European Transactions on Telecommunications*, vol. 8, no. 1, 1997, <https://doi.org/10.1002/ett.4460080106>.
+11. H. J. Kushner and P. A. Whiting, “Convergence of Proportional-Fair Sharing Algorithms Under General Conditions,” *IEEE Transactions on Wireless Communications*, vol. 3, no. 4, 2004, <https://doi.org/10.1109/TWC.2004.830826>.
+12. I. Siomina and D. Yuan, “Analysis of Cell Load Coupling for LTE Network Planning and Optimization,” *IEEE Transactions on Wireless Communications*, vol. 11, no. 6, 2012, <https://doi.org/10.1109/TWC.2012.051512.111532>.
+13. M. Giordani, M. Polese, A. Roy, D. Castor, and M. Zorzi, “A Tutorial on Beam Management for 3GPP NR at mmWave Frequencies,” *IEEE Communications Surveys & Tutorials*, vol. 21, no. 1, 2019, <https://doi.org/10.1109/COMST.2018.2869411>.
+14. K. I. Pedersen et al., “Carrier Aggregation for LTE-Advanced: Functionality and Performance Aspects,” *IEEE Communications Magazine*, vol. 49, no. 6, 2011, <https://doi.org/10.1109/MCOM.2011.5783991>.
+15. I. Latif, F. Kaltenberger, N. Nikaein, and R. Knopp, “Large Scale System Evaluations using PHY Abstraction for LTE with OpenAirInterface,” *SIMUTools*, 2013, <https://doi.org/10.4108/icst.simutools.2013.251738>.
+16. B. Classon et al., “Efficient OFDM-HARQ System Evaluation Using a Recursive EESM Link Error Prediction,” *IEEE WCNC*, 2006, <https://doi.org/10.1109/WCNC.2006.1696579>.
+17. A. Sampath, P. S. Kumar, and J. M. Holtzman, “On Setting Reverse Link Target SIR in a CDMA System,” *IEEE VTC*, 1997, <https://doi.org/10.1109/VETEC.1997.600465>.
+18. C. Mehlführer et al., “The Vienna LTE Simulators—Enabling Reproducibility in Wireless Communications Research,” *EURASIP Journal on Advances in Signal Processing*, 2011, <https://doi.org/10.1186/1687-6180-2011-29>.
+19. N. Patriciello, S. Lagen, B. Bojovic, and L. Giupponi, “An E2E Simulator for 5G NR Networks,” *Simulation Modelling Practice and Theory*, vol. 96, 2019, <https://doi.org/10.1016/j.simpat.2019.101933>.
+20. G. Nardini et al., “Simu5G—An OMNeT++ Library for End-to-End Performance Evaluation of 5G Networks,” *IEEE Access*, vol. 8, 2020, <https://doi.org/10.1109/ACCESS.2020.3028550>.
+21. D. González Morín, M. J. López-Morales, P. Pérez, A. García Armada, and Á. Villegas, “FikoRE: 5G and Beyond RAN Emulator for Application Level Experimentation and Prototyping,” *IEEE Network*, vol. 37, no. 4, pp. 48–55, 2023, <https://doi.org/10.1109/MNET.002.2200595>.
+22. 3GPP TS 38.300, *NR; NR and NG-RAN Overall Description; Stage-2*, Release 18.
+23. 3GPP TS 38.321, *NR; Medium Access Control (MAC) Protocol Specification*, Release 18.
+24. 3GPP TS 38.331, *NR; Radio Resource Control (RRC) Protocol Specification*, Release 18.

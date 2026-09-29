@@ -1,220 +1,158 @@
 # fikore-transport
 
-A discrete-event transport and traffic-generation layer in Python, driving FikoRE
-through its runtime control protocol. It gives a caller a TCP abstraction:
-applications hand over bytes, the model segments them, manages a congestion window,
-acknowledges, estimates RTT, times out and retransmits, and the emulator provides
-what it is good at — queueing, scheduling, radio, delay, loss and ECN marking.
+`fikore-transport` is a discrete-time transport layer for FikoRE offline
+co-simulation. Applications submit bytes or finite objects; the model handles
+segmentation, congestion control, acknowledgements, retransmission and
+cancellation accounting; FikoRE handles radio capacity, scheduling, queues,
+loss, delay budgets, ECN and mobility.
 
-No real TCP packets and no kernel stack are involved. Segments are simulation
-objects, and the only thing that crosses the boundary is a byte count with an
-object tag on it.
+No real TCP packet or kernel socket crosses this boundary. Segments are
+simulation objects carried through a `Link`.
 
-## Why
+## Current status
 
-An offline co-simulation with no transport layer loses a byte for good, so whoever
-drives it has to invent a recovery rule, a sender window and a concurrency policy.
-All three are TCP mechanisms. Modelling TCP instead of approximating its effects
-turns those invented policies into consequences, and it gives the experiments a
-measured RTT, a real congestion response and a place to put L4S.
+Implemented:
 
-The request and delivery interface that `TransportBackend` exposes follows the
-`NetworkBackend` contract specified by VQEG's CAP-CSP collaboration test pilot, so
-a harness written against that contract can use this without adaptation. Nothing
-else here depends on that project.
+- deterministic TTI clock and fixed-step lockstep runner;
+- TCP sender/receiver with SACK, RTO, pacing and receive window;
+- Reno, CUBIC and externally bound Prague controllers;
+- ideal fixed-window diagnostic transport;
+- Runner-level open-loop UDP;
+- deterministic `LoopbackLink`;
+- `FikoreLink` over retained `fikore-control-1` events;
+- generic `TransportBackend` request, cancellation and `NetworkStep` interface;
+- numeric and textual FikoRE UE addressing;
+- validated integration with the external SFV v0.7.2 example.
 
-## Status
+This is a research model, not a full Linux TCP stack. Read
+[`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) before interpreting results.
 
-Working. What runs today:
+## Architecture
 
-- The slot-quantised clock, scheduler and lockstep runner.
-- The transport state machine: segmentation, cumulative and selective
-  acknowledgement, RFC 6298 timers, RFC 6582 partial-ack recovery, RFC 6675 loss
-  inference, Linux-style pacing.
-- Reno, CUBIC, and **Prague**, bound to the L4S reference implementation rather
-  than reimplemented.
-- Two other transports for comparison: **ideal**, bare injection with a fixed
-  window per UE and instant recovery of whatever the network reports as lost, and
-  **UDP**, open loop with no reaction.
-- `LoopbackLink`, a deterministic Python bottleneck, with the test suites that
-  exercise all of it without an emulator.
-- `FikoreLink`, which drives a real FikoRE run one slot at a time: one object tag
-  per segment, replayable counter deltas read back every slot, tags released as
-  soon as they are terminal.
-- `TransportBackend`, the request and delivery interface: object requests,
-  concurrent objects per UE, cancellation with a drained tail, and telemetry with
-  a measured round-trip time.
-
-Prague and ECT(1) need the emulator to accept `ecn` on `inject` and to report
-`ce_bytes` per object. That is now in the emulator, and the two counters are the
-whole of it; see [docs/03](docs/03-link-and-protocol-requirements.md).
-
-### Measured
-
-End to end against FikoRE (one UE, 20 MHz, proportional fair, 20 ms PDCP delay
-budget, 256 KB receive window, 3 s of simulated time), saturating the cell:
-
-| Congestion control | Goodput | SRTT | Window | Retransmits | Losses reported by the emulator | RTOs | Wall clock |
-| :-- | --: | --: | --: | --: | --: | --: | --: |
-| Reno | 59.7 Mbps | 18.5 ms | 100 seg | 265 | 265 expired | 0 | 1.1 s |
-| CUBIC | 25.4 Mbps | 6.2 ms | 15 seg | 155 | 121 expired | 1 | 0.6 s |
-
-Reno's retransmission count matches the emulator's loss count exactly, which is the
-check that the sender is inferring loss rather than being told about it. CUBIC
-takes a timeout on this bottleneck and does not recover the pipe within the run;
-that is the transport model's behaviour, not the link's, and it is unexplained.
-
-Every run is checked for byte conservation: what the link submitted comes back
-delivered, lost with a cause, or still inside the emulator, and the emulator's own
-per-UE totals are compared against the link's. A 1 MB object over an unloaded cell
-finishes in 142 ms at 56.3 Mbps with all 1 000 000 bytes delivered and none lost.
-
-### Independent controller validation
-
-`benchmarks/validate_tcp_references.py` compares the local controllers with
-TL-System ns.py v0.4.5 and independent RFC vectors. Reno matches 500 ACK
-transitions plus fast recovery/RTO. CUBIC matches 1000 ACK transitions with
-zero byte cwnd error and uses the RFC/Linux `C=0.4`, `beta_cubic=0.7` curve.
-RFC 6298 SRTT/RTTVAR/RTO vectors pass with the documented Linux 200 ms floor.
-Prague loads `L4STeam/udp_prague/prague_cc.cpp` directly rather than duplicating
-the algorithm in Python. See
-[`docs/09-external-tcp-validation.md`](docs/09-external-tcp-validation.md) and
-`benchmarks/results/tcp-reference.json`.
-
-### What a slot costs
-
-This decides whether a 300 s experiment is affordable, and the answer is that the
-barrier is nearly free while reading the state back is not. From
-`benchmarks/bench_lockstep.py`:
-
-| Round trip | Per slot | Extrapolated to a 300 s run |
-| :-- | --: | --: |
-| grant only, no state read | 40 us | 12 s |
-| grant + `get`, 1 UE, 1 live object | 112 us | 34 s |
-| grant + `get`, 1 UE, 100 live objects | 897 us | 269 s |
-| grant + `events`, 1 UE, 100 live objects | 80 us | 24 s |
-| grant + `get`, 4 UEs, 20 live objects each | 935 us | 281 s |
-| grant + `get`, 4 UEs, 60 live objects each | 2381 us | 714 s |
-| grant + `events`, 4 UEs, 60 live objects each | 51 us | 15 s |
-| grant + `get` every 10 slots, 4 UEs, 20 each | 809 us | 24 s |
-
-The old cost is linear in the number of live object tags because `get`
-re-serialises the whole UE state every slot. `events` carries only counter
-movements and remains close to the grant-only floor regardless of how many
-completed tags are retained. A compact cumulative state, without knobs or the
-object map, is requested once per harness window for telemetry.
-
-### Full 300 s validation
-
-Measured by `benchmarks/validate_scale.py`; the raw summaries are under
-`benchmarks/results/`.
-
-| Scenario | Wall | Goodput / objects | Feedback | Conservation |
-| :-- | --: | :-- | :-- | :-- |
-| 4 UEs, sequential 375 kB objects, CUBIC | 133.8 s | 5554 objects, 180 ms median; 17.01 / 17.01 / 8.68 / 12.86 Mbps, Jain 0.942 | max 15 events/reply | exact |
-| 1 UE bulk, CUBIC, 20 ms delay budget | 136.6 s | 58.06 Mbps; 27790 retransmits, 44 RTOs, 39.97 MB expired | max 59 events/reply | exact |
-| 1 UE Prague/ECT(1), DualPI2 target 5 ms | 106.5 s | 38.86 Mbps, 6.03 ms SRTT, 23440 CE segments, zero loss/retransmit | max 10 events/reply | exact |
-
-The four-UE condition is deliberately not channel-homogeneous; its throughput
-fairness reflects the different per-UE radio realizations rather than transport
-starvation. Live registries remain bounded; this validation opts into retaining
-all 5554 completed request records only for its final report.
-
-### SFV player integration
-
-`benchmarks/validate_sfv.py` substitutes this backend underneath the generic
-SFV-VQEG v0.7.2 Python–Node bridge; the JavaScript player sees only
-`NetworkStep` and returns opaque requests/cancellations.
-
-- The repository's exact 0.2 s mock example produces the same request IDs, sizes,
-  states and delivered bytes over FikoRE for both UEs. B1 wastage is identical;
-  B2 differs by 261 bytes at the cutoff because delivery timing is no longer the
-  deterministic mock budget.
-- Over 5 s, B1 requests no future-video media before the swipe; B2 prefetches
-  segments 0 and 1 of videos 2 and 3. All 1,095,975 submitted bytes terminate
-  and are conserved.
-- With both UEs capped at 1 Mbps, swipes produce four and six cancelled requests.
-  Every cancellation tail is non-negative, and delivered plus in-flight bytes
-  exactly equals the 319,426 bytes submitted at cutoff.
-
-The measured compatibility summary is
-`benchmarks/results/sfv-pilot.json`. The third-party repositories remain
-unmodified; the bridge is loaded only by this optional validation tool.
-
-Prague against the same bottleneck, over the deterministic link so that the two
-runs differ in nothing but the controller (50 Mbps, 20 ms, 512 KB queue, CE above
-2 ms of queueing delay):
-
-| | Goodput | SRTT | CE marks | Segments lost | Retransmits |
-| :-- | --: | --: | --: | --: | --: |
-| CUBIC, not-ECT | 49.9 Mbps | 76.2 ms | 0 | 3738 | 7978 |
-| Prague, ECT(1) | 49.9 Mbps | 14.2 ms | 1703 | 0 | 0 |
-
-Same throughput, a fifth of the delay, and nothing lost. That result is the reason
-the library exists, and it now also runs against the emulator's own DualPI2:
-`benchmarks/e2e_prague.py`.
-
-Through the backend, two UEs fetching a queue of 375 kB objects over 6 s of
-simulated time: 110 objects, median 110 ms each, about 28 Mbps per UE, with
-throughput, round-trip time, drop rate, queue occupancy and SINR reported per
-window. The event path runs the 6 s experiment in 3.3 s of wall clock.
-
-The ideal transport against the transport model, same 300 kB object over the same
-bottleneck: it finishes in 0.14 s against 0.23 s, and drops 2503 segments doing it
-against 46. It is faster because it is told about every loss immediately and repairs
-it with no penalty, and the radio pays for the difference. Quantifying that gap is
-what it is for.
-
-## Layout
-
-```
-fikore_transport/
-  clock.py         slots, scheduling phases, deterministic ordering
-  link.py          the network boundary, and the loopback bottleneck
-  tcp.py           sender and receiver state machines
-  cc.py            congestion control interface, Reno, CUBIC
-  cc_prague.py     Prague, over the binding to the L4S reference
-  ideal.py         the injection rule: fixed window per UE, instant recovery
-  udp.py           open-loop datagrams, and a sink that measures them
-  runner.py        the lockstep loop
-  emulator.py      process wrapper and .ini generation
-  fikore_link.py   the control-protocol client as a Link
-  backend.py       request/delivery NetworkBackend over the transport model
-prague/            the C++ shim over the L4S reference, and its Makefile
-tests/             every transport against the loopback link, and the link
-                   itself against a real emulator
-benchmarks/        lockstep cost, one transfer, an object queue, and Prague
-docs/              the design
+```text
+application / SFV player
+        │ NetworkBackend
+        ▼
+ TransportBackend
+        │
+  Runner + Flow
+        │ Link
+  ┌─────┴──────┐
+  │            │
+LoopbackLink  FikoreLink ── fikore-control-1 ── FikoRE
 ```
 
-## Running
+The NetworkBackend boundary contains request IDs and generic progress. The Link
+boundary contains transport segments and terminal arrivals. FikoRE wire messages
+do not enter the player.
+
+## Quick start
+
+From the emulator repository root:
 
 ```bash
-python3 -m venv transport/.venv                 # from the emulator root
+python3 -m venv transport/.venv
 transport/.venv/bin/pip install -e transport
-make test-transport                             # deterministic links, no emulator
-make test-transport-integration                 # builds and drives bin/fikore
-make -C transport/prague                        # optional Prague binding
 
-PYTHONPATH=transport python3 transport/benchmarks/bench_lockstep.py
-PYTHONPATH=transport python3 transport/benchmarks/e2e_fikore.py
-PYTHONPATH=transport python3 transport/benchmarks/e2e_backend.py
-PYTHONPATH=transport python3 transport/benchmarks/e2e_prague.py
+make test-transport
+make test-transport-integration
 ```
 
-The scripts resolve the emulator from the repository that contains this directory;
-`FIKORE_DIR` is only an override. `PRAGUE_DIR` points at the L4S `udp_prague` tree
-and defaults to the sibling workspace path `../L4STeam/udp_prague`; nothing in it
-is modified and no compiled `.so` is stored in git.
+The first target uses deterministic links. The second drives the built emulator;
+if `bin/fikore` is absent, its Python test reports a skip and exits successfully.
+Check test output rather than inferring integration coverage from status zero.
 
-## Reading order
+Prague additionally needs its external source/binding:
 
-1. [Scope and the boundary](docs/01-scope-and-boundary.md)
-2. [The clock, and why one slot at a time](docs/02-clock-and-lockstep.md)
-3. [The link, and what the control protocol needs](docs/03-link-and-protocol-requirements.md)
-4. [The transport model](docs/04-transport-model.md)
-5. [Congestion control, including Prague](docs/05-congestion-control.md)
-6. [Traffic generators](docs/06-traffic-generators.md)
-7. [Integration with an external harness](docs/07-harness-integration.md)
-8. [Validation and roadmap](docs/08-validation-and-roadmap.md)
+```bash
+make -C transport/prague
+```
+
+`PRAGUE_DIR` can point to the L4STeam `udp_prague` checkout. The external source
+is not modified or vendored.
+
+## Feature and evidence matrix
+
+| Feature | Implemented | Tested | Evidence | Current limitation |
+| :-- | :--: | :--: | :-- | :-- |
+| Fixed-step TTI lockstep | yes | yes | `test_loopback_transfer.py`, `test_fikore_link.py` | no idle skipping or event-stopping grant |
+| TCP sender/receiver, SACK, RTO, pacing | yes | yes | `test_loopback_transfer.py` | not a complete Linux stack |
+| Reno | yes | yes, external | `validate_tcp_references.py`, `tcp-reference.json` | controller validation only |
+| CUBIC | yes | yes, external | `validate_tcp_references.py`, `tcp-reference.json` | controller validation only |
+| Prague controller binding | yes | yes, external vectors | `validate_tcp_references.py`, `tcp-reference.json` | external binding required; not Linux-stack equivalence |
+| Prague + FikoRE DualPI2 | yes | yes, integration scenario | `validate_scale.py`, `scale-prague.json` | checked scenario, not coexistence campaign |
+| Ideal diagnostic transport | yes | yes | loopback transport tests | sees terminal outcomes directly |
+| UDP offered load | Runner only | yes | Runner tests/scenarios | not in `TransportBackend` |
+| FikoRE event Link | yes | yes | `test_fikore_link.py`, C++ control tests | fixed polling boundaries |
+| Object requests/cancellation | yes | yes | `test_backend.py` | one fresh TCP flow per object |
+| Multi-UE NetworkBackend | yes | yes | scale and SFV runs | validated subset, not all harness scenarios |
+| SFV v0.7.2 bridge | yes | yes, external | `validate_sfv.py`, `sfv-pilot.json` | one external version/example |
+| iperf-like CLI | no | no | roadmap only | not an available interface |
+
+## Reproducible runners
+
+Run from the repository root with `PYTHONPATH=transport`.
+
+```bash
+# Control-protocol cost
+python3 transport/benchmarks/bench_lockstep.py
+
+# Small end-to-end examples
+python3 transport/benchmarks/e2e_fikore.py
+python3 transport/benchmarks/e2e_backend.py
+python3 transport/benchmarks/e2e_prague.py
+
+# Versioned 300 s campaigns
+python3 transport/benchmarks/validate_scale.py --help
+
+# External TCP controller comparison
+python3 transport/benchmarks/validate_tcp_references.py --help
+
+# External SFV v0.7.2 integration
+python3 transport/benchmarks/validate_sfv.py --help
+```
+
+Checked summaries live in `benchmarks/results/`. Generated files record their
+source runner, regeneration command and tested FikoRE revision.
+`sfv-pilot.json` is explicitly a curated aggregate of several run manifests.
+Compare each `fikore_revision` with the checkout before citing its metrics.
+
+## Package layout
+
+```text
+fikore_transport/
+  clock.py         deterministic clock and scheduled actions
+  link.py          Link records and deterministic LoopbackLink
+  tcp.py           sender and receiver state
+  cc.py            Reno and CUBIC
+  cc_prague.py     Prague binding adapter
+  ideal.py         fixed-window diagnostic transport
+  udp.py           Runner-level open-loop datagrams
+  runner.py        lockstep transport runner
+  emulator.py      FikoRE process/configuration wrapper
+  fikore_link.py   fikore-control-1 Link
+  backend.py       generic object-oriented NetworkBackend
+prague/            C ABI shim for the external Prague controller
+tests/             deterministic and emulator-backed tests
+benchmarks/        examples, campaigns and checked results
+docs/              as-built documentation, limits and roadmap
+```
+
+## Documentation
+
+The numbered documents describe only implemented behaviour:
+
+1. [Scope and boundary](docs/01-scope-and-boundary.md)
+2. [Clock and lockstep](docs/02-clock-and-lockstep.md)
+3. [Link and control protocol](docs/03-link-and-control-protocol.md)
+4. [Transport model](docs/04-transport-model.md)
+5. [Congestion control](docs/05-congestion-control.md)
+6. [Application patterns](docs/06-application-patterns.md)
+7. [NetworkBackend and SFV](docs/07-network-backend-and-sfv.md)
+8. [Validation evidence](docs/08-validation-evidence.md)
 9. [External TCP validation](docs/09-external-tcp-validation.md)
+
+Keep these two roles separate:
+
+- [Current limitations and non-guarantees](docs/LIMITATIONS.md)
+- [Unimplemented roadmap with acceptance criteria](docs/FUTURE-ROADMAP.md)

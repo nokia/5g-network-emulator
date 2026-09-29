@@ -1,72 +1,108 @@
-# Scope and the Boundary
+# Scope and Boundary — As Built
 
-## What is being modelled
+**Status:** implemented
+**Package:** `transport/fikore_transport`
 
-The mechanisms that determine when bytes move, and how many:
+## Purpose
 
-- segmentation of application data into abstract packets
-- the congestion window, and its response to loss and to congestion marks
-- acknowledgements, cumulative and selective
-- RTT and RTO estimation
-- retransmission
-- ECN feedback, for scalable congestion control
-- applications that either have data continuously available or hand over objects
+The transport package turns application demand into transport segments and
+carries those segments over a replaceable Link. It exists between a generic
+NetworkBackend application interface and either a deterministic test link or
+the FikoRE emulator.
 
-## What is not
-
-No headers, no checksums, no socket API, no three-way handshake, no FIN or RST, no
-kernel buffers, no byte streams. A segment is a record:
-
-```python
-Transmit(flow, seq, size, direction, ecn, ts_us, kind)
+```text
+application / SFV harness
+          │ NetworkBackend
+          ▼
+   TransportBackend
+          │
+      Runner + Flow
+  ┌───────┴────────┐
+  │ TCP/ideal/UDP  │
+  └───────┬────────┘
+          │ Link
+    ┌─────┴─────┐
+    │           │
+LoopbackLink  FikoreLink ── fikore-control-1 ── FikoRE
 ```
 
-`seq` is the first byte of the segment in the stream, which doubles as its
-identifier; `ts_us` is the timestamp that comes back in the acknowledgement. That
-is the whole wire format, and it exists only inside Python.
+## Package responsibilities
 
-## The boundary
+The package implements:
 
-Everything below the `Link` interface is the network's business:
+- finite application requests and cancellation;
+- sender and receiver state;
+- Reno, CUBIC and Prague congestion controllers;
+- an ideal diagnostic mode;
+- Runner-level open-loop UDP traffic;
+- segmentation, ACK processing, SACK and retransmission;
+- local or Link-carried acknowledgement paths;
+- transport pacing and receiver-window enforcement;
+- conversion between transport segments and Link submissions;
+- conversion from transport progress to generic `NetworkStep` updates;
+- lockstep advancement on an integer-TTI clock.
 
-| The network decides | The transport model decides |
+## Emulator responsibilities
+
+FikoRE implements:
+
+- cell scheduling and radio capacity;
+- queue admission and service;
+- delay-budget expiry;
+- radio and queue losses;
+- DualPI2 marking/dropping;
+- UE mobility and radio state;
+- retained per-object feedback through `fikore-control-1`.
+
+The emulator does not implement TCP and does not decide when an application
+object is complete.
+
+## Application responsibilities
+
+The application or harness decides:
+
+- which objects to request;
+- object sizes and request IDs;
+- when to cancel;
+- which UE and direction to use;
+- when the common network clock should advance;
+- how delivered and cancelled bytes contribute to application-level quality.
+
+## Separation enforced by the Link
+
+The Runner sends `Transmit` records and receives terminal `Arrival` records.
+It does not read emulator queue internals to control TCP. TCP reacts to ACK,
+SACK, CE and timeout observations delivered through the configured ACK path.
+
+Two explicit exceptions exist:
+
+- `cc="ideal"` can inspect network outcomes immediately; it is a diagnostic
+  baseline, not TCP.
+- telemetry may expose emulator counters for measurement, but Reno, CUBIC and
+  Prague do not use those counters as congestion-control input.
+
+## Units
+
+| Quantity | Unit |
 | :-- | :-- |
-| queueing and queue limits | how many bytes are outstanding |
-| scheduling between UEs | which bytes go next |
-| radio conditions and capacity | when to give up on a segment |
-| propagation and backhaul delay | what the RTT is |
-| dropping, expiring, CE marking | how to respond to a drop or a mark |
+| Transport and Link time | integer TTI |
+| Default TTI | 1 ms |
+| Backend cadence | integer TTIs (`window_ttis`; 10 TTIs = 10 ms by default) |
+| `NetworkStep` and event timestamps | seconds (`time_s`) |
+| Segment, request and counters | bytes |
+| Rates | bits per second |
+| RTT/RTO controller state | seconds internally where documented |
 
-The split is not negotiable in one direction: the model must never read a loss
-counter to decide that a segment was lost.
+The model's MSS is configured independently. `FikoreLink` does not currently
+verify it against the emulator's runtime packet-size setting; this is documented
+in [`LIMITATIONS.md`](LIMITATIONS.md).
 
-## Loss is discovered, not announced
+## Supported use
 
-The interface reports a terminal outcome per segment, but only the **receiver**
-consumes it. The sender sees acknowledgements and its own timers, nothing else. A
-segment the network drops simply produces no acknowledgement, and the sender reacts
-the way a real one does: three selective acknowledgements above the hole, or a
-timeout.
+The implemented path supports deterministic loopback tests, FikoRE-backed
+offline co-simulation, multi-UE object requests, cancellation accounting and
+the validated SFV v0.7.2 example.
 
-This is worth the discipline it costs. A sender told directly that a segment was
-lost reacts one round trip earlier than any real sender can, and the whole point of
-modelling transport rather than approximating it is the timing of that reaction.
-
-It also leaves a free instrument: the emulator's own per-object loss counters are
-ground truth that the model never sees, so comparing the sender's retransmissions
-against them is a real test. In the measured run above, Reno retransmitted 232
-segments and the emulator reported 232 expired. Any excess would be the sender
-retransmitting on reordering, and there is a version of this code that did exactly
-that; see [docs/04](04-transport-model.md).
-
-## Segment size
-
-The MSS must be the emulator's IP packet size, which it reports as
-`state.pkt_size_bits`. Then one segment is one IP packet, and loss and CE marking
-apply to whole segments.
-
-If the MSS were larger, the emulator would split a segment into several packets, and
-a segment could come back half delivered. Partial delivery has no meaning in TCP —
-the segment is lost and the delivered part is waste — so the model would have to
-discard real work and the accounting would get harder for nothing. The link checks
-the two agree at startup.
+It is a packet/segment-level research model, not a Linux socket stack. Current
+non-guarantees are listed in [`LIMITATIONS.md`](LIMITATIONS.md), and proposed
+extensions only in [`FUTURE-ROADMAP.md`](FUTURE-ROADMAP.md).

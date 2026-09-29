@@ -62,8 +62,14 @@ def common_result(kind: str, duration_s: float, wall_s: float,
                   link: FikoreLink, backend: TransportBackend) -> dict:
     accounted = sum(link.terminal_bytes.values()) + link.in_flight_bytes
     return {
+        "artifact_kind": "generated_result",
+        "source_runner": "transport/benchmarks/validate_scale.py",
+        "regeneration_command": (
+            "PYTHONPATH=transport python3 "
+            "transport/benchmarks/validate_scale.py "
+            f"--duration {duration_s:g} --mode {kind}"),
         "kind": kind,
-        "git_commit": subprocess.check_output(
+        "fikore_revision": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], cwd=REPO, text=True).strip(),
         "simulated_s": duration_s,
         "wall_s": wall_s,

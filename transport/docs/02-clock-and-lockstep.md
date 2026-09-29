@@ -1,81 +1,113 @@
-# The Clock, and Why One Slot at a Time
+# Clock and Lockstep — As Built
 
-## The clock is not ours
+**Status:** implemented fixed-step advancement
+**Code:** `fikore_transport/runner.py`, `fikore_transport/backend.py`,
+`fikore_transport/fikore_link.py`
 
-Simulated time belongs to the emulator, which advances in 1 ms radio slots and, in
-barrier mode, executes slot `n` only while `n <= credit_until_tti`. The harness owns
-the credit, so it owns the clock, but it can only move it forwards a whole slot at a
-time.
+## Time domains
 
-Everything in the model reads that clock and schedules against it. `env.now` becomes
-`clock.tti`, and `yield env.timeout(d)` becomes `sched.after(d, callback)`. No
-component keeps a wall clock, sleeps, or runs a second simulation engine. This is
-the one structural change that porting ns.py's TCP requires, and it is why the
-algorithms can be lifted while the plumbing cannot.
+The transport and Link use absolute integer TTIs. The default configuration is
+1 ms per TTI. NetworkBackend callers advance by configured TTI windows and
+receive `time_s` timestamps in seconds.
 
-## Why the window has to be one slot
+A typical SFV caller advances every 10 ms:
 
-The pilot's harness synchronises every 10 ms because a video player reacts in
-hundreds of milliseconds. A transport sender reacts inside the slot in which the
-acknowledgement lands.
+```text
+harness:        0 ms ───────── 10 ms ───────── 20 ms
+transport TTI:    0 1 2 3 4 5 6 7 8 9 10 ... 19 20
+```
 
-Consider a 10 ms window. The harness grants slots 0 to 9, and the emulator runs all
-ten before answering. An acknowledgement that arrives at slot 3 would let the sender
-transmit at slot 4, but slot 4 has already been executed by the time the harness
-learns anything. The harness cannot schedule a command into the past, so the segment
-would leave at slot 10: the model would run with an RTT inflated by up to a full
-window, and the inflation would depend on where in the window the acknowledgement
-happened to fall. That is not an approximation, it is a bias that moves with the
-window size.
+The 10 ms value is an application cadence, not an emulator slot size. The
+backend executes every intervening transport TTI.
 
-So the credit window is one slot. Within a slot the order is fixed:
+## Advance contract
 
-1. read what the network reports as terminal up to `n`
-2. receivers turn arrivals into acknowledgements
-3. acknowledgements due at `n` reach their sender, and timers fire
-4. senders are asked for their segments
-5. the segments are handed over for slot `n+1`, and `n+1` is granted
+`Runner.tick()` advances exactly one TTI. `Runner.run_until(last_tti)` repeatedly
+ticks through an inclusive absolute boundary.
 
-Step 4 can only depend on what step 1 reported, so a segment sent in reaction to an
-arrival always leaves at least one slot after it. That one slot is the model's host
-turnaround, and it is the floor of the modelled RTT. Calling it zero would be
-cheaper and wrong.
+`TransportBackend.advance()` has no time argument. Each call advances
+`BackendConfig.window_ttis` (10 by default), except that `horizon_ttis` clamps
+the final window. Its first call emits the initial `NetworkStep` at time zero
+without ticking. All flows and UEs in that backend share the same Runner clock.
 
-## What it costs
+## One transport TTI
 
-Measured on this machine, against `bin/fikore` in fast mode, 2000 slots per run
-(`benchmarks/bench_lockstep.py`):
+At each TTI the Runner:
 
-| Configuration | µs per slot | Projected overhead of a 300 s run |
-| :-- | --: | --: |
-| 1 UE, grant only | 40 | 12 s |
-| 1 UE, grant + full `get`, 100 live objects | 897 | 269 s |
-| 1 UE, grant + `events`, 100 live objects | 80 | 24 s |
-| 4 UEs, grant only | 42 | 13 s |
-| 4 UEs, grant + full `get`, 20 live objects per UE | 935 | 281 s |
-| 4 UEs, grant + full `get`, 60 live objects per UE | 2381 | 714 s |
-| 4 UEs, grant + `events`, 60 live objects per UE | 51 | 15 s |
+1. asks the Link for arrivals visible through the current TTI;
+2. turns data arrivals into ACK work and processes Link-carried ACK arrivals;
+3. runs due scheduled callbacks, including local ACKs and timers;
+4. asks every sender for newly permitted/retransmitted segments;
+5. submits those segments for the next TTI;
+6. increments the clock.
 
-Two conclusions. A slot per round trip is affordable: the lockstep itself costs
-tens of microseconds. And `events` removes the wrong scaling term: feedback stays
-close to the grant-only floor regardless of how many completed tags are retained,
-because only counter movements cross the socket. [docs/03](03-link-and-protocol-requirements.md)
-defines that protocol.
+The exact order is fixed in code and tests. No wall-clock sleep controls
+simulated time.
 
-The real path confirms it. One UE moving 3 MB falls from 5465 to 416 µs per
-slot; four UEs moving 1 MB each fall from 5873 to 422 µs, including the model's
-own work and one compact telemetry snapshot per 10-TTI harness window.
+## FikoRE barrier
 
-## Skipping idle slots
+For a FikoRE-backed step, `FikoreLink`:
 
-The runner does not have to visit every slot. When no flow has anything outstanding
-and the next scheduled event is at slot `m`, nothing can happen in between and the
-credit can jump there: `Scheduler.next_tti()` exists for this. It matters for the
-pilot, where a player often waits hundreds of milliseconds with an empty pipe.
+1. sends scheduled commands for the boundary;
+2. sends an absolute `grant`;
+3. reads every scheduled-command acknowledgement;
+4. reads the grant acknowledgement;
+5. fetches retained object events;
+6. converts complete segment outcomes to `Arrival` records;
+7. acknowledges consumed feedback with the next cursor.
 
-While data is in flight the jump is not available, because the emulator knows when
-the next delivery is and the harness does not. The clean fix belongs on the
-emulator's side of the interface and is described as an optional extension in
-[docs/03](03-link-and-protocol-requirements.md): let a grant stop early when an
-object reaches a terminal state, so idle slots cost nothing without the harness
-having to predict them.
+The grant is the synchronization barrier. A successful response means the
+emulator reached the requested quiescent boundary, not merely that a command
+was accepted.
+
+## Feedback lag
+
+Network work occurring in TTI `n` is collected by the emulator at the
+quiescent point of TTI `n+1`. Feedback contains both occurrence and observation
+time. The transport cannot react before the result is observable.
+
+Local ACK mode still honours configured propagation/ACK delay, but avoids
+sending an ACK packet through the Link. Link ACK mode creates reverse-path
+segments and therefore models reverse contention and loss.
+
+## Multi-UE synchronization
+
+All UEs attached to one `TransportBackend` advance on one clock. Requests
+submitted before the same boundary compete concurrently in FikoRE. The backend
+does not advance UE A to completion and then run UE B.
+
+## Scheduler helper
+
+`Scheduler.next_tti()` exists and returns the next known scheduled action. The
+current model does not use it to skip idle TTIs; advancement remains fixed-step.
+This is a current limitation, not an active execution path.
+
+## Failure semantics
+
+The Python integration raises an exception on:
+
+- malformed or incomplete protocol replies;
+- backward time;
+- connection loss without successful protocol recovery;
+- inconsistent event cursors;
+- segment over-accounting or another violated runtime invariant.
+
+The emulator itself exits with status 76 on barrier event-retention overflow
+before feedback is lost. Top-level validation scripts convert failed final
+conservation checks into non-zero status where they perform that check. A raw
+Python exception and an emulator process exit are distinct failure channels;
+partial results from either must not be treated as successful evidence.
+
+## Evidence
+
+- Deterministic loopback progression:
+  `transport/tests/test_loopback_transfer.py`
+- FikoRE barrier/replay progression:
+  `transport/tests/test_fikore_link.py`
+- Emulator framing and reconnect:
+  `tests/control_sync_test.cpp`
+- 300 s fixed-step runs:
+  `transport/benchmarks/validate_scale.py`
+
+Idle skipping and event-stopping multi-TTI grants are not implemented; their
+acceptance criteria are in [`FUTURE-ROADMAP.md`](FUTURE-ROADMAP.md).

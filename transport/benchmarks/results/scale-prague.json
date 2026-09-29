@@ -1,9 +1,10 @@
 {
+  "artifact_kind": "generated_result",
   "bytes_conserved": true,
   "ce_segments": 23440,
   "delivered_bytes": 1457316000,
   "ecn": "ect1",
-  "git_commit": "b064e2a52c0b925820bf14e3e26a6d28e6afeca8",
+  "fikore_revision": "b064e2a52c0b925820bf14e3e26a6d28e6afeca8",
   "goodput_mbps": 38.86176,
   "in_flight_bytes": 18000,
   "kind": "prague",
@@ -28,7 +29,9 @@
     "vrtt_us": 25000
   },
   "reply_bytes": 300189792,
+  "regeneration_command": "PYTHONPATH=transport python3 transport/benchmarks/validate_scale.py --duration 300 --mode prague",
   "simulated_s": 300.0,
+  "source_runner": "transport/benchmarks/validate_scale.py",
   "slots": 300000,
   "srtt_ms": 6.029787755540926,
   "submitted_bytes": 1457334000,

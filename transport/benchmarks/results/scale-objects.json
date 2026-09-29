@@ -1,4 +1,5 @@
 {
+  "artifact_kind": "generated_result",
   "bytes_conserved": true,
   "delivered_bytes_by_ue": [
     637890000,
@@ -6,7 +7,7 @@
     325414500,
     482176500
   ],
-  "git_commit": "b064e2a52c0b925820bf14e3e26a6d28e6afeca8",
+  "fikore_revision": "b064e2a52c0b925820bf14e3e26a6d28e6afeca8",
   "in_flight_bytes": 184500,
   "kind": "objects",
   "lost_bytes_by_cause": {
@@ -25,8 +26,10 @@
   "n_ues": 4,
   "objects_completed": 5554,
   "reply_bytes": 498392446,
+  "regeneration_command": "PYTHONPATH=transport python3 transport/benchmarks/validate_scale.py --duration 300 --mode objects",
   "segment_bytes": 375000,
   "simulated_s": 300.0,
+  "source_runner": "transport/benchmarks/validate_scale.py",
   "slots": 300000,
   "submitted_bytes": 2083555500,
   "terminal_bytes": {

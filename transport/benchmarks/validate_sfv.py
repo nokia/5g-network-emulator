@@ -135,6 +135,13 @@ def main() -> int:
 
     accounted = sum(link.terminal_bytes.values()) + link.in_flight_bytes
     manifest = {
+        "artifact_kind": "generated_result",
+        "source_runner": "transport/benchmarks/validate_sfv.py",
+        "regeneration_command": (
+            "PYTHONPATH=transport python3 "
+            "transport/benchmarks/validate_sfv.py "
+            "--sfv-vqeg-root <SFV_VQEG_CHECKOUT> "
+            "--sfv-core-root <SFV_CORE_CHECKOUT>"),
         "status": "completed",
         "config": str(config_path),
         "duration_s": config["duration_s"],

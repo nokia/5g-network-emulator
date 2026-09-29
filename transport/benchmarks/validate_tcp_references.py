@@ -132,6 +132,12 @@ def main() -> int:
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     result = {
+        "artifact_kind": "generated_result",
+        "source_runner": "transport/benchmarks/validate_tcp_references.py",
+        "regeneration_command": (
+            "PYTHONPATH=transport python3 "
+            "transport/benchmarks/validate_tcp_references.py "
+            "--ns-root <NS_PY_CHECKOUT> --output <OUTPUT_JSON>"),
         "fikore_revision": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
         "ns_py": validate_ns_py(args.ns_root.resolve()),

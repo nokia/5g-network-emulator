@@ -114,7 +114,11 @@ wire contract and cursor rules.
 The Python transport models that consume this interface live in
 [`transport/`](transport/README.md): TCP with Reno, CUBIC or Prague, the
 fixed-window injection baseline, UDP, and the `NetworkBackend` facade used by
-external experiment harnesses.
+external experiment harnesses. The numbered transport documents describe only
+implemented behaviour; current non-guarantees are in
+[`transport/docs/LIMITATIONS.md`](transport/docs/LIMITATIONS.md), and
+unimplemented work is isolated in
+[`transport/docs/FUTURE-ROADMAP.md`](transport/docs/FUTURE-ROADMAP.md).
 
 A scenario can also be scripted with no network at all, through `timeline_file` in the
 `[Control]` section, and any session can be journaled and replayed exactly.

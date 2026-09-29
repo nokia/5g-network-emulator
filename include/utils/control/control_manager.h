@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
@@ -15,12 +16,14 @@
 #include <mutex>
 #include <queue>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <utils/control/cell_info.h>
 #include <utils/control/command.h>
 #include <utils/control/control_config.h>
 #include <utils/control/control_transport.h>
+#include <utils/run_status.h>
 
 class ue;
 
@@ -51,9 +54,11 @@ public:
     void tick(double sim_t, std::int64_t tti);
 
     void stop();
+    void interrupt();
 
     bool is_enabled() const { return enabled_; }
-    bool stop_requested() const { return stopping_; }
+    bool stop_requested() const { return stopping_.load(); }
+    run_stop_reason stop_reason() const { return stop_reason_; }
     std::int64_t credit_until_tti() const { return credit_until_tti_; }
     bool barrier_mode() const { return mode_ == mode_t::barrier; }
 
@@ -67,6 +72,7 @@ private:
     void write_journal(const command &c, double sim_t, std::int64_t tti);
     void publish_metrics(std::int64_t tti);
     void drain_transport();
+    void collect_object_events(std::int64_t tti);
     void apply_due(double sim_t, std::int64_t tti);
     void apply(const command &c, double sim_t, std::int64_t tti);
     void refill_rate_buckets();
@@ -77,6 +83,7 @@ private:
     bool resolve_target(const std::string &target, std::vector<ue *> &out, ack &a);
     std::string read_state(const std::vector<ue *> &targets) const;
     std::string read_cell_state() const;
+    std::string read_object_events(const command &c, ack &a);
     void warn_priority_under_rr();
 
 private:
@@ -94,10 +101,25 @@ private:
             return a.seq > b.seq;
         }
     };
+    struct object_event
+    {
+        std::uint64_t seq = 0;
+        std::int64_t at_tti = -1;
+        int ue_id = -1;
+        std::string ue_name;
+        int tx_dir = -1;
+        std::uint32_t tag = 0;
+        double delivered_bytes = 0.0;
+        double expired_bytes = 0.0;
+        double queue_dropped_bytes = 0.0;
+        double radio_dropped_bytes = 0.0;
+        double ce_bytes = 0.0;
+    };
 
 private:
     bool enabled_ = false;
     std::vector<ue *> ue_index_;          // by ue id, stable after ue_handler::init()
+    std::unordered_map<std::string, ue *> ue_name_index_;
     std::vector<ue> *ue_list_ = nullptr;
     std::unique_ptr<control_transport> transport_;
     bool transport_open_ = false;
@@ -115,7 +137,9 @@ private:
     on_peer_loss_t on_peer_loss_ = on_peer_loss_t::abort;
     std::chrono::milliseconds timeout_{30000};
     std::int64_t credit_until_tti_ = -1;
-    bool stopping_ = false;
+    std::uint64_t credit_generation_ = 0;
+    std::atomic<bool> stopping_{false};
+    run_stop_reason stop_reason_ = run_stop_reason::none;
     std::mutex mtx_;
     std::condition_variable cv_;
 
@@ -132,4 +156,14 @@ private:
     int max_cmds_per_tick_ = 256;
     bool warned_rr_priority_ = false;
     cell_info cell_;
+
+    // A single control peer consumes a replayable stream of per-tag counter deltas.
+    // Events are retained until that peer proves it consumed them by sending their
+    // cursor back as `after`, so retrying after a lost reply cannot lose feedback.
+    bool object_events_enabled_ = false;
+    bool object_event_gap_ = false;
+    std::uint64_t object_event_seq_ = 0;
+    std::uint64_t object_event_floor_ = 0;
+    std::deque<object_event> object_events_;
+    size_t max_object_events_ = 65536;
 };

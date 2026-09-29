@@ -46,6 +46,7 @@ command_op parse_op(const std::string &s)
     if (s == "grant") return command_op::grant;
     if (s == "inject") return command_op::inject;
     if (s == "forget") return command_op::forget;
+    if (s == "events") return command_op::events;
     return command_op::set;
 }
 }
@@ -53,8 +54,10 @@ command_op parse_op(const std::string &s)
 namespace ndjson
 {
 bool parse_line(const std::string &line, std::uint64_t fallback_id,
-                std::vector<command> &out, std::string &error)
+                std::vector<command> &out, std::string &error,
+                std::uint64_t *message_id)
 {
+    if (message_id != nullptr) *message_id = fallback_id;
     json msg;
     try
     {
@@ -76,6 +79,10 @@ bool parse_line(const std::string &line, std::uint64_t fallback_id,
     double at_t = -1.0;
     try
     {
+        const std::uint64_t id = msg.contains("id")
+            ? msg["id"].get<std::uint64_t>() : fallback_id;
+        if (message_id != nullptr) *message_id = id;
+
         if (msg.contains("at_tti")) at_tti = msg["at_tti"].get<std::int64_t>();
         if (msg.contains("at_t"))
         {
@@ -85,7 +92,7 @@ bool parse_line(const std::string &line, std::uint64_t fallback_id,
             if (at_tti < 0) at_tti = (std::int64_t)llround(at_t * 1000.0);
         }
 
-        const std::uint64_t id = msg.contains("id") ? msg["id"].get<std::uint64_t>() : fallback_id;
+        std::vector<command> parsed;
 
         std::vector<json> items;
         if (msg.contains("cmds"))
@@ -120,6 +127,21 @@ bool parse_line(const std::string &line, std::uint64_t fallback_id,
                     error = "grant needs until_tti";
                     return false;
                 }
+                c.target = "cell";
+            }
+
+            if (c.op == command_op::events)
+            {
+                if (!item.contains("after"))
+                {
+                    error = "events needs an after cursor";
+                    return false;
+                }
+                c.after = item["after"].get<std::uint64_t>();
+                if (item.contains("include_state"))
+                    c.include_state = item["include_state"].get<bool>();
+                if (item.contains("resync"))
+                    c.resync_events = item["resync"].get<bool>();
                 c.target = "cell";
             }
 
@@ -198,8 +220,9 @@ bool parse_line(const std::string &line, std::uint64_t fallback_id,
                 return false;
             }
 
-            out.push_back(c);
+            parsed.push_back(c);
         }
+        out.insert(out.end(), parsed.begin(), parsed.end());
     }
     catch (const std::exception &e)
     {
@@ -230,6 +253,12 @@ std::string serialize_journal_entry(const command &c, double sim_t, std::int64_t
     case command_op::forget:
         cmd["op"] = "forget";
         cmd["tag"] = c.tag;
+        break;
+    case command_op::events:
+        cmd["op"] = "events";
+        cmd["after"] = c.after;
+        if (c.include_state) cmd["include_state"] = true;
+        if (c.resync_events) cmd["resync"] = true;
         break;
     default: cmd["op"] = "set"; break;
     }

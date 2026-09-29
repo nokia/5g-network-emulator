@@ -16,6 +16,7 @@ __pycache__/
 # symlinks to an interpreter that is not in the image.
 .venv/
 api/.venv/
+transport/.venv/
 
 # Working directories and the wiki checkout, none of which belong in the image.
 wiki/

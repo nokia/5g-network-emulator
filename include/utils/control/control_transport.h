@@ -44,6 +44,8 @@ public:
     // with no notion of a peer never blocks.
     virtual bool peer_alive() const { return false; }
     virtual bool peer_ever_connected() const { return false; }
+    virtual bool command_is_current(const command &) const { return true; }
+    virtual std::uint64_t current_generation() const { return 0; }
 
 protected:
     grant_sink grant_sink_;

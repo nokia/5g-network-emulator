@@ -31,6 +31,17 @@ public:
     int get_pkt_size() const override { return traffic_m->get_pkt_size(0); }
     const std::unordered_map<std::uint32_t, object_counters> &objects() const override { return objects_; }
     bool forget_object(std::uint32_t tag) override { return objects_.erase(tag) > 0; }
+    void enable_object_events() override
+    {
+        object_events_.clear();
+        object_events_enabled_ = true;
+    }
+    std::unordered_map<std::uint32_t, object_counters> take_object_events() override
+    {
+        std::unordered_map<std::uint32_t, object_counters> out;
+        out.swap(object_events_);
+        return out;
+    }
 
 private:
     struct pending_packet_result
@@ -64,4 +75,6 @@ private:
     int current_id = 0;
     std::unordered_map<uint32_t, pending_packet_result> pending_results;
     std::unordered_map<std::uint32_t, object_counters> objects_;
+    bool object_events_enabled_ = false;
+    std::unordered_map<std::uint32_t, object_counters> object_events_;
 };

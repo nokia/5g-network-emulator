@@ -19,7 +19,17 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y --no-ins
 WORKDIR /usr/src/5g-network-emulator
 COPY . .
 
-RUN make -j"$(nproc)" && make test
+RUN make -j"$(nproc)" \
+  && make test \
+  && make test-transport \
+  && make test-transport-integration
+
+# Test dependencies stay out of the shipped API environment.
+RUN python3 -m venv /tmp/fikore-api-test \
+  && /tmp/fikore-api-test/bin/pip install --no-cache-dir --upgrade pip \
+  && /tmp/fikore-api-test/bin/pip install --no-cache-dir -r api/requirements-test.txt \
+  && make test-api PYTHON=/tmp/fikore-api-test/bin/python \
+  && rm -rf /tmp/fikore-api-test
 
 # The control API ships with the emulator and is built here, in its own venv: it is
 # independent of the repo's .venv, which belongs to the analyzers and pulls in numpy and

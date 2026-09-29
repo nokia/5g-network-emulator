@@ -35,6 +35,8 @@
 bin/
 logs/
 results/
+!transport/benchmarks/results/
+!transport/benchmarks/results/*.json
 testconfig/
 tmp/
 run_scripts/.generated/

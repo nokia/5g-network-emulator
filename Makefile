@@ -1,4 +1,5 @@
 CXX := g++
+PYTHON ?= python3
 
 BIN_DIR := bin
 BUILD_DIR := build
@@ -32,8 +33,13 @@ TEST_DEPS := $(TEST_OBJECTS:.o=.d)
 TOOLS_SOURCES := $(shell find tools -name '*.cpp' 2>/dev/null | sort)
 TOOLS_OBJECTS := $(patsubst tools/%.cpp,$(TOOLS_OBJ_DIR)/%.o,$(TOOLS_SOURCES))
 TOOLS_DEPS := $(TOOLS_OBJECTS:.o=.d)
+TRANSPORT_TESTS := \
+	transport/tests/test_backend.py \
+	transport/tests/test_loopback_transfer.py \
+	transport/tests/test_prague.py \
+	transport/tests/test_transports.py
 
-.PHONY: all tools run test smoke clean print-objects
+.PHONY: all tools run test test-api test-transport test-transport-integration smoke clean print-objects
 .SECONDARY: $(TEST_OBJECTS)
 
 all: $(TARGET) $(TOOLS_TARGETS)
@@ -67,7 +73,7 @@ $(BIN_DIR)/udp_tos_probe: $(TOOLS_OBJ_DIR)/udp_tos_probe.o
 	@mkdir -p $(@D)
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) $^ -o $@
 
-test: $(TEST_BINS)
+test: $(TARGET) $(TEST_BINS)
 	@set -e; \
 	for test_bin in $(TEST_BINS); do \
 		echo "[TEST] $$test_bin"; \
@@ -80,6 +86,23 @@ test: $(TEST_BINS)
 	else \
 		echo "[SKIP] api/tests/dash_logic_test.js (no node interpreter)"; \
 	fi
+	@echo "[TEST] tests/exit_status_test.py"
+	@$(PYTHON) tests/exit_status_test.py
+
+test-transport:
+	@set -e; \
+	for test_file in $(TRANSPORT_TESTS); do \
+		echo "[TEST] $$test_file"; \
+		PYTHONPATH=transport $(PYTHON) $$test_file; \
+	done
+
+test-transport-integration: all
+	@echo "[TEST] transport/tests/test_fikore_link.py"
+	@PYTHONPATH=transport $(PYTHON) transport/tests/test_fikore_link.py
+
+test-api:
+	@echo "[TEST] api/tests"
+	@PYTHONPATH=api $(PYTHON) -m pytest api/tests -q
 
 smoke: all
 	./$(TARGET) tests/smoke_sim.ini

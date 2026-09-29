@@ -8,6 +8,24 @@
 
 #include <pdcp_layer/simulated_packet_handler.h>
 
+namespace
+{
+void account_fragment(object_counters &counters, const ip_pkt &pkt, bit_fate fate)
+{
+    if(fate == bit_fate::delivered)
+    {
+        counters.delivered_bits += pkt.size;
+        // A mark only means anything on bits that arrived; a marked fragment that is
+        // then dropped is a loss, and counting it twice would tell the sender to back
+        // off twice for one event.
+        if(pkt.ce_marked) counters.ce_bits += pkt.size;
+    }
+    else if(fate == bit_fate::expired) counters.expired_bits += pkt.size;
+    else if(fate == bit_fate::radio_dropped) counters.radio_dropped_bits += pkt.size;
+    else counters.queue_dropped_bits += pkt.size;
+}
+}
+
 simulated_packet_handler::simulated_packet_handler(int ue_id, traffic_config traffic_c, pdcp_config pdcp_c, unsigned int seed, int verbosity)
     : packet_handler(pdcp_c, seed, verbosity),
       traffic_m(new traffic_model(ue_id, traffic_c))
@@ -164,18 +182,8 @@ void simulated_packet_handler::update_pending_packet(const ip_pkt& pkt, bit_fate
     // not wait for the packet to be whole again, which is what the verdict below needs.
     if(pkt.tag != 0)
     {
-        object_counters& o = objects_[pkt.tag];
-        if(fate == bit_fate::delivered)
-        {
-            o.delivered_bits += pkt.size;
-            // A mark only means anything on bits that arrived; a marked fragment that
-            // is then dropped is a loss, and counting it twice would tell the sender
-            // to back off twice for one event.
-            if(pkt.ce_marked) o.ce_bits += pkt.size;
-        }
-        else if(fate == bit_fate::expired) o.expired_bits += pkt.size;
-        else if(fate == bit_fate::radio_dropped) o.radio_dropped_bits += pkt.size;
-        else o.queue_dropped_bits += pkt.size;
+        account_fragment(objects_[pkt.tag], pkt, fate);
+        if(object_events_enabled_) account_fragment(object_events_[pkt.tag], pkt, fate);
     }
 
     const bool dropped = fate != bit_fate::delivered;

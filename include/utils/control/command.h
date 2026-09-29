@@ -31,7 +31,10 @@ enum class command_op
     inject,
     // Releases an object's counters. The emulator cannot know that an object is
     // finished, because it does not know its size; whoever injected it does.
-    forget
+    forget,
+    // Incremental object feedback for a transport model. Cell-wide: returns only the
+    // counter movements after a client-confirmed cursor, not every live object.
+    events
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -52,6 +55,9 @@ struct command
     double at_t = -1.0;
     std::int64_t at_tti = -1;
     std::uint64_t id = 0;
+    // Internal socket generation, never serialized. Commands and acknowledgements
+    // must not cross from a disconnected controller into its successor.
+    std::uint64_t connection_generation = 0;
 
     // Only meaningful for grant.
     std::int64_t until_tti = -1;
@@ -64,6 +70,12 @@ struct command
     int tx_dir = -1;
     double bytes = 0.0;
     std::uint8_t ecn = 0;   // ECN_NOT_ECT
+
+    // Only meaningful for events. `after` is the last cursor the client consumed; the
+    // server retains later events so retrying the same request is idempotent.
+    std::uint64_t after = 0;
+    bool include_state = false;
+    bool resync_events = false;
 };
 
 struct ack_error
@@ -75,6 +87,7 @@ struct ack_error
 struct ack
 {
     std::uint64_t id = 0;
+    std::uint64_t connection_generation = 0; // internal, not serialized
     bool ok = true;
     std::int64_t tti = 0;
     double t = 0.0;

@@ -90,12 +90,50 @@ nc -U /tmp/fikore-control.sock
 {"id":1,"cmds":[{"target":"ue/0","set":{"priority":8.0}}]}
 ```
 
+UEs can also be addressed by the textual `ue_id` from the configuration. A
+single `ue_id: car` is `ue/car`; when the section creates several UEs they are
+`ue/car_0`, `ue/car_1`, and so on. Numeric targets remain supported. State and
+event replies keep the numeric `target` and add the stable textual `ue_id`.
+
+A transport model should use the incremental `events` operation instead of polling
+the full UE state every TTI:
+
+```json
+{"id":2,"cmds":[{"op":"events","after":0,"include_state":true}]}
+```
+
+The reply carries only per-tag counter movements newer than `after`, plus an
+optional compact state snapshot. Advance `after` only after consuming the complete
+reply: unacknowledged events are retained and the same cursor safely replays them.
+`max_object_events` bounds that replay log (65536 by default). Overflow aborts a
+barrier run; an asynchronous client must recover atomically with
+`{"op":"events","after":0,"resync":true}`.
+See [`docs/runtime-control-events.md`](docs/runtime-control-events.md) for the
+wire contract and cursor rules.
+
+The Python transport models that consume this interface live in
+[`transport/`](transport/README.md): TCP with Reno, CUBIC or Prague, the
+fixed-window injection baseline, UDP, and the `NetworkBackend` facade used by
+external experiment harnesses. The numbered transport documents describe only
+implemented behaviour; current non-guarantees are in
+[`transport/docs/LIMITATIONS.md`](transport/docs/LIMITATIONS.md), and
+unimplemented work is isolated in
+[`transport/docs/FUTURE-ROADMAP.md`](transport/docs/FUTURE-ROADMAP.md).
+
 A scenario can also be scripted with no network at all, through `timeline_file` in the
 `[Control]` section, and any session can be journaled and replayed exactly.
 
 > Beware: under Round Robin (`metric_type: 5`) the scheduler ignores priority, so that
 > particular knob will appear to do nothing. Use `metric_type: 6` for priority
 > experiments.
+
+### Exit status
+
+`fikore` returns zero only after a normal completed run. Aborted and invalid
+runs use stable Unix-style statuses: 64 usage, 66 missing input, 70 fatal
+runtime/software, 74 lost control peer, 75 credit timeout, 76 control-protocol
+integrity failure (including event backlog), and 78 invalid configuration.
+SIGINT and SIGTERM retain their native signal status.
 
 ## Execution Warnings and Troubleshooting
 When running FikoRE in emulator mode, you must press Ctrl+C twice:

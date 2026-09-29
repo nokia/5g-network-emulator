@@ -5,7 +5,9 @@
 **********************************************/
 
 #include <arpa/inet.h>
+#include <algorithm>
 #include <cerrno>
+#include <chrono>
 #include <cstring>
 #include <netinet/in.h>
 #include <poll.h>
@@ -27,6 +29,7 @@ namespace
 // Blocks are short and the peer is local, so a modest poll timeout is enough to notice
 // that the emulator is shutting down.
 const int POLL_TIMEOUT_MS = 200;
+const int SEND_TIMEOUT_MS = 1000;
 }
 
 transport_socket::transport_socket(const control_config &cfg)
@@ -128,8 +131,13 @@ void transport_socket::stop()
 {
     if (stopping_.exchange(true)) return;
 
-    const int client = client_fd_.exchange(-1);
-    if (client >= 0) ::shutdown(client, SHUT_RDWR);
+    int client = -1;
+    {
+        std::lock_guard<std::mutex> session_lk(session_mtx_);
+        client = client_fd_.exchange(-1);
+        active_generation_.store(0);
+        if (client >= 0) ::shutdown(client, SHUT_RDWR);
+    }
     if (listen_fd_ >= 0) ::shutdown(listen_fd_, SHUT_RDWR);
 
     if (thread_.joinable()) thread_.join();
@@ -143,17 +151,47 @@ void transport_socket::stop()
     if (!unix_path_.empty()) ::unlink(unix_path_.c_str());
 }
 
-void transport_socket::send_line(int fd, const std::string &line)
+bool transport_socket::send_line(int fd, const std::string &line)
 {
-    if (fd < 0) return;
+    if (fd < 0) return false;
     std::lock_guard<std::mutex> lk(write_mtx_);
+    const std::chrono::steady_clock::time_point deadline =
+        std::chrono::steady_clock::now()
+        + std::chrono::milliseconds(SEND_TIMEOUT_MS);
     ssize_t written = 0;
     while (written < (ssize_t)line.size())
     {
-        const ssize_t n = ::send(fd, line.data() + written, line.size() - written, MSG_NOSIGNAL);
-        if (n <= 0) return;
-        written += n;
+        if (std::chrono::steady_clock::now() >= deadline)
+        {
+            ::shutdown(fd, SHUT_RDWR);
+            return false;
+        }
+        const ssize_t n = ::send(fd, line.data() + written, line.size() - written,
+                                 MSG_NOSIGNAL | MSG_DONTWAIT);
+        if (n > 0)
+        {
+            written += n;
+            continue;
+        }
+        if (n < 0 && errno == EINTR) continue;
+        if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
+        {
+            const auto now = std::chrono::steady_clock::now();
+            if (now >= deadline) break;
+            const int remaining_ms = (int)std::chrono::duration_cast<
+                std::chrono::milliseconds>(deadline - now).count();
+            struct pollfd pfd;
+            pfd.fd = fd;
+            pfd.events = POLLOUT;
+            pfd.revents = 0;
+            if (::poll(&pfd, 1, std::max(remaining_ms, 1)) > 0) continue;
+        }
+        ::shutdown(fd, SHUT_RDWR);
+        return false;
     }
+    if (written == (ssize_t)line.size()) return true;
+    ::shutdown(fd, SHUT_RDWR);
+    return false;
 }
 
 // No negotiation: both sides state the same constant or the connection is dropped. The
@@ -164,7 +202,7 @@ bool transport_socket::handshake(int fd)
     json hello;
     hello["op"] = "hello";
     hello["proto"] = FIKORE_CONTROL_PROTO;
-    send_line(fd, hello.dump() + "\n");
+    if (!send_line(fd, hello.dump() + "\n")) return false;
 
     std::string line;
     char ch = 0;
@@ -252,7 +290,11 @@ void transport_socket::serve()
                 {
                     buffer.clear();
                     peer_ever_connected_.store(true);
-                    client_fd_.store(fd);
+                    {
+                        std::lock_guard<std::mutex> session_lk(session_mtx_);
+                        active_generation_.store(next_generation_++);
+                        client_fd_.store(fd);
+                    }
                     LOG_INFO_I("transport_socket") << " client connected, proto " << FIKORE_CONTROL_PROTO << END();
                 }
             }
@@ -263,19 +305,26 @@ void transport_socket::serve()
             const ssize_t n = ::recv(client, chunk, sizeof(chunk), 0);
             if (n <= 0)
             {
-                client_fd_.store(-1);
-                ::close(client);
+                {
+                    std::lock_guard<std::mutex> session_lk(session_mtx_);
+                    if (client_fd_.load() == client)
+                    {
+                        active_generation_.store(0);
+                        client_fd_.store(-1);
+                        ::close(client);
+                    }
+                }
                 LOG_INFO_I("transport_socket") << " client disconnected" << END();
                 continue;
             }
 
             buffer.append(chunk, (size_t)n);
-            handle_lines(client, buffer);
+            handle_lines(client, active_generation_.load(), buffer);
         }
     }
 }
 
-void transport_socket::handle_lines(int fd, std::string &buffer)
+void transport_socket::handle_lines(int fd, std::uint64_t generation, std::string &buffer)
 {
     size_t nl;
     while ((nl = buffer.find('\n')) != std::string::npos)
@@ -287,10 +336,11 @@ void transport_socket::handle_lines(int fd, std::string &buffer)
         std::vector<command> parsed;
         std::string error;
         line_no_++;
-        if (!ndjson::parse_line(line, line_no_, parsed, error))
+        std::uint64_t message_id = line_no_;
+        if (!ndjson::parse_line(line, line_no_, parsed, error, &message_id))
         {
             ack a;
-            a.id = line_no_;
+            a.id = message_id;
             a.ok = false;
             ack_error e;
             e.key = "message";
@@ -303,6 +353,7 @@ void transport_socket::handle_lines(int fd, std::string &buffer)
         std::vector<command> queued;
         for (size_t i = 0; i < parsed.size(); i++)
         {
+            parsed[i].connection_generation = generation;
             // Grants are the one exception to "apply only from the simulation thread":
             // in barrier mode that thread is blocked waiting for exactly this, so it
             // cannot drain the inbox. A grant touches only the manager's credit counter.
@@ -310,6 +361,7 @@ void transport_socket::handle_lines(int fd, std::string &buffer)
             {
                 ack a;
                 a.id = parsed[i].id;
+                a.connection_generation = generation;
                 grant_sink_(parsed[i], a);
                 send_line(fd, ndjson::serialize_ack(a));
                 continue;
@@ -335,6 +387,17 @@ bool transport_socket::peer_ever_connected() const
     return peer_ever_connected_.load();
 }
 
+bool transport_socket::command_is_current(const command &c) const
+{
+    return c.connection_generation != 0
+        && c.connection_generation == active_generation_.load();
+}
+
+std::uint64_t transport_socket::current_generation() const
+{
+    return active_generation_.load();
+}
+
 bool transport_socket::poll(std::vector<command> &out)
 {
     std::lock_guard<std::mutex> lk(inbox_mtx_);
@@ -348,5 +411,7 @@ bool transport_socket::poll(std::vector<command> &out)
 
 void transport_socket::reply(const ack &a)
 {
+    std::lock_guard<std::mutex> session_lk(session_mtx_);
+    if (a.connection_generation != active_generation_.load()) return;
     send_line(client_fd_.load(), ndjson::serialize_ack(a));
 }

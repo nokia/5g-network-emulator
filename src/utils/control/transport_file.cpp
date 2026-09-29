@@ -29,8 +29,18 @@ transport_file::transport_file(const std::string &path)
         std::string error;
         if (!ndjson::parse_line(text, line_no, pending_, error))
         {
-            LOG_ERROR_I("transport_file") << " line " << line_no << " ignored: " << error << END();
+            LOG_ERROR_I("transport_file") << " invalid line " << line_no
+                                           << ": " << error << END();
+            pending_.clear();
+            return;
         }
+    }
+    if (file.bad() || !file.eof())
+    {
+        LOG_ERROR_I("transport_file") << " I/O error while reading timeline: "
+                                      << path << END();
+        pending_.clear();
+        return;
     }
 
     ok_ = true;

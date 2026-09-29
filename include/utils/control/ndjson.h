@@ -25,10 +25,11 @@
 namespace ndjson
 {
 // Returns false and fills error when the line is not valid JSON or not shaped like a
-// message. Anything appended to out is well formed, though the knob names are only
-// checked later, by the registry.
+// message. Parsing is atomic: on failure `out` is unchanged. The envelope id is
+// returned separately when available so a socket can correlate a shape error.
 bool parse_line(const std::string &line, std::uint64_t fallback_id,
-                std::vector<command> &out, std::string &error);
+                std::vector<command> &out, std::string &error,
+                std::uint64_t *message_id = nullptr);
 
 // Serializes an ack as one line, newline included.
 std::string serialize_ack(const ack &a);

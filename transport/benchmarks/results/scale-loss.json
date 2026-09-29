@@ -1,31 +1,31 @@
 {
   "bytes_conserved": true,
   "delay_budget_s": 0.02,
-  "delivered_bytes": 2216865316,
-  "git_commit": "866fc8da9f6fbc2eef5f033b1393b67b2af391c8",
-  "goodput_mbps": 59.116408426666666,
-  "in_flight_bytes": 130500,
+  "delivered_bytes": 2177160156,
+  "git_commit": "bc4435486b2d3eab9ae1928a9c7fab645f1535f2",
+  "goodput_mbps": 58.05760416,
+  "in_flight_bytes": 55500,
   "kind": "loss",
   "lost_bytes_by_cause": {
-    "budget": 25364888,
+    "budget": 39974272,
     "queue": 0,
     "radio": 0
   },
-  "max_events_per_reply": 39,
+  "max_events_per_reply": 59,
   "n_ues": 1,
   "receive_window_bytes": 524288,
-  "reply_bytes": 403147380,
+  "reply_bytes": 439152572,
   "simulated_s": 300.0,
   "slots": 300000,
-  "srtt_ms": 18.452712779089,
-  "submitted_bytes": 2243745992,
+  "srtt_ms": 8.819806948339236,
+  "submitted_bytes": 2218808096,
   "terminal_bytes": {
-    "delivered": 2218250604,
+    "delivered": 2178778324,
     "dropped": 0,
-    "expired": 25364888
+    "expired": 39974272
   },
-  "transport_retransmits": 17870,
-  "transport_rto_events": 30,
-  "us_per_slot": 385.3482380897428,
-  "wall_s": 115.60447142692283
+  "transport_retransmits": 27790,
+  "transport_rto_events": 44,
+  "us_per_slot": 455.2353197631116,
+  "wall_s": 136.57059592893347
 }

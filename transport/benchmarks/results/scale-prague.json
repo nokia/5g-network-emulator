@@ -3,7 +3,7 @@
   "ce_segments": 23440,
   "delivered_bytes": 1457316000,
   "ecn": "ect1",
-  "git_commit": "866fc8da9f6fbc2eef5f033b1393b67b2af391c8",
+  "git_commit": "bc4435486b2d3eab9ae1928a9c7fab645f1535f2",
   "goodput_mbps": 38.86176,
   "in_flight_bytes": 18000,
   "kind": "prague",
@@ -27,7 +27,7 @@
     "state": "in_cwr",
     "vrtt_us": 25000
   },
-  "reply_bytes": 275531740,
+  "reply_bytes": 300189792,
   "simulated_s": 300.0,
   "slots": 300000,
   "srtt_ms": 6.029787755540926,
@@ -39,6 +39,6 @@
   },
   "transport_retransmits": 0,
   "transport_rto_events": 0,
-  "us_per_slot": 301.4299166559552,
-  "wall_s": 90.42897499678656
+  "us_per_slot": 354.8909922471891,
+  "wall_s": 106.46729767415673
 }

@@ -69,6 +69,18 @@ delivered, lost with a cause, or still inside the emulator, and the emulator's o
 per-UE totals are compared against the link's. A 1 MB object over an unloaded cell
 finishes in 142 ms at 56.3 Mbps with all 1 000 000 bytes delivered and none lost.
 
+### Independent controller validation
+
+`benchmarks/validate_tcp_references.py` compares the local controllers with
+TL-System ns.py v0.4.5 and independent RFC vectors. Reno matches 500 ACK
+transitions plus fast recovery/RTO. CUBIC matches 1000 ACK transitions with
+zero byte cwnd error and uses the RFC/Linux `C=0.4`, `beta_cubic=0.7` curve.
+RFC 6298 SRTT/RTTVAR/RTO vectors pass with the documented Linux 200 ms floor.
+Prague loads `L4STeam/udp_prague/prague_cc.cpp` directly rather than duplicating
+the algorithm in Python. See
+[`docs/09-external-tcp-validation.md`](docs/09-external-tcp-validation.md) and
+`benchmarks/results/tcp-reference.json`.
+
 ### What a slot costs
 
 This decides whether a 300 s experiment is affordable, and the answer is that the
@@ -99,9 +111,9 @@ Measured by `benchmarks/validate_scale.py`; the raw summaries are under
 
 | Scenario | Wall | Goodput / objects | Feedback | Conservation |
 | :-- | --: | :-- | :-- | :-- |
-| 4 UEs, sequential 375 kB objects, CUBIC | 114.6 s | 5554 objects, 180 ms median; 17.01 / 17.01 / 8.68 / 12.86 Mbps, Jain 0.942 | max 15 events/reply | exact |
-| 1 UE bulk, CUBIC, 20 ms delay budget | 115.6 s | 59.12 Mbps; 17870 retransmits, 30 RTOs, 25.36 MB expired | max 39 events/reply | exact |
-| 1 UE Prague/ECT(1), DualPI2 target 5 ms | 90.4 s | 38.86 Mbps, 6.03 ms SRTT, 23440 CE segments, zero loss/retransmit | max 10 events/reply | exact |
+| 4 UEs, sequential 375 kB objects, CUBIC | 133.8 s | 5554 objects, 180 ms median; 17.01 / 17.01 / 8.68 / 12.86 Mbps, Jain 0.942 | max 15 events/reply | exact |
+| 1 UE bulk, CUBIC, 20 ms delay budget | 136.6 s | 58.06 Mbps; 27790 retransmits, 44 RTOs, 39.97 MB expired | max 59 events/reply | exact |
+| 1 UE Prague/ECT(1), DualPI2 target 5 ms | 106.5 s | 38.86 Mbps, 6.03 ms SRTT, 23440 CE segments, zero loss/retransmit | max 10 events/reply | exact |
 
 The four-UE condition is deliberately not channel-homogeneous; its throughput
 fairness reflects the different per-UE radio realizations rather than transport

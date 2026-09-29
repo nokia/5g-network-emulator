@@ -1,0 +1,22 @@
+{
+  "fikore_revision": "bc4435486b2d3eab9ae1928a9c7fab645f1535f2",
+  "ns_py": {
+    "cubic_ack_steps": 1000,
+    "cubic_max_cwnd_error_bytes": 0.0,
+    "reno_ack_steps": 500,
+    "revision": "0e9011523a668a8d3d79139cf42cff65643dffa4"
+  },
+  "prague": {
+    "initial_cwnd": 15000.0,
+    "packet_size": 1500,
+    "reference": "L4STeam/udp_prague prague_cc.cpp through C ABI shim",
+    "state": "init"
+  },
+  "standards": {
+    "cubic_ack_count": 215.9593996328711,
+    "cubic_rfc": "RFC 8312/9438, windows in MSS, C=0.4, beta=0.7",
+    "cubic_target_packets_at_1_05_s": 100.46305,
+    "reno_rfc": "RFC 5681",
+    "rto_rfc": "RFC 6298 with Linux 200 ms floor"
+  }
+}

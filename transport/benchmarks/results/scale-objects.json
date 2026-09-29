@@ -6,7 +6,7 @@
     325414500,
     482176500
   ],
-  "git_commit": "61c07224259fe2c4687541c43477e3e897c51ed6",
+  "git_commit": "866fc8da9f6fbc2eef5f033b1393b67b2af391c8",
   "in_flight_bytes": 184500,
   "kind": "objects",
   "lost_bytes_by_cause": {
@@ -24,7 +24,7 @@
   "median_object_ms": 180.00000000000682,
   "n_ues": 4,
   "objects_completed": 5554,
-  "reply_bytes": 449142532,
+  "reply_bytes": 449142430,
   "segment_bytes": 375000,
   "simulated_s": 300.0,
   "slots": 300000,
@@ -43,6 +43,6 @@
   ],
   "transport_retransmits": 0,
   "transport_rto_events": 0,
-  "us_per_slot": 522.9311302475011,
-  "wall_s": 156.8793390742503
+  "us_per_slot": 382.04023578049,
+  "wall_s": 114.61207073414698
 }

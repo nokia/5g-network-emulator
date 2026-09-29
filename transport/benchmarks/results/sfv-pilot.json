@@ -1,5 +1,5 @@
 {
-  "fikore_revision_tested": "38128fe7fc70032c57a366c1fa2e669ef9e5393c",
+  "fikore_revision_tested": "866fc8da9f6fbc2eef5f033b1393b67b2af391c8",
   "sfv_core_revision": "07fab254952422d0092f80bf2490ea2a7fcfb9cb",
   "sfv_vqeg_revision": "9d7d6f96f2017d321a181b5e4382642d6f9ef7c2",
   "sfv_vqeg_version": "v0.7.2",
@@ -20,7 +20,7 @@
     }
   },
   "five_second_run": {
-    "wall_s": 0.880,
+    "wall_s": 0.908,
     "network_steps": 501,
     "submitted_bytes": 1095975,
     "bytes_conserved": true,
@@ -36,7 +36,7 @@
     ]
   },
   "cancellation_run_1_s_1_mbps_per_ue": {
-    "wall_s": 0.304,
+    "wall_s": 0.336,
     "submitted_bytes": 319426,
     "terminal_bytes": 248570,
     "in_flight_bytes_at_cutoff": 70856,

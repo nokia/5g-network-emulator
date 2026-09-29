@@ -99,14 +99,14 @@ Measured by `benchmarks/validate_scale.py`; the raw summaries are under
 
 | Scenario | Wall | Goodput / objects | Feedback | Conservation |
 | :-- | --: | :-- | :-- | :-- |
-| 4 UEs, sequential 375 kB objects, CUBIC | 156.9 s | 5554 objects, 180 ms median; 17.01 / 17.01 / 8.68 / 12.86 Mbps, Jain 0.942 | max 15 events/reply | exact |
-| 1 UE bulk, CUBIC, 20 ms delay budget | 142.9 s | 58.43 Mbps; 4262 retransmits, 7 RTOs, 4.99 MB expired | max 112 events/reply | exact |
-| 1 UE Prague/ECT(1), DualPI2 target 5 ms | 113.5 s | 38.86 Mbps, 6.03 ms SRTT, 23440 CE segments, zero loss/retransmit | max 10 events/reply | exact |
+| 4 UEs, sequential 375 kB objects, CUBIC | 114.6 s | 5554 objects, 180 ms median; 17.01 / 17.01 / 8.68 / 12.86 Mbps, Jain 0.942 | max 15 events/reply | exact |
+| 1 UE bulk, CUBIC, 20 ms delay budget | 115.6 s | 59.12 Mbps; 17870 retransmits, 30 RTOs, 25.36 MB expired | max 39 events/reply | exact |
+| 1 UE Prague/ECT(1), DualPI2 target 5 ms | 90.4 s | 38.86 Mbps, 6.03 ms SRTT, 23440 CE segments, zero loss/retransmit | max 10 events/reply | exact |
 
 The four-UE condition is deliberately not channel-homogeneous; its throughput
 fairness reflects the different per-UE radio realizations rather than transport
-starvation. The live registries remain bounded even though request history keeps
-all 5554 completed objects for reporting.
+starvation. Live registries remain bounded; this validation opts into retaining
+all 5554 completed request records only for its final report.
 
 ### SFV player integration
 

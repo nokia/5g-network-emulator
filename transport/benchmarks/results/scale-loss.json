@@ -2,7 +2,7 @@
   "bytes_conserved": true,
   "delay_budget_s": 0.02,
   "delivered_bytes": 2177160156,
-  "git_commit": "bc4435486b2d3eab9ae1928a9c7fab645f1535f2",
+  "git_commit": "b064e2a52c0b925820bf14e3e26a6d28e6afeca8",
   "goodput_mbps": 58.05760416,
   "in_flight_bytes": 55500,
   "kind": "loss",

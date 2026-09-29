@@ -1,4 +1,7 @@
 #include <functional>
+#include <algorithm>
+#include <cctype>
+#include <stdexcept>
 
 #include <simulator/configuration_loader.h>
 #include <ue/ue_handler.h>
@@ -14,12 +17,34 @@ ue_handler::ue_handler(int _threads)
 
 void ue_handler::add_ues(std::chrono::microseconds * _init_t, ue_full_config ue_c, phy_enb_config _phy_enb_config, scenario_config _scenario_c, pdcp_config _pdcp_config_ul, pdcp_config _pdcp_config_dl, harq_config _harq_config, bool _stochastics)
 {
+    if (!ue_c.id.empty())
+    {
+        const bool numeric = std::all_of(ue_c.id.begin(), ue_c.id.end(),
+            [](unsigned char c) { return std::isdigit(c) != 0; });
+        const bool valid = std::all_of(ue_c.id.begin(), ue_c.id.end(),
+            [](unsigned char c) {
+                return std::isalnum(c) != 0 || c == '_' || c == '-' || c == '.';
+            });
+        if (numeric || !valid)
+            throw std::invalid_argument(
+                "textual ue_id must contain a non-digit and use [A-Za-z0-9_.-]");
+    }
+
     n_ues += ue_c.n_ues;
 
     int init_ids = id;
     for(; id < init_ids + ue_c.n_ues; id++)
     {
-        ue_list.emplace_back(id, ue_c.ue_c, _scenario_c, _phy_enb_config, _pdcp_config_ul, _pdcp_config_dl, _harq_config, ue_c.ue_type, _init_t, _stochastics);
+        ue_config instance = ue_c.ue_c;
+        if (!ue_c.id.empty())
+        {
+            const int local = id - init_ids;
+            instance.control_id = ue_c.n_ues == 1
+                ? ue_c.id : ue_c.id + "_" + std::to_string(local);
+        }
+        ue_list.emplace_back(id, instance, _scenario_c, _phy_enb_config,
+                             _pdcp_config_ul, _pdcp_config_dl, _harq_config,
+                             ue_c.ue_type, _init_t, _stochastics);
     }
 
     log_ue_creation(id, ue_c.ue_type, ue_c.ue_c.ue_m.n_antennas, ue_c.ue_c.ue_m.cqi_period, ue_c.ue_c.ue_m.ri_period, ue_c.ue_c.ue_m.scaling_factor);

@@ -16,6 +16,7 @@
 #include <mutex>
 #include <queue>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <utils/control/cell_info.h>
@@ -105,6 +106,7 @@ private:
         std::uint64_t seq = 0;
         std::int64_t at_tti = -1;
         int ue_id = -1;
+        std::string ue_name;
         int tx_dir = -1;
         std::uint32_t tag = 0;
         double delivered_bytes = 0.0;
@@ -117,6 +119,7 @@ private:
 private:
     bool enabled_ = false;
     std::vector<ue *> ue_index_;          // by ue id, stable after ue_handler::init()
+    std::unordered_map<std::string, ue *> ue_name_index_;
     std::vector<ue> *ue_list_ = nullptr;
     std::unique_ptr<control_transport> transport_;
     bool transport_open_ = false;

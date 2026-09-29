@@ -105,6 +105,7 @@ ue::ue(int _id,
         phy_s(_id, ue_c, _scenario_c, _phy_enb_config)
 {
     id = _id;
+    control_id = ue_c.control_id.empty() ? std::to_string(id) : ue_c.control_id;
     // The knob is absolute: it starts at the .ini value and replaces it from then on.
     ctl.priority = ue_c.priority;
     delta_metric = ue_c.delta_metric;

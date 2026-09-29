@@ -138,6 +138,7 @@ struct ue_config
             }
     int ul_queue_n = -1; 
     int dl_queue_n = -1;
+    std::string control_id = "";
     ue_model ue_m; 
     traffic_config traffic_c; 
     mobility_config mobility_c; 

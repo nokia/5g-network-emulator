@@ -22,6 +22,7 @@ counter movements.
         "seq":124,
         "at_tti":939,
         "target":"ue/0",
+        "ue_id":"car",
         "dir":"dl",
         "tag":8817,
         "delivered_bytes":1500,
@@ -45,6 +46,11 @@ the object is complete: one tag may be injected more than once, and only the
 client knows the total size. The client accumulates delivered, expired,
 queue-dropped, radio-dropped and CE bytes and decides when its object is
 terminal.
+
+`target` remains the numeric scheduler index for backwards compatibility.
+`ue_id` is the stable textual identifier from the configuration and may also be
+used in commands (`ue/car`). Sections with `n_ues > 1` receive suffixes
+`_0`, `_1`, and so on.
 
 `at_tti` is when the counters moved. The acknowledgement TTI is when the client
 learned about them; a causal transport model can only react at the latter.

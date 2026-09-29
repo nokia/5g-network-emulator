@@ -5,6 +5,7 @@
 **********************************************/
 
 #include <algorithm>
+#include <cctype>
 #include <cstdlib>
 #include <fstream>
 
@@ -98,12 +99,16 @@ void control_manager::init(const control_config &cfg, std::vector<ue> *ue_list, 
     // Index by UE id. ue_handler::init() has already run, so both the vector and the
     // addresses inside it are stable for the rest of the run.
     ue_index_.clear();
+    ue_name_index_.clear();
     for (size_t i = 0; i < ue_list_->size(); i++)
     {
         ue &u = (*ue_list_)[i];
         const int id = u.get_id();
         if ((int)ue_index_.size() <= id) ue_index_.resize(id + 1, nullptr);
         ue_index_[id] = &u;
+        if (!ue_name_index_.emplace(u.get_control_id(), &u).second)
+            throw run_failure(run_exit_code::config,
+                              "duplicate textual ue_id: " + u.get_control_id());
     }
 
     transport_->set_grant_sink([this](const command &c, ack &a) { apply_grant(c, a); });
@@ -388,6 +393,7 @@ void control_manager::collect_object_events(std::int64_t tti)
                 // the preceding TTI was running.
                 e.at_tti = tti - 1;
                 e.ue_id = u.get_id();
+                e.ue_name = u.get_control_id();
                 e.tx_dir = tx_dir;
                 e.tag = tag;
                 e.delivered_bytes = c.delivered_bits / 8.0;
@@ -441,15 +447,30 @@ bool control_manager::resolve_target(const std::string &target, std::vector<ue *
 
     if (target.compare(0, 3, "ue/") == 0)
     {
-        const int id = std::atoi(target.c_str() + 3);
-        if (id < 0 || id >= (int)ue_index_.size() || ue_index_[id] == nullptr)
+        const std::string key = target.substr(3);
+        const auto named = ue_name_index_.find(key);
+        if (named != ue_name_index_.end())
         {
-            ack_error e; e.key = target; e.reason = "unknown ue";
-            a.errors.push_back(e);
-            return false;
+            out.push_back(named->second);
+            return true;
         }
-        out.push_back(ue_index_[id]);
-        return true;
+
+        const bool numeric = !key.empty() && std::all_of(
+            key.begin(), key.end(),
+            [](unsigned char c) { return std::isdigit(c) != 0; });
+        if (numeric)
+        {
+            const unsigned long long raw = std::stoull(key);
+            if (raw < ue_index_.size() && ue_index_[(size_t)raw] != nullptr)
+            {
+                out.push_back(ue_index_[(size_t)raw]);
+                return true;
+            }
+        }
+
+        ack_error e; e.key = target; e.reason = "unknown ue";
+        a.errors.push_back(e);
+        return false;
     }
 
     ack_error e; e.key = target; e.reason = "unknown target";
@@ -686,6 +707,14 @@ std::string control_manager::read_cell_state() const
     for (size_t i = 0; ue_list_ != nullptr && i < ue_list_->size(); i++)
         if ((*ue_list_)[i].is_enabled()) enabled++;
     j["n_ues_enabled"] = enabled;
+    j["ues"] = nlohmann::json::array();
+    for (size_t i = 0; ue_list_ != nullptr && i < ue_list_->size(); i++)
+    {
+        nlohmann::json item;
+        item["index"] = (*ue_list_)[i].get_id();
+        item["ue_id"] = (*ue_list_)[i].get_control_id();
+        j["ues"].push_back(item);
+    }
     // The apothem is a property of the scenario map, held by every UE's MapHandler.
     j["apothem_m"] = (ue_list_ != nullptr && !ue_list_->empty()) ? (*ue_list_)[0].get_apothem() : 0.0f;
 
@@ -771,6 +800,7 @@ std::string control_manager::read_object_events(const command &c, ack &a)
         j["seq"] = e.seq;
         j["at_tti"] = e.at_tti;
         j["target"] = std::string("ue/") + std::to_string(e.ue_id);
+        j["ue_id"] = e.ue_name;
         j["dir"] = e.tx_dir == TX_UL ? "ul" : "dl";
         j["tag"] = e.tag;
         // Zero fields carry no information and dominate tiny events on the wire.
@@ -789,8 +819,14 @@ std::string control_manager::read_object_events(const command &c, ack &a)
         {
             nlohmann::json j;
             j["target"] = std::string("ue/") + std::to_string((*ue_list_)[i].get_id());
+            j["ue_id"] = (*ue_list_)[i].get_control_id();
             j["dl"] = direction_state((*ue_list_)[i], TX_DL, false);
             j["ul"] = direction_state((*ue_list_)[i], TX_UL, false);
+            j["mobility"] = {
+                {"pos_x_m", (*ue_list_)[i].mobility().x()},
+                {"pos_y_m", (*ue_list_)[i].mobility().y()},
+                {"speed_kmh", (*ue_list_)[i].mobility().get_speed() * 3.6}
+            };
             state.push_back(j);
         }
         result["state"] = state;
@@ -807,6 +843,7 @@ std::string control_manager::read_state(const std::vector<ue *> &targets) const
     {
         nlohmann::json j;
         j["target"] = std::string("ue/") + std::to_string(targets[t]->get_id());
+        j["ue_id"] = targets[t]->get_control_id();
         const std::vector<param_entry> &entries = reg.entries();
         for (size_t i = 0; i < entries.size(); i++)
         {

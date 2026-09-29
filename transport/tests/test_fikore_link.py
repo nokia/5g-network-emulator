@@ -36,7 +36,7 @@ class Skipped(Exception):
 
 
 def build_link(n_ues=1, duration_s=6.0, delay_budget_s=0.3,
-               ue_id_map=None, **kw):
+               ue_id_map=None, ue_target_map=None, **kw):
     if not os.path.exists(BINARY) or not os.path.exists(BASE_INI):
         raise Skipped(f"no emulator at {BINARY}; set FIKORE_DIR to run these")
     work = tempfile.mkdtemp(prefix="fikore-test-")
@@ -45,7 +45,8 @@ def build_link(n_ues=1, duration_s=6.0, delay_budget_s=0.3,
                          duration_s=duration_s, work_dir=EMU, n_ues=n_ues,
                          delay_budget_s=delay_budget_s,
                          log_path=os.path.join(work, "emulator.log"), **kw)
-    link = FikoreLink(Emulator(cfg), flow_to_ue={}, ue_id_map=ue_id_map)
+    link = FikoreLink(Emulator(cfg), flow_to_ue={}, ue_id_map=ue_id_map,
+                      ue_target_map=ue_target_map)
     link._work_dir = work
     return link
 
@@ -180,7 +181,8 @@ def test_two_ues_share_the_cell_and_both_make_progress():
 
 
 def test_sparse_external_ue_ids_map_to_dense_emulator_ids():
-    link = build_link(n_ues=2, ue_id_map={1: 0, 3: 1})
+    link = build_link(n_ues=2, ue_id_map={1: 0, 3: 1},
+                      ue_target_map={1: "controlDemo_0", 3: "controlDemo_1"})
     try:
         backend, done = run_backend(
             link, [(1, "one", 100 * 1024), (3, "three", 100 * 1024)], 300)
@@ -310,8 +312,8 @@ def test_event_sequence_gap_is_rejected_before_accounting():
 def test_bad_later_event_does_not_partially_commit_the_batch():
     link = build_link()
     try:
-        link._outstanding[1] = _Outstanding(1, 0, 0, 1500, "dl", 0, "data")
-        link._outstanding[2] = _Outstanding(2, 0, 0, 1500, "dl", 0, "data")
+        link._outstanding[1] = _Outstanding(1, 0, 0, 1500, "dl", 0, "data", "0")
+        link._outstanding[2] = _Outstanding(2, 0, 0, 1500, "dl", 0, "data", "0")
         bad = {"cursor": 2, "events": [
             {"seq": 1, "target": "ue/0", "dir": "dl", "tag": 1,
              "delivered_bytes": 1500},
@@ -335,7 +337,7 @@ def test_bad_later_event_does_not_partially_commit_the_batch():
 def test_bad_state_does_not_commit_valid_event_counters():
     link = build_link()
     try:
-        link._outstanding[1] = _Outstanding(1, 0, 0, 1500, "dl", 0, "data")
+        link._outstanding[1] = _Outstanding(1, 0, 0, 1500, "dl", 0, "data", "0")
         bad = {
             "cursor": 1,
             "events": [{"seq": 1, "target": "ue/0", "dir": "dl",

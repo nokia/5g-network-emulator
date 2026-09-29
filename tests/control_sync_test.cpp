@@ -298,6 +298,35 @@ void test_credit_does_not_cross_a_reconnection()
     assert(sim.control_plane().stop_reason() == run_stop_reason::credit_timeout);
     second.disconnect();
 }
+
+void test_textual_ue_id_addresses_the_configured_instance()
+{
+    write_config("async", -1, 400, "abort");
+    simulator sim(CONFIG);
+    assert((*sim.ue_list())[0].get_control_id() == "controlSmoke_0");
+    assert((*sim.ue_list())[1].get_control_id() == "controlSmoke_1");
+
+    client c;
+    assert(c.connect_and_handshake());
+    c.write_line(
+        "{\"id\":88,\"at_tti\":0,\"cmds\":["
+        "{\"target\":\"ue/controlSmoke_1\",\"set\":{\"priority\":7}}]}");
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    sim.run_steps(1);
+    assert(json::parse(c.read_line())["status"] == "ok");
+    assert((*sim.ue_list())[0].overrides().priority == 1.0f);
+    assert((*sim.ue_list())[1].overrides().priority == 7.0f);
+
+    c.write_line(
+        "{\"id\":89,\"at_tti\":1,\"cmds\":["
+        "{\"op\":\"get\",\"target\":\"ue/controlSmoke_1\"}]}");
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    sim.run_steps(1);
+    const json ack = json::parse(c.read_line());
+    assert(ack["result"][0]["target"] == "ue/1");
+    assert(ack["result"][0]["ue_id"] == "controlSmoke_1");
+    c.disconnect();
+}
 }
 
 // A message carrying more commands than max_cmds_per_tick used to stall the barrier for
@@ -356,6 +385,7 @@ int main()
     test_timeout_abort_requests_stop();
     test_scheduled_command_does_not_cross_a_reconnection();
     test_credit_does_not_cross_a_reconnection();
+    test_textual_ue_id_addresses_the_configured_instance();
     std::remove(CONFIG);
     return 0;
 }

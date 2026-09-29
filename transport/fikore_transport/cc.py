@@ -80,7 +80,7 @@ class Classic:
 @dataclass
 class Reno(Classic):
     def on_ack(self, ack: AckInfo) -> None:
-        if self.cwnd <= self.ssthresh:
+        if self.cwnd < self.ssthresh:
             self.cwnd += self.mss
         else:
             self.cwnd += self.mss * self.mss / self.cwnd
@@ -91,7 +91,8 @@ class Cubic(Classic):
     """CUBIC with byte-valued public cwnd and packet-valued cubic state."""
 
     C: float = 0.4
-    beta: float = 0.2
+    # Reduction amount: RFC 8312/9438 beta_cubic=0.7 means a 30% reduction.
+    beta: float = 0.3
     fast_convergence: bool = True
     tcp_friendliness: bool = True
     w_last_max: float = 0.0
@@ -105,28 +106,27 @@ class Cubic(Classic):
     cnt: float = 0.0
 
     def _reset(self) -> None:
-        self.w_last_max = 0.0
         self.epoch_start = 0.0
         self.origin_point = 0.0
-        self.d_min_s = 0.0
         self.w_tcp = 0.0
         self.K = 0.0
         self.ack_cnt = 0.0
+        self.cwnd_cnt = 0.0
+        self.cnt = float("inf")
 
     def on_ack(self, ack: AckInfo) -> None:
         now_s = ack.now_us / 1e6
         if ack.rtt_us is not None:
             rtt_s = ack.rtt_us / 1e6
             self.d_min_s = min(self.d_min_s, rtt_s) if self.d_min_s > 0 else rtt_s
-        if self.cwnd <= self.ssthresh:
+        if self.cwnd < self.ssthresh:
             self.cwnd += self.mss
             return
         self._update(now_s)
-        if self.cwnd_cnt > self.cnt:
+        self.cwnd_cnt += 1
+        if self.cwnd_cnt >= max(1.0, self.cnt):
             self.cwnd += self.mss
             self.cwnd_cnt = 0
-        else:
-            self.cwnd_cnt += 1
 
     def _update(self, now_s: float) -> None:
         window = self.cwnd / self.mss
@@ -164,5 +164,9 @@ class Cubic(Classic):
             self.cwnd += self.mss
 
     def on_rto(self) -> None:
-        super().on_rto()
+        previous_window = self.cwnd / self.mss
+        self.ssthresh = max(2 * self.mss, self.cwnd * (1 - self.beta))
+        self.cwnd = self.mss
+        self.in_recovery = False
+        self.w_last_max = previous_window
         self._reset()

@@ -2,7 +2,7 @@
 # Copyright 2026 Nokia
 # Licensed under the BSD 3-Clause Clear License
 # SPDX-License-Identifier: BSD-3-Clause-Clear
-"""Drive Michi's generic SFV player bridge through FikoRE's TransportBackend."""
+"""Drive the generic SFV-VQEG player bridge through FikoRE's TransportBackend."""
 
 import argparse
 import collections
@@ -60,7 +60,7 @@ def main() -> int:
         (core_root / "fixtures" / "content" / "content.json").read_text())
     config["run_id"] = f"{config.get('run_id', 'sfv-network')}-fikore"
 
-    # Michi's bridge is deliberately a script module rather than an installable
+    # The SFV-VQEG bridge is deliberately a script module rather than an installable
     # package. Keep this path adaptation in the optional benchmark, not in the
     # transport library.
     sys.path.insert(0, str(vqeg_root / "scripts"))

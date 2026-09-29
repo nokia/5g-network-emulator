@@ -90,6 +90,11 @@ nc -U /tmp/fikore-control.sock
 {"id":1,"cmds":[{"target":"ue/0","set":{"priority":8.0}}]}
 ```
 
+UEs can also be addressed by the textual `ue_id` from the configuration. A
+single `ue_id: car` is `ue/car`; when the section creates several UEs they are
+`ue/car_0`, `ue/car_1`, and so on. Numeric targets remain supported. State and
+event replies keep the numeric `target` and add the stable textual `ue_id`.
+
 A transport model should use the incremental `events` operation instead of polling
 the full UE state every TTI:
 

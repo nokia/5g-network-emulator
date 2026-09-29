@@ -65,6 +65,7 @@ class _Outstanding:
     direction: Direction
     ts_us: int
     kind: str
+    control_target: str
 
 
 class FikoreLink:
@@ -72,7 +73,8 @@ class FikoreLink:
 
     def __init__(self, emulator: Emulator, flow_to_ue: dict[int, int],
                  state_every_ttis: int = 10, use_events: bool = True,
-                 ue_id_map: dict[int, int] | None = None) -> None:
+                 ue_id_map: dict[int, int] | None = None,
+                 ue_target_map: dict[int, str] | None = None) -> None:
         self.emulator = emulator
         self.flow_to_ue = flow_to_ue
         self.ue_id_map = dict(ue_id_map or {})
@@ -80,6 +82,8 @@ class FikoreLink:
             raise ValueError("UE mapping must be one-to-one")
         self._physical_to_external = {physical: external
                                       for external, physical in self.ue_id_map.items()}
+        self.ue_target_map = dict(ue_target_map or {})
+        self.flow_to_target: dict[int, str] = {}
         self.mss = emulator.cfg.pkt_size_bits // 8
 
         self.sock = emulator.connect()
@@ -95,7 +99,7 @@ class FikoreLink:
         self._last_tti = -1
         self._outstanding: dict[int, _Outstanding] = {}
         self._pending: dict[int, list[Transmit]] = {}
-        self._to_forget: list[tuple[int, int]] = []   # (ue, tag)
+        self._to_forget: list[tuple[str, int]] = []   # (control target, tag)
         self._queued_sets: list[dict] = []
         self._event_cursor = 0
         self._event_counters: dict[int, dict[str, float]] = {}
@@ -117,20 +121,25 @@ class FikoreLink:
         # Per (ue, direction) snapshot of the last state block, for whoever needs
         # the network's own view alongside the model's.
         self.last_state: dict[tuple[int, str], dict] = {}
+        self.last_mobility: dict[int, dict[str, float]] = {}
 
     # -- Link interface -----------------------------------------------------------
 
     def register_flow(self, flow: int, ue: int) -> None:
-        self.flow_to_ue[flow] = self.ue_id_map.get(ue, ue)
+        physical = self.ue_id_map.get(ue, ue)
+        self.flow_to_ue[flow] = physical
+        self.flow_to_target[flow] = self.ue_target_map.get(ue, str(physical))
 
     def unregister_flow(self, flow: int) -> None:
         self.flow_to_ue.pop(flow, None)
+        self.flow_to_target.pop(flow, None)
 
     def set_params(self, ue: int, params: dict[str, float]) -> None:
         """Queued rather than sent: every command of a slot goes in one message,
         applied at the same quiescent point."""
         physical = self.ue_id_map.get(ue, ue)
-        self._queued_sets.append({"target": f"ue/{physical}", "set": dict(params)})
+        target = self.ue_target_map.get(ue, str(physical))
+        self._queued_sets.append({"target": f"ue/{target}", "set": dict(params)})
 
     def request_state_next_step(self) -> None:
         self._force_state = True
@@ -196,12 +205,14 @@ class FikoreLink:
         self._queued_sets.clear()
         for t in self._pending.pop(tti, []):
             ue = self.flow_to_ue[t.flow]
+            control_target = self.flow_to_target.get(t.flow, str(ue))
             tag = self._next_tag
             self._next_tag += 1
-            self._outstanding[tag] = _Outstanding(t.flow, ue, t.seq, t.size,
-                                                  t.direction, t.ts_us, t.kind)
+            self._outstanding[tag] = _Outstanding(
+                t.flow, ue, t.seq, t.size, t.direction, t.ts_us, t.kind,
+                control_target)
             self.submitted_bytes += t.size
-            inject = {"op": "inject", "target": f"ue/{ue}", "tag": tag,
+            inject = {"op": "inject", "target": f"ue/{control_target}", "tag": tag,
                       f"{t.direction}.bytes": t.size}
             if t.ecn != "not-ect":
                 inject["ecn"] = t.ecn
@@ -209,8 +220,8 @@ class FikoreLink:
 
         # Barrier runs are never real-time, so the emulator deliberately applies every
         # command addressed to this TTI. Holding completed tags serves no purpose.
-        for ue, tag in self._to_forget:
-            cmds.append({"op": "forget", "target": f"ue/{ue}", "tag": tag})
+        for target, tag in self._to_forget:
+            cmds.append({"op": "forget", "target": f"ue/{target}", "tag": tag})
         self._to_forget.clear()
 
         if self.use_events:
@@ -346,6 +357,7 @@ class FikoreLink:
                 terminal_order.append((tag, ue))
 
         staged_state: list[tuple[int, str, dict, int]] = []
+        staged_mobility: list[tuple[int, dict[str, float]]] = []
         for entry in result.get("state", []):
             physical = int(str(entry["target"]).split("/")[1])
             ue = self._physical_to_external.get(physical, physical)
@@ -357,6 +369,17 @@ class FikoreLink:
                     raise RuntimeError(f"invalid {direction} state for ue/{physical}")
                 ce_packets = int(state.get("ce_packets_total", 0))
                 staged_state.append((ue, direction, state, ce_packets))
+            mobility = entry.get("mobility")
+            if mobility is not None:
+                if not isinstance(mobility, dict):
+                    raise RuntimeError(f"invalid mobility state for ue/{physical}")
+                parsed = {
+                    key: float(mobility[key])
+                    for key in ("pos_x_m", "pos_y_m", "speed_kmh")
+                }
+                if not all(math.isfinite(value) for value in parsed.values()):
+                    raise RuntimeError(f"invalid mobility values for ue/{physical}")
+                staged_mobility.append((ue, parsed))
 
         out: list[Arrival] = []
         self.max_events_per_reply = max(self.max_events_per_reply, len(events))
@@ -365,6 +388,8 @@ class FikoreLink:
         for ue, direction, state, ce_packets in staged_state:
             self.last_state[(ue, direction)] = state
             self.ce_by_ue[(ue, direction)] = ce_packets
+        for ue, mobility in staged_mobility:
+            self.last_mobility[ue] = mobility
         for tag, ue in terminal_order:
             arrival = self._terminal(tag, self._event_counters[tag], ue, tti)
             if arrival is None:
@@ -400,7 +425,7 @@ class FikoreLink:
                 f"{pending.size}-byte object")
 
         del self._outstanding[tag]
-        self._to_forget.append((ue, tag))
+        self._to_forget.append((pending.control_target, tag))
 
         if delivered + EPS_BYTES >= pending.size:
             fate, cause = "delivered", ""

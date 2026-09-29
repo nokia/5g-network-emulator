@@ -68,7 +68,7 @@ def test_prague_holds_the_queue_where_cubic_fills_it():
 
     # Same bottleneck, so the same throughput. What differs is the cost of it.
     assert prague["mbps"] > cubic["mbps"] * 0.95, (prague["mbps"], cubic["mbps"])
-    assert prague["srtt_ms"] < cubic["srtt_ms"] / 3, (prague["srtt_ms"], cubic["srtt_ms"])
+    assert prague["srtt_ms"] < cubic["srtt_ms"] / 2, (prague["srtt_ms"], cubic["srtt_ms"])
     assert cubic["retransmits"] > 100, "the classic flow was supposed to overflow"
 
 

@@ -110,7 +110,7 @@ all 5554 completed request records only for its final report.
 
 ### SFV player integration
 
-`benchmarks/validate_sfv.py` substitutes this backend underneath Michi's generic
+`benchmarks/validate_sfv.py` substitutes this backend underneath the generic
 SFV-VQEG v0.7.2 Python–Node bridge; the JavaScript player sees only
 `NetworkStep` and returns opaque requests/cancellations.
 
@@ -205,3 +205,4 @@ is modified and no compiled `.so` is stored in git.
 6. [Traffic generators](docs/06-traffic-generators.md)
 7. [Integration with an external harness](docs/07-harness-integration.md)
 8. [Validation and roadmap](docs/08-validation-and-roadmap.md)
+9. [External TCP validation](docs/09-external-tcp-validation.md)

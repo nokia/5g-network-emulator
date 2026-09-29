@@ -1,5 +1,6 @@
 CXX := g++
 PYTHON ?= python3
+API_PYTHON ?= $(if $(wildcard api/.venv/bin/python),api/.venv/bin/python,$(PYTHON))
 
 BIN_DIR := bin
 BUILD_DIR := build
@@ -110,7 +111,7 @@ test-transport-integration: all
 
 test-api:
 	@echo "[TEST] api/tests"
-	@PYTHONPATH=api $(PYTHON) -m pytest api/tests -q
+	@PYTHONPATH=api $(API_PYTHON) -m pytest api/tests -q
 
 smoke: all
 	./$(TARGET) tests/smoke_sim.ini

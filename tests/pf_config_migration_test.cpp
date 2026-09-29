@@ -12,7 +12,10 @@ void write_config(
     int metric_type,
     bool beta_metric,
     const std::string &time_window_key,
-    const std::string &intra_tti_update)
+    const std::string &intra_tti_update,
+    const std::string &intra_tti_key =
+        "throughput_intra_tti_update",
+    bool force_pf_alpha = false)
 {
     std::ofstream out(path);
     out << "[Global]\n"
@@ -30,12 +33,13 @@ void write_config(
         << "frequency: 3500000000\n"
         << "bandwidth: 20000000\n"
         << "[MACLayer]\n"
-        << "metric_type: " << metric_type << "\n"
-        << "pf_alpha: 1.0\n";
+        << "metric_type: " << metric_type << "\n";
+    if (metric_type == METRIC_PF || force_pf_alpha)
+        out << "pf_alpha: 1.0\n";
     if (!time_window_key.empty())
         out << time_window_key << ": 100\n";
     if (!intra_tti_update.empty())
-        out << "throughput_intra_tti_update: "
+        out << intra_tti_key << ": "
             << intra_tti_update << "\n";
 }
 
@@ -94,6 +98,17 @@ int main()
         "none");
     assert(rejected(old_time_key));
 
+    const std::string old_update_key =
+        "build/tests/throughput_config_old_update_key.ini";
+    write_config(
+        old_update_key,
+        METRIC_PF,
+        false,
+        "throughput_time_window_ms",
+        "none",
+        "pf_intra_tti_update");
+    assert(rejected(old_update_key));
+
     const std::string beta_pf =
         "build/tests/throughput_config_beta_pf.ini";
     write_config(
@@ -113,6 +128,18 @@ int main()
         "throughput_time_window_ms",
         "none");
     assert(rejected(beta_bet));
+
+    const std::string pf_alpha_bet =
+        "build/tests/throughput_config_pf_alpha_bet.ini";
+    write_config(
+        pf_alpha_bet,
+        METRIC_BET,
+        false,
+        "throughput_time_window_ms",
+        "none",
+        "throughput_intra_tti_update",
+        true);
+    assert(rejected(pf_alpha_bet));
 
     for (const int metric : {METRIC_MAX_TP, METRIC_RR})
     {

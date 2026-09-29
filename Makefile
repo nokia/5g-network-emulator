@@ -9,7 +9,7 @@ TEST_OBJ_DIR := $(BUILD_DIR)/tests
 TOOLS_OBJ_DIR := $(BUILD_DIR)/tools
 
 TARGET := $(BIN_DIR)/fikore
-TOOLS_TARGETS := $(BIN_DIR)/udp_tos_probe $(BIN_DIR)/pf_granularity_benchmark
+TOOLS_TARGETS := $(BIN_DIR)/udp_tos_probe $(BIN_DIR)/scheduler_family_benchmark
 
 CPPFLAGS := -Iinclude
 CXXFLAGS := -O3 -g -std=c++17 -pthread
@@ -74,7 +74,7 @@ $(BIN_DIR)/udp_tos_probe: $(TOOLS_OBJ_DIR)/udp_tos_probe.o
 	@mkdir -p $(@D)
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) $^ -o $@
 
-$(BIN_DIR)/pf_granularity_benchmark: $(TOOLS_OBJ_DIR)/pf_granularity_benchmark.o $(LIB_OBJECTS)
+$(BIN_DIR)/scheduler_family_benchmark: $(TOOLS_OBJ_DIR)/scheduler_family_benchmark.o $(LIB_OBJECTS)
 	@mkdir -p $(@D)
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
 

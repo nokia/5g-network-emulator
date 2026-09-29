@@ -428,7 +428,10 @@ void configuration_loader::load(std::string cfg_file)
                                 if (key == "metric_type")
                                     metric_type = std::stoi(value);
                                 if (key == "pf_alpha")
+                                {
                                     pf_alpha = std::stof(value);
+                                    pf_alpha_configured = true;
+                                }
                                 if (key == "pf_time_window_ms"
                                     || key == "pf_intra_tti_update")
                                     throw std::invalid_argument(
@@ -707,6 +710,9 @@ void configuration_loader::load(std::string cfg_file)
 
     const bool uses_throughput_history =
         metric_type == METRIC_PF || metric_type == METRIC_BET;
+    if (metric_type != METRIC_PF && pf_alpha_configured)
+        throw std::invalid_argument(
+            "pf_alpha is only valid for metric_type: 6 (PF)");
     if (uses_throughput_history)
     {
         if (throughput_time_window_ms <= 0.0f)

@@ -284,6 +284,7 @@ private:
     // METRIC COFIGURATION
     int metric_type = DEFAULT_METRIC;
     float pf_alpha = PF_ALPHA_DEFAULT;
+    bool pf_alpha_configured = false;
     float throughput_time_window_ms = THROUGHPUT_TIME_WINDOW_MS_DEFAULT;
     bool throughput_intra_tti_update = false;
     // LOG DATA

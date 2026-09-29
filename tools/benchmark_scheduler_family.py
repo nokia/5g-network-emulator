@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Benchmark PF reranking across scheduling aggregation modes."""
+"""Characterize throughput schedulers across traffic and grid conditions."""
 
 from __future__ import annotations
 
@@ -21,6 +21,16 @@ GRID_PROFILES = {
     "100mhz_mu1": (100_000_000, 1),
     "400mhz_mu3": (400_000_000, 3),
 }
+
+SCHEDULERS = {
+    "bet": 1,
+    "max_throughput": 4,
+    "round_robin": 5,
+    "pf": 6,
+}
+
+CHANNEL_PROFILES = ("homogeneous", "near_far")
+DEMAND_PROFILES = ("full_buffer", "finite")
 
 RF_BANDWIDTH = {
     20_000_000: 18_000_000.0,
@@ -47,25 +57,14 @@ def decision_count(bandwidth: int, numerology: int, time_mode: int, frequency_mo
     return frequency_groups * time_groups
 
 
-def config_text(
+def ue_section(
+    name: str,
     ue_count: int,
-    bandwidth: int,
-    numerology: int,
-    time_mode: int,
-    frequency_mode: int,
-    reranking: str,
+    distance_m: int,
+    target_mbps: float,
 ) -> str:
-    target_mbps = max(10.0, 4000.0 / ue_count)
-    return f"""[Global]
-duration: 1
-period: -1
-multithreading: false
-threads: 0
-verbose: false
-progress_log_period_s: -1
-
-[UE]
-ue_id: benchmark
+    return f"""[UE]
+ue_id: {name}
 ue_type: 1
 n_ues: {ue_count}
 n_antennas: 1
@@ -80,7 +79,7 @@ dl_target: {target_mbps:g}
 var_perc: 0
 pkt_size: 12000
 mobility_type: 0
-pos_x: 200
+pos_x: {distance_m}
 pos_y: 0
 random_init: false
 speed: 0
@@ -89,6 +88,47 @@ priority: 1
 pkt_delay_budget: 10
 ue_height: 1.5
 ue_location_type: outdoor
+"""
+
+
+def config_text(
+    ue_count: int,
+    bandwidth: int,
+    numerology: int,
+    time_mode: int,
+    frequency_mode: int,
+    scheduler: str,
+    channel: str,
+    demand: str,
+    reranking: str,
+) -> str:
+    target_mbps = (
+        max(10.0, 4000.0 / ue_count)
+        if demand == "full_buffer"
+        else 1.0
+    )
+    if channel == "homogeneous":
+        ue_sections = ue_section(
+            "benchmarkHomogeneous", ue_count, 200, target_mbps)
+    else:
+        near_count = ue_count // 2
+        far_count = ue_count - near_count
+        ue_sections = (
+            ue_section("benchmarkNear", near_count, 50, target_mbps)
+            + "\n"
+            + ue_section("benchmarkFar", far_count, 500, target_mbps)
+        )
+
+    pf_alpha = "pf_alpha: 1\n" if scheduler == "pf" else ""
+    return f"""[Global]
+duration: 1
+period: -1
+multithreading: false
+threads: 0
+verbose: false
+progress_log_period_s: -1
+
+{ue_sections}
 
 [Scenario]
 scenario_type: 1
@@ -104,10 +144,9 @@ frequency: 3500000000
 bandwidth: {bandwidth}
 
 [MACLayer]
-metric_type: 6
-pf_alpha: 1
-pf_time_window_ms: 100
-pf_intra_tti_update: {reranking}
+metric_type: {SCHEDULERS[scheduler]}
+{pf_alpha}throughput_time_window_ms: 100
+throughput_intra_tti_update: {reranking}
 mimo_layers: 1
 n_ofdm_syms: 14
 n_re_freq: 12
@@ -176,6 +215,9 @@ def markdown_table(rows: list[dict]) -> str:
     columns = [
         "grid",
         "ues",
+        "scheduler",
+        "channel",
+        "demand",
         "time_mode",
         "frequency_mode",
         "reranking",
@@ -209,6 +251,26 @@ def main() -> None:
     parser.add_argument("--repeats", type=int, default=2)
     parser.add_argument("--full", action="store_true")
     parser.add_argument(
+        "--schedulers",
+        default=",".join(SCHEDULERS),
+        help="comma-separated scheduler names",
+    )
+    parser.add_argument(
+        "--grids",
+        default=",".join(GRID_PROFILES),
+        help="comma-separated grid profile names",
+    )
+    parser.add_argument(
+        "--channels",
+        default=",".join(CHANNEL_PROFILES),
+        help="comma-separated channel profiles",
+    )
+    parser.add_argument(
+        "--demands",
+        default=",".join(DEMAND_PROFILES),
+        help="comma-separated demand profiles",
+    )
+    parser.add_argument(
         "--ue-counts",
         help="comma-separated UE counts; overrides --full",
     )
@@ -220,16 +282,38 @@ def main() -> None:
     parser.add_argument(
         "--output",
         type=Path,
-        default=ROOT / "results" / "pf-granularity",
+        default=ROOT / "results" / "scheduler-family",
     )
     args = parser.parse_args()
     if args.steps <= 0 or args.repeats <= 0 or args.warmup_steps < 0:
         raise SystemExit(
             "steps/repeats must be positive and warmup-steps non-negative")
 
-    binary = ROOT / "bin" / "pf_granularity_benchmark"
+    binary = ROOT / "bin" / "scheduler_family_benchmark"
     if not binary.is_file():
         raise SystemExit(f"build benchmark first: {binary}")
+
+    schedulers = [value for value in args.schedulers.split(",") if value]
+    grids = [value for value in args.grids.split(",") if value]
+    channels = [value for value in args.channels.split(",") if value]
+    demands = [value for value in args.demands.split(",") if value]
+    unknown_schedulers = set(schedulers) - set(SCHEDULERS)
+    unknown_grids = set(grids) - set(GRID_PROFILES)
+    unknown_channels = set(channels) - set(CHANNEL_PROFILES)
+    unknown_demands = set(demands) - set(DEMAND_PROFILES)
+    if (
+        unknown_schedulers
+        or unknown_grids
+        or unknown_channels
+        or unknown_demands
+    ):
+        raise SystemExit(
+            "unknown matrix value: "
+            f"schedulers={sorted(unknown_schedulers)}, "
+            f"grids={sorted(unknown_grids)}, "
+            f"channels={sorted(unknown_channels)}, "
+            f"demands={sorted(unknown_demands)}"
+        )
 
     ue_counts = (
         [int(value) for value in args.ue_counts.split(",")]
@@ -241,7 +325,15 @@ def main() -> None:
         if args.envelope_modes
         else list(itertools.product([1, 0], [0, 1]))
     )
-    reranking_modes = ["none", "allocation_unit"]
+    scheduler_modes = [
+        (scheduler, reranking)
+        for scheduler in schedulers
+        for reranking in (
+            ["none", "allocation_unit"]
+            if scheduler in {"pf", "bet"}
+            else ["none"]
+        )
+    ]
     output = args.output.resolve()
     config_dir = output / "configs"
     config_dir.mkdir(parents=True, exist_ok=True)
@@ -249,15 +341,27 @@ def main() -> None:
     sample_rows: list[dict] = []
     failure_rows: list[dict] = []
 
-    for grid_name, ue_count, (time_mode, frequency_mode), reranking in itertools.product(
-        GRID_PROFILES,
+    for (
+        grid_name,
+        ue_count,
+        (time_mode, frequency_mode),
+        channel,
+        demand,
+        (scheduler, reranking),
+    ) in itertools.product(
+        grids,
         ue_counts,
         modes,
-        reranking_modes,
+        channels,
+        demands,
+        scheduler_modes,
     ):
+        if channel == "near_far" and ue_count < 2:
+            continue
         bandwidth, numerology = GRID_PROFILES[grid_name]
         case_name = (
-            f"{grid_name}_n{ue_count}_t{time_mode}_f{frequency_mode}_{reranking}"
+            f"{grid_name}_n{ue_count}_{scheduler}_{channel}_{demand}_"
+            f"t{time_mode}_f{frequency_mode}_{reranking}"
         )
         config = config_dir / f"{case_name}.ini"
         config.write_text(
@@ -267,6 +371,9 @@ def main() -> None:
                 numerology,
                 time_mode,
                 frequency_mode,
+                scheduler,
+                channel,
+                demand,
                 reranking,
             )
         )
@@ -313,6 +420,9 @@ def main() -> None:
         row = {
             "grid": grid_name,
             "ues": ue_count,
+            "scheduler": scheduler,
+            "channel": channel,
+            "demand": demand,
             "time_mode": "localized" if time_mode == 1 else "distributed",
             "frequency_mode": "grouped" if frequency_mode == 0 else "per_rb",
             "reranking": reranking,
@@ -378,7 +488,7 @@ def main() -> None:
         failures_path.write_text("")
 
     report = [
-        "# PF Granularity Benchmark",
+        "# Throughput Scheduler Family Benchmark",
         "",
         f"Warm-up steps: {args.warmup_steps}; measured steps per sample: "
         f"{args.steps}; repeats: {args.repeats}.",
@@ -395,9 +505,12 @@ def main() -> None:
         "Frequency modes: `grouped` uses configured RBGs; `per_rb` uses one "
         "PRB per allocation unit.",
         "",
-        "Offered traffic is approximately 4 Gbit/s in each direction per "
-        "case, divided equally across UEs. This maintains backlog without "
-        "the unbounded memory growth caused by a 100 Gbit/s target per UE.",
+        "Full-buffer cases offer approximately 4 Gbit/s in each direction "
+        "per case, divided equally across UEs. Finite-demand cases offer "
+        "1 Mbit/s per UE and direction.",
+        "",
+        "Homogeneous cases place every UE at 200 m. Near/far cases split "
+        "UEs equally between 50 m and 500 m.",
         "",
         markdown_table(rows),
         "",
@@ -432,6 +545,10 @@ def main() -> None:
         "timing_unit": "individual warmed-up TTI",
         "ue_counts": ue_counts,
         "modes": modes,
+        "selected_grids": grids,
+        "schedulers": schedulers,
+        "channels": channels,
+        "demands": demands,
         "grids": GRID_PROFILES,
         "failed_cases": len(failure_rows),
     }

@@ -16,7 +16,7 @@
 #include <phy_layer/phy_config.h>
 #include <phy_shared/phy_shared.h>
 #include <mac_layer/metric_handler.h>
-#include <mac_layer/pf_state.h>
+#include <mac_layer/throughput_state.h>
 #include <mobility_models/pos2d.h>
 #include <utils/conversions.h>
 #include <utils/terminal_logging.h>
@@ -97,7 +97,10 @@ public:
     float get_mean_mcs();
     float get_mean_eff();
     float get_mean_scheduler_metric() const;
-    bool uses_pf_scheduler() const { return metric_h.is_pf(); }
+    bool uses_throughput_history_scheduler() const
+    {
+        return metric_h.uses_throughput_history();
+    }
     void set_logger(log_handler *_logger);
     // priority and rr_rank come by value from ue_overrides, n_enabled from the scheduler.
     // priority is applied here and not inside metric_handler: metric_v[] is only rewritten
@@ -113,7 +116,10 @@ public:
     void reset_scheduler_state();
     float get_current_tx_power_per_prb_dbm() const { return current_tx_power_per_prb_dbm; }
     int get_ul_scheduling_prbs() const { return ul_scheduling_prbs; }
-    float get_pf_average_throughput_bits_per_tti() const { return pf_state.average_throughput(); }
+    float get_throughput_average_bits_per_tti() const
+    {
+        return throughput_state.average_throughput();
+    }
 
 public:
     // sinr_offset_db comes by value from ue_overrides and is added in sinr_power_model,
@@ -162,7 +168,7 @@ private:
     void estimate_tp(int f);
     void prepare_metrics(float oldest_t, float avg_tp);
     float standalone_rate_bits_per_tti() const;
-    float pf_metric_average_throughput() const;
+    float throughput_metric_average() const;
     int get_modulation_index();
     int get_n_layers();
 
@@ -272,9 +278,9 @@ private:
 private:
     metric_handler metric_h;
     metric_info metric_i;
-    pf_throughput_state pf_state;
-    bool pf_intra_tti_update = false;
-    float pf_provisional_service_bits = 0.0f;
+    throughput_history_state throughput_state;
+    bool throughput_intra_tti_update = false;
+    float provisional_service_bits = 0.0f;
 
 private:
     std::vector<int> cqi_v;

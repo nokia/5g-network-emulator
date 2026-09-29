@@ -48,6 +48,14 @@ struct metric_info{
     int index = 0; 
 };
 
+struct throughput_metric_recipe
+{
+    float rate_exponent = 0.0f;
+    float history_exponent = 0.0f;
+    bool uses_history = false;
+    bool supports_provisional_history = false;
+};
+
 // The six metrics return the base expression, without the UE priority. The priority is
 // an absolute runtime knob (ue_overrides::priority) and is applied by phy_layer::get_metric
 // at the point of reading, so that changing it takes effect on the next TTI instead of
@@ -65,8 +73,7 @@ private:
     int rr_index = 0; 
     int prev_f = -1; 
     int metric_t; 
-    float bet_beta;
-    float pf_alpha;
+    throughput_metric_recipe throughput_recipe;
     float delay_t; 
     float delta;
     typedef float (metric_handler::*f_ptr)(metric_info metric_i , float current_t, int f);
@@ -81,15 +88,18 @@ public:
     float get_rr_metric(int f, int rank, int n_enabled);
     bool is_rr();
     bool is_pf() const;
+    bool is_throughput_metric() const;
+    bool uses_throughput_history() const;
+    bool supports_provisional_history() const;
+    const throughput_metric_recipe &get_throughput_recipe() const;
 private: 
     void assign_metric();
+    void assign_throughput_recipe(float pf_alpha);
+    float throughput(metric_info metric_i, float current_t, int f);
     float fifo(metric_info metric_i, float current_t, int f);
-    float bet(metric_info metric_i, float current_t, int f);
     float dist_delay(metric_info metric_i, float current_t, int f);
     float w_delay(metric_info metric_i, float current_t, int f);
-    float max_tp(metric_info metric_i, float current_t, int f);
     float rr(metric_info metric_i, float current_t, int f);
-    float pf(metric_info metric_i, float current_t, int f);
     int check_metric(int metric);
 };
 

@@ -51,7 +51,7 @@ std::string getBaseMapPath();
 #define BETA_METRIC_DEFAULT 0.5
 #define PKT_DELAY_BUDGET_DEFAULT 0.35f
 #define PF_ALPHA_DEFAULT 1.0f
-#define PF_TIME_WINDOW_MS_DEFAULT 100.0f
+#define THROUGHPUT_TIME_WINDOW_MS_DEFAULT 100.0f
 
 // UE PRIORITY
 #define DEFAULT_UE_PRIORITY 1
@@ -284,8 +284,8 @@ private:
     // METRIC COFIGURATION
     int metric_type = DEFAULT_METRIC;
     float pf_alpha = PF_ALPHA_DEFAULT;
-    float pf_time_window_ms = PF_TIME_WINDOW_MS_DEFAULT;
-    bool pf_intra_tti_update = false;
+    float throughput_time_window_ms = THROUGHPUT_TIME_WINDOW_MS_DEFAULT;
+    bool throughput_intra_tti_update = false;
     // LOG DATA
     int log_freq = -1;
     bool log_mac = false;

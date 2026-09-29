@@ -7,7 +7,12 @@
 
 namespace
 {
-void write_config(const std::string &path, bool legacy_beta)
+void write_config(
+    const std::string &path,
+    int metric_type,
+    bool beta_metric,
+    const std::string &time_window_key,
+    const std::string &intra_tti_update)
 {
     std::ofstream out(path);
     out << "[Global]\n"
@@ -17,7 +22,7 @@ void write_config(const std::string &path, bool legacy_beta)
         << "ue_id: migration\n"
         << "ue_type: 1\n"
         << "n_ues: 1\n";
-    if (legacy_beta)
+    if (beta_metric)
         out << "beta_metric: 0.5\n";
     out << "[Scenario]\n"
         << "scenario_type: 1\n"
@@ -25,36 +30,103 @@ void write_config(const std::string &path, bool legacy_beta)
         << "frequency: 3500000000\n"
         << "bandwidth: 20000000\n"
         << "[MACLayer]\n"
-        << "metric_type: 6\n"
-        << "pf_alpha: 1.0\n"
-        << "pf_time_window_ms: 100\n";
+        << "metric_type: " << metric_type << "\n"
+        << "pf_alpha: 1.0\n";
+    if (!time_window_key.empty())
+        out << time_window_key << ": 100\n";
+    if (!intra_tti_update.empty())
+        out << "throughput_intra_tti_update: "
+            << intra_tti_update << "\n";
+}
+
+bool rejected(const std::string &path)
+{
+    try
+    {
+        configuration_loader loader(path);
+        (void)loader;
+    }
+    catch (const std::invalid_argument &)
+    {
+        return true;
+    }
+    return false;
 }
 } // namespace
 
 int main()
 {
-    const std::string legacy_path =
-        "build/tests/pf_config_legacy.ini";
-    const std::string current_path =
-        "build/tests/pf_config_current.ini";
-    write_config(legacy_path, true);
-    write_config(current_path, false);
+    const std::string current_pf =
+        "build/tests/throughput_config_pf.ini";
+    write_config(
+        current_pf,
+        METRIC_PF,
+        false,
+        "throughput_time_window_ms",
+        "allocation_unit");
+    configuration_loader pf_loader(current_pf);
+    const mac_config pf = pf_loader.get_mac_config();
+    assert(pf.metric_type == METRIC_PF);
+    assert(pf.pf_alpha == 1.0f);
+    assert(pf.throughput_time_window_ms == 100.0f);
+    assert(pf.throughput_intra_tti_update);
 
-    bool rejected = false;
-    try
-    {
-        configuration_loader legacy(legacy_path);
-    }
-    catch (const std::invalid_argument &)
-    {
-        rejected = true;
-    }
-    assert(rejected);
+    const std::string current_bet =
+        "build/tests/throughput_config_bet.ini";
+    write_config(
+        current_bet,
+        METRIC_BET,
+        false,
+        "throughput_time_window_ms",
+        "allocation_unit");
+    configuration_loader bet_loader(current_bet);
+    const mac_config bet = bet_loader.get_mac_config();
+    assert(bet.metric_type == METRIC_BET);
+    assert(bet.throughput_intra_tti_update);
 
-    configuration_loader current(current_path);
-    const mac_config mac = current.get_mac_config();
-    assert(mac.metric_type == METRIC_PF);
-    assert(mac.pf_alpha == 1.0f);
-    assert(mac.pf_time_window_ms == 100.0f);
+    const std::string old_time_key =
+        "build/tests/throughput_config_old_time_key.ini";
+    write_config(
+        old_time_key,
+        METRIC_PF,
+        false,
+        "pf_time_window_ms",
+        "none");
+    assert(rejected(old_time_key));
+
+    const std::string beta_pf =
+        "build/tests/throughput_config_beta_pf.ini";
+    write_config(
+        beta_pf,
+        METRIC_PF,
+        true,
+        "throughput_time_window_ms",
+        "none");
+    assert(rejected(beta_pf));
+
+    const std::string beta_bet =
+        "build/tests/throughput_config_beta_bet.ini";
+    write_config(
+        beta_bet,
+        METRIC_BET,
+        true,
+        "throughput_time_window_ms",
+        "none");
+    assert(rejected(beta_bet));
+
+    for (const int metric : {METRIC_MAX_TP, METRIC_RR})
+    {
+        const std::string path =
+            "build/tests/throughput_config_no_history_"
+            + std::to_string(metric) + ".ini";
+        write_config(
+            path,
+            metric,
+            false,
+            "throughput_time_window_ms",
+            "allocation_unit");
+        assert(rejected(path));
+    }
+
     return 0;
 }

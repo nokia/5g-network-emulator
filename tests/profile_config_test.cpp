@@ -33,7 +33,7 @@ struct expected_profile
     int frequency_rbgs;
     int o2i;
     const char *map_suffix;
-    bool pf_intra_tti_update = false;
+    bool throughput_intra_tti_update = false;
     int penetration_profile = PENETRATION_NONE;
     int vehicle_profile = VEHICLE_STANDARD;
 };
@@ -51,8 +51,10 @@ void check_profile(const expected_profile &expected)
     assert(mac.bandwidth == expected.bandwidth_hz);
     assert(mac.numerology == expected.numerology);
     assert(near(mac.pf_alpha, 1.0));
-    assert(near(mac.pf_time_window_ms, 100.0));
-    assert(mac.pf_intra_tti_update == expected.pf_intra_tti_update);
+    assert(near(mac.throughput_time_window_ms, 100.0));
+    assert(
+        mac.throughput_intra_tti_update
+        == expected.throughput_intra_tti_update);
     assert(near(phy.tx_power, expected.tx_power_dbm));
     assert(near(phy.eNB_gain, expected.enb_gain_dbi));
     assert(near(phy.UT_gain, expected.ue_gain_dbi));

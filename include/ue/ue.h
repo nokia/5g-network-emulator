@@ -152,11 +152,11 @@ public:
     void commit_scheduler_tti();
     float get_ul_tx_power_per_prb_dbm() const { return phy_ul.get_current_tx_power_per_prb_dbm(); }
     int get_ul_scheduling_prbs() const { return phy_ul.get_ul_scheduling_prbs(); }
-    float get_pf_average_throughput_bits_per_tti(int tx_dir) const
+    float get_throughput_average_bits_per_tti(int tx_dir) const
     {
         return tx_dir == TX_DL
-                   ? phy_dl.get_pf_average_throughput_bits_per_tti()
-                   : phy_ul.get_pf_average_throughput_bits_per_tti();
+                   ? phy_dl.get_throughput_average_bits_per_tti()
+                   : phy_ul.get_throughput_average_bits_per_tti();
     }
     int get_max_service_gap_ttis(int tx_dir) const
     {

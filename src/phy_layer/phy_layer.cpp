@@ -130,8 +130,10 @@ phy_layer::phy_layer(int _tx, int _id, scenario_config _scenario_config, phy_ue_
     // Verbosity configuration
     verbosity = _verbosity;
     bandwidth = _phy_enb_config.bandwidth;
-    pf_state.set_time_window_ms(_phy_enb_config.pf_time_window_ms);
-    pf_intra_tti_update = _phy_enb_config.pf_intra_tti_update;
+    throughput_state.set_time_window_ms(
+        _phy_enb_config.throughput_time_window_ms);
+    throughput_intra_tti_update =
+        _phy_enb_config.throughput_intra_tti_update;
 
     // Metric variables
     init_metric(id);
@@ -834,8 +836,8 @@ void phy_layer::prepare_metrics(float oldest_t, float avg_tp)
     // Get UE info for metrics
     metric_i.req_time = oldest_t;
     metric_i.avrg_tp =
-        metric_h.is_pf()
-            ? pf_metric_average_throughput()
+        metric_h.uses_throughput_history()
+            ? throughput_metric_average()
             : avg_tp * MBIT2BIT / S2MS;
     metric_i.current_delay = current_t - metric_i.req_time;
 }
@@ -850,40 +852,41 @@ float phy_layer::standalone_rate_bits_per_tti() const
            * static_cast<float>(1 << numerology);
 }
 
-float phy_layer::pf_metric_average_throughput() const
+float phy_layer::throughput_metric_average() const
 {
-    if (!pf_intra_tti_update || !pf_state.initialized())
-        return pf_state.average_throughput();
-    return pf_state.projected_average(pf_provisional_service_bits);
+    if (!throughput_intra_tti_update || !throughput_state.initialized())
+        return throughput_state.average_throughput();
+    return throughput_state.projected_average(provisional_service_bits);
 }
 
 void phy_layer::prepare_scheduler_tti(bool active)
 {
-    pf_provisional_service_bits = 0.0f;
-    if (!metric_h.is_pf() || !active)
+    provisional_service_bits = 0.0f;
+    if (!metric_h.uses_throughput_history() || !active)
         return;
-    pf_state.prepare(standalone_rate_bits_per_tti());
+    throughput_state.prepare(standalone_rate_bits_per_tti());
 }
 
 void phy_layer::record_provisional_service(float scheduled_bits)
 {
-    if (!metric_h.is_pf() || !pf_intra_tti_update)
+    if (!metric_h.supports_provisional_history()
+        || !throughput_intra_tti_update)
         return;
-    pf_provisional_service_bits += std::max(scheduled_bits, 0.0f);
+    provisional_service_bits += std::max(scheduled_bits, 0.0f);
 }
 
 void phy_layer::update_scheduler_state(float effective_bits, bool active)
 {
-    if (!metric_h.is_pf() || !active)
+    if (!metric_h.uses_throughput_history() || !active)
         return;
     prepare_scheduler_tti(true);
-    pf_state.update(effective_bits, true);
+    throughput_state.update(effective_bits, true);
 }
 
 void phy_layer::reset_scheduler_state()
 {
-    pf_state.reset();
-    pf_provisional_service_bits = 0.0f;
+    throughput_state.reset();
+    provisional_service_bits = 0.0f;
 }
 
 void phy_layer::estimate_metric(int f)
@@ -904,11 +907,12 @@ float phy_layer::get_metric(int f, int n_enabled, int rr_rank, float priority)
 {
     if (metric_h.is_rr())
         return metric_h.get_rr_metric(f, rr_rank, n_enabled);
-    if (metric_h.is_pf())
+    if (metric_h.is_throughput_metric())
     {
         metric_info current = metric_i;
         current.current_tp = tp_v[f];
-        current.avrg_tp = pf_metric_average_throughput();
+        if (metric_h.uses_throughput_history())
+            current.avrg_tp = throughput_metric_average();
         return metric_h.get_metric(current, current_t, f) * priority;
     }
     return metric_v[f] * priority;
@@ -1024,7 +1028,7 @@ void phy_layer::estimate_channel_state(float distance, phy_shared &phy_s, float 
             estimate_channel_q(i);
             estimate_tp(i);
         }
-        if (update_cqi || metric_h.is_pf())
+        if (update_cqi || metric_h.is_throughput_metric())
         {
             estimate_metric(i);
             /*if(tx==TX_DL && dumb)

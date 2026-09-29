@@ -69,8 +69,9 @@ struct phy_enb_config
                    int _cqi_mode, float _frequency, int _bandwidth, int _mimo_l,
                    int _metric_type, int _n_int_ues, int _n_int_eNBs, float _d_int, float _interfered_ratio,
                    float _thermal_n, float _figure_n_enb, float _figure_n_ut, float _eNB_gain, float _UT_gain, float _power_boost, int _numerology,
-                   float _pf_alpha = 1.0f, float _pf_time_window_ms = 100.0f,
-                   bool _pf_intra_tti_update = false)
+                   float _pf_alpha = 1.0f,
+                   float _throughput_time_window_ms = 100.0f,
+                   bool _throughput_intra_tti_update = false)
     {
         tx_power = _tx_power;
         modulation_m = _modulation_m;
@@ -92,8 +93,8 @@ struct phy_enb_config
         power_boost = _power_boost;
         numerology = _numerology;
         pf_alpha = _pf_alpha;
-        pf_time_window_ms = _pf_time_window_ms;
-        pf_intra_tti_update = _pf_intra_tti_update;
+        throughput_time_window_ms = _throughput_time_window_ms;
+        throughput_intra_tti_update = _throughput_intra_tti_update;
     }
     float tx_power;
     int modulation_m;
@@ -118,8 +119,8 @@ struct phy_enb_config
     float power_boost;
     int numerology;
     float pf_alpha = 1.0f;
-    float pf_time_window_ms = 100.0f;
-    bool pf_intra_tti_update = false;
+    float throughput_time_window_ms = 100.0f;
+    bool throughput_intra_tti_update = false;
 };
 
 //--------------------------------------------------------------------------------------------------

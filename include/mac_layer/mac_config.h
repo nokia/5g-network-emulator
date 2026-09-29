@@ -14,8 +14,9 @@ struct mac_config
     mac_config(int _mimo_layers, int _numerology, int _n_re_freq, int _n_ofdm_syms,int _bandwidth, int _scheduling_mode,
             int _scheduling_type, int _scheduling_config, int _metric_type, 
             int _duplexing_type, float _ratio_DL_UL,
-            float _pf_alpha = 1.0f, float _pf_time_window_ms = 100.0f,
-            bool _pf_intra_tti_update = false)
+            float _pf_alpha = 1.0f,
+            float _throughput_time_window_ms = 100.0f,
+            bool _throughput_intra_tti_update = false)
     {
         mimo_layers = _mimo_layers; 
         numerology = _numerology; 
@@ -29,8 +30,8 @@ struct mac_config
         duplexing_type = _duplexing_type;
         ratio_DL_UL=_ratio_DL_UL;
         pf_alpha = _pf_alpha;
-        pf_time_window_ms = _pf_time_window_ms;
-        pf_intra_tti_update = _pf_intra_tti_update;
+        throughput_time_window_ms = _throughput_time_window_ms;
+        throughput_intra_tti_update = _throughput_intra_tti_update;
     }
     int mimo_layers; 
     int numerology; 
@@ -44,6 +45,6 @@ struct mac_config
     int duplexing_type; 
     float ratio_DL_UL;
     float pf_alpha;
-    float pf_time_window_ms;
-    bool pf_intra_tti_update;
+    float throughput_time_window_ms;
+    bool throughput_intra_tti_update;
 };

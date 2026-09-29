@@ -3,10 +3,10 @@
 #include <algorithm>
 #include <cmath>
 
-class pf_throughput_state
+class throughput_history_state
 {
 public:
-    explicit pf_throughput_state(float time_window_ms = 100.0f)
+    explicit throughput_history_state(float time_window_ms = 100.0f)
         : time_window_ms_(time_window_ms)
     {
     }
@@ -20,7 +20,7 @@ public:
     {
         if (initialized_)
             return;
-        average_throughput_ = std::max(standalone_rate, 1e-6f);
+        average_throughput_ = std::max(standalone_rate, epsilon_);
         initialized_ = true;
     }
 
@@ -30,11 +30,9 @@ public:
             return;
         if (!initialized_)
             prepare(effective_bits);
-        const float coefficient =
-            1.0f - std::exp(-1.0f / time_window_ms_);
         average_throughput_ =
-            (1.0f - coefficient) * average_throughput_
-            + coefficient * effective_bits;
+            (1.0f - coefficient()) * average_throughput_
+            + coefficient() * effective_bits;
     }
 
     void reset()
@@ -46,19 +44,25 @@ public:
     bool initialized() const { return initialized_; }
     float average_throughput() const { return average_throughput_; }
     float time_window_ms() const { return time_window_ms_; }
+    float epsilon() const { return epsilon_; }
+
     float projected_average(float current_tti_bits) const
     {
         if (!initialized_)
             return 0.0f;
-        const float coefficient =
-            1.0f - std::exp(-1.0f / time_window_ms_);
         return std::max(
-            (1.0f - coefficient) * average_throughput_
-                + coefficient * current_tti_bits,
-            1e-6f);
+            (1.0f - coefficient()) * average_throughput_
+                + coefficient() * current_tti_bits,
+            epsilon_);
     }
 
 private:
+    float coefficient() const
+    {
+        return 1.0f - std::exp(-1.0f / time_window_ms_);
+    }
+
+    static constexpr float epsilon_ = 1e-6f;
     float time_window_ms_ = 100.0f;
     float average_throughput_ = 0.0f;
     bool initialized_ = false;

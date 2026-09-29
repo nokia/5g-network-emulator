@@ -429,18 +429,25 @@ void configuration_loader::load(std::string cfg_file)
                                     metric_type = std::stoi(value);
                                 if (key == "pf_alpha")
                                     pf_alpha = std::stof(value);
-                                if (key == "pf_time_window_ms")
-                                    pf_time_window_ms = std::stof(value);
-                                if (key == "pf_intra_tti_update")
+                                if (key == "pf_time_window_ms"
+                                    || key == "pf_intra_tti_update")
+                                    throw std::invalid_argument(
+                                        key
+                                        + " was removed; use the corresponding "
+                                          "throughput_* key");
+                                if (key == "throughput_time_window_ms")
+                                    throughput_time_window_ms =
+                                        std::stof(value);
+                                if (key == "throughput_intra_tti_update")
                                 {
                                     if (value == "none")
-                                        pf_intra_tti_update = false;
+                                        throughput_intra_tti_update = false;
                                     else if (value == "allocation_unit")
-                                        pf_intra_tti_update = true;
+                                        throughput_intra_tti_update = true;
                                     else
                                         throw std::invalid_argument(
-                                            "pf_intra_tti_update must be none or "
-                                            "allocation_unit");
+                                            "throughput_intra_tti_update must "
+                                            "be none or allocation_unit");
                                 }
 
                                 // LOG DATA CONFIG
@@ -698,17 +705,36 @@ void configuration_loader::load(std::string cfg_file)
     for (ue_full_config &ue_c : ue_c_list)
         ue_c.ue_c.log_id = get_unique_id();
 
-    if (metric_type == METRIC_PF)
+    const bool uses_throughput_history =
+        metric_type == METRIC_PF || metric_type == METRIC_BET;
+    if (uses_throughput_history)
     {
-        if (pf_alpha < 0.0f || pf_time_window_ms <= 0.0f)
+        if (throughput_time_window_ms <= 0.0f)
             throw std::invalid_argument(
-                "PF requires pf_alpha >= 0 and pf_time_window_ms > 0");
+                "PF and BET require throughput_time_window_ms > 0");
+        if (metric_type == METRIC_PF && pf_alpha < 0.0f)
+            throw std::invalid_argument("PF requires pf_alpha >= 0");
         for (const ue_full_config &ue_c : ue_c_list)
         {
             if (ue_c.ue_c.beta_metric_configured)
                 throw std::invalid_argument(
-                    "beta_metric is not valid for PF; configure pf_alpha in "
-                    "[MACLayer] and keep UE priority as the per-UE weight");
+                    "beta_metric is not valid for PF or BET; use "
+                    "throughput_time_window_ms and keep UE priority as the "
+                    "per-UE weight");
+        }
+    }
+    else
+    {
+        if (throughput_intra_tti_update)
+            throw std::invalid_argument(
+                "throughput_intra_tti_update: allocation_unit is only valid "
+                "for PF and BET");
+        for (const ue_full_config &ue_c : ue_c_list)
+        {
+            if (ue_c.ue_c.beta_metric_configured)
+                LOG_WARNING_I("configuration_loader::load")
+                    << "beta_metric is ignored by metric_type "
+                    << metric_type << END();
         }
     }
 }
@@ -744,7 +770,8 @@ phy_enb_config configuration_loader::get_phy_enb_config()
                           cqi_mode, frequency, bandwidth, mimo_layers,
                           metric_type, interference_ues, interference_eNBs, distance_interference, interfered_bandwidth_ratio,
                           thermal_noise, enb_noise_figure, ut_noise_figure, eNB_gain, UT_gain, power_boost, numerology,
-                          pf_alpha, pf_time_window_ms, pf_intra_tti_update);
+                          pf_alpha, throughput_time_window_ms,
+                          throughput_intra_tti_update);
 }
 
 pdcp_config configuration_loader::get_pdcp_config_ul()
@@ -794,8 +821,9 @@ mac_config configuration_loader::get_mac_config()
     }
     return mac_config(mimo_layers, numerology, n_re_freq, n_ofdm_syms, bandwidth, scheduling_mode,
                       scheduling_type, scheduling_config, metric_type,
-                      duplexing_type, ratio_DL_UL, pf_alpha, pf_time_window_ms,
-                      pf_intra_tti_update);
+                      duplexing_type, ratio_DL_UL, pf_alpha,
+                      throughput_time_window_ms,
+                      throughput_intra_tti_update);
 }
 
 tdd_config configuration_loader::get_tdd_config()

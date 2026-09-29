@@ -1,7 +1,7 @@
 #include <cassert>
 #include <cmath>
 
-#include <mac_layer/pf_state.h>
+#include <mac_layer/throughput_state.h>
 
 namespace
 {
@@ -13,7 +13,7 @@ bool near(float actual, float expected, float tolerance = 1e-4f)
 
 int main()
 {
-    pf_throughput_state state(100.0f);
+    throughput_history_state state(100.0f);
     assert(!state.initialized());
 
     state.prepare(1000.0f);

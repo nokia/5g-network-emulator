@@ -57,7 +57,7 @@ void write_config(const std::string &path, int cqi_period)
         << "[MACLayer]\n"
         << "metric_type: 6\n"
         << "pf_alpha: 1\n"
-        << "pf_time_window_ms: 100\n"
+        << "throughput_time_window_ms: 100\n"
         << "mimo_layers: 1\n"
         << "n_ofdm_syms: 14\n"
         << "n_re_freq: 12\n"
@@ -98,7 +98,7 @@ scheduler_result run_scheduler(
     {
         result.throughputs.push_back(terminal.get_avg_tp(TX_DL));
         result.pf_averages.push_back(
-            terminal.get_pf_average_throughput_bits_per_tti(TX_DL));
+            terminal.get_throughput_average_bits_per_tti(TX_DL));
         assert(terminal.get_pkt_delay_budget() == 10.0f);
     }
     return result;

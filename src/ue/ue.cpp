@@ -621,17 +621,17 @@ void ue::emit_phy_monitoring()
     dl_point.fields["mcs_mean"] = make_metric_field(phy_dl.get_mean_mcs(), field_aggregation::mean);
     dl_point.fields["eff_mean"] = make_metric_field(phy_dl.get_mean_eff(), field_aggregation::mean);
     dl_point.fields["ri_mean"] = make_metric_field(phy_dl.get_ri(), field_aggregation::mean);
-    if (phy_dl.uses_pf_scheduler())
+    if (phy_dl.uses_throughput_history_scheduler())
     {
-        dl_point.fields["pf_average_throughput_bits_per_tti_last"] =
+        dl_point.fields["throughput_average_bits_per_tti_last"] =
             make_metric_field(
-                phy_dl.get_pf_average_throughput_bits_per_tti(),
+                phy_dl.get_throughput_average_bits_per_tti(),
                 field_aggregation::last);
-        dl_point.fields["pf_metric_mean"] =
+        dl_point.fields["throughput_metric_mean"] =
             make_metric_field(
                 phy_dl.get_mean_scheduler_metric(),
                 field_aggregation::mean);
-        dl_point.fields["pf_weighted_metric_mean"] =
+        dl_point.fields["throughput_weighted_metric_mean"] =
             make_metric_field(
                 phy_dl.get_mean_scheduler_metric() * ctl.priority,
                 field_aggregation::mean);
@@ -649,17 +649,17 @@ void ue::emit_phy_monitoring()
     ul_point.fields["mcs_mean"] = make_metric_field(phy_ul.get_mean_mcs(), field_aggregation::mean);
     ul_point.fields["eff_mean"] = make_metric_field(phy_ul.get_mean_eff(), field_aggregation::mean);
     ul_point.fields["ri_mean"] = make_metric_field(phy_ul.get_ri(), field_aggregation::mean);
-    if (phy_ul.uses_pf_scheduler())
+    if (phy_ul.uses_throughput_history_scheduler())
     {
-        ul_point.fields["pf_average_throughput_bits_per_tti_last"] =
+        ul_point.fields["throughput_average_bits_per_tti_last"] =
             make_metric_field(
-                phy_ul.get_pf_average_throughput_bits_per_tti(),
+                phy_ul.get_throughput_average_bits_per_tti(),
                 field_aggregation::last);
-        ul_point.fields["pf_metric_mean"] =
+        ul_point.fields["throughput_metric_mean"] =
             make_metric_field(
                 phy_ul.get_mean_scheduler_metric(),
                 field_aggregation::mean);
-        ul_point.fields["pf_weighted_metric_mean"] =
+        ul_point.fields["throughput_weighted_metric_mean"] =
             make_metric_field(
                 phy_ul.get_mean_scheduler_metric() * ctl.priority,
                 field_aggregation::mean);

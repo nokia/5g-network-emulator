@@ -1,14 +1,14 @@
 # PHY Model V2 Five-Profile Validation
 
-- Batch: `phy-v2-o2i-final3-2a6684c-seed20260927`
-- Source: `2a6684c47137e3ddb187e4278727e8ed7f489a98`
+- Batch: `phy-v2-o2i-rebased-1b55ca1-seed20260927`
+- Source: `1b55ca191e27a368936476fff33fc622833d8d13`
 - Seed: `20260927`
 - Warm-up excluded: 20 seconds
 
 | Profile | Dir. | Offered | Delivered | Errors | Outage UEs | Zero-delivery windows (10/100/1000 ms) | UE max delivery-gap P50/P95/P99/max (ms) | Grid assigned/effective | Payload/grant | Wall time |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| offline_umi_n258_fwa_high_loss | DL | 500.02 | 235.16 | 264.86 | 0 | 1.8% / 0.0% / 0.0% | 0 / 40 / 40 / 40 | 99.9% / 99.9% | 34.0% | 10.28 s |
-| offline_umi_n258_fwa_high_loss | UL | 200.01 | 55.22 | 144.79 | 0 | 29.2% / 16.4% / 8.3% | 30 / 8170 / 10962 / 11660 | 100.0% / 43.8% | 100.0% | 10.28 s |
+| offline_umi_n258_fwa_high_loss | DL | 500.02 | 235.16 | 264.86 | 0 | 1.8% / 0.0% / 0.0% | 0 / 40 / 40 / 40 | 99.9% / 99.9% | 34.0% | 9.11 s |
+| offline_umi_n258_fwa_high_loss | UL | 200.01 | 55.22 | 144.79 | 0 | 29.2% / 16.4% / 8.3% | 30 / 8170 / 10962 / 11660 | 100.0% / 43.8% | 100.0% | 9.11 s |
 
 Rates are Mbit/s. Delivery-window and delivery-gap statistics exclude UEs classified as permanent PHY outage. A PHY-outage UE has MCS below zero in at least 99% of post-warm-up radio samples.
 

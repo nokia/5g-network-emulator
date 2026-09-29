@@ -14,17 +14,17 @@ Offered traffic is approximately 4 Gbit/s in each direction per case, divided eq
 
 | grid | ues | time_mode | frequency_mode | reranking | decisions_per_tti | us_per_tti_p50 | us_per_tti_p95 | us_per_tti_p99 | us_per_tti_max | compute_budget_exceedance_pct | dl_total_mbps | dl_jain | dl_max_service_gap_ttis |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 20mhz_mu1 | 64 | localized | grouped | none | 6 | 112.822 | 174.457 | 192.16 | 374.212 | 0.0 | 66.758 | 0.99899 | 96 |
-| 20mhz_mu1 | 64 | localized | grouped | allocation_unit | 6 | 123.667 | 187.486 | 219.128 | 465.102 | 0.0 | 66.731 | 0.99988 | 18 |
-| 20mhz_mu1 | 64 | distributed | per_rb | none | 100 | 583.765 | 919.36 | 1030.19 | 1235.12 | 2.35 | 69.514 | 0.99899 | 96 |
-| 20mhz_mu1 | 64 | distributed | per_rb | allocation_unit | 100 | 638.367 | 996.172 | 1148.402 | 1344.03 | 4.9 | 69.514 | 1 | 2 |
-| 100mhz_mu1 | 64 | localized | grouped | none | 17 | 192.796 | 351.268 | 370.736 | 519.063 | 0.0 | 378.18 | 0.999 | 96 |
-| 100mhz_mu1 | 64 | localized | grouped | allocation_unit | 17 | 223.173 | 384.415 | 412.399 | 627.987 | 0.0 | 378.194 | 1.0 | 6 |
-| 100mhz_mu1 | 64 | distributed | per_rb | none | 546 | 3526.93 | 5125.665 | 5752.862 | 6335.02 | 100.0 | 379.551 | 0.999 | 96 |
-| 100mhz_mu1 | 64 | distributed | per_rb | allocation_unit | 546 | 4511.885 | 6437.97 | 7460.712 | 8365.54 | 100.0 | 379.542 | 1 | 1 |
-| 400mhz_mu3 | 64 | localized | grouped | none | 15 | 233.949 | 354.359 | 402.437 | 587.843 | 0.0 | 1245.61 | 0.99938 | 81 |
-| 400mhz_mu3 | 64 | localized | grouped | allocation_unit | 15 | 258.024 | 375.318 | 403.511 | 596.979 | 0.0 | 1245.51 | 1.0 | 6 |
-| 400mhz_mu3 | 64 | distributed | per_rb | none | 2000 | 11473.25 | 13471.29 | 14278.363 | 15810.2 | 100.0 | 1232.42 | 0.99965 | 83 |
-| 400mhz_mu3 | 64 | distributed | per_rb | allocation_unit | 2000 | 13581.35 | 16396.885 | 17180.721 | 18227.2 | 100.0 | 1232.43 | 1 | 0 |
+| 20mhz_mu1 | 64 | localized | grouped | none | 6 | 104.34 | 156.678 | 173.557 | 385.863 | 0.0 | 66.758 | 0.99899 | 96 |
+| 20mhz_mu1 | 64 | localized | grouped | allocation_unit | 6 | 109.25 | 162.998 | 181.234 | 378.068 | 0.0 | 66.731 | 0.99988 | 18 |
+| 20mhz_mu1 | 64 | distributed | per_rb | none | 100 | 548.673 | 811.603 | 936.607 | 1133.31 | 0.05 | 69.514 | 0.99899 | 96 |
+| 20mhz_mu1 | 64 | distributed | per_rb | allocation_unit | 100 | 560.235 | 830.141 | 971.698 | 1138.68 | 0.55 | 69.514 | 1 | 2 |
+| 100mhz_mu1 | 64 | localized | grouped | none | 17 | 186.274 | 321.159 | 346.534 | 497.262 | 0.0 | 378.18 | 0.999 | 96 |
+| 100mhz_mu1 | 64 | localized | grouped | allocation_unit | 17 | 209.678 | 350.033 | 378.584 | 641.302 | 0.0 | 378.194 | 1.0 | 6 |
+| 100mhz_mu1 | 64 | distributed | per_rb | none | 546 | 3302.995 | 4727.023 | 5297.833 | 6085.66 | 100.0 | 379.551 | 0.999 | 96 |
+| 100mhz_mu1 | 64 | distributed | per_rb | allocation_unit | 546 | 4145.94 | 5966.954 | 6778.134 | 7355.36 | 100.0 | 379.542 | 1 | 1 |
+| 400mhz_mu3 | 64 | localized | grouped | none | 15 | 219.727 | 322.694 | 354.246 | 509.295 | 0.0 | 1245.61 | 0.99938 | 81 |
+| 400mhz_mu3 | 64 | localized | grouped | allocation_unit | 15 | 249.172 | 354.947 | 374.343 | 516.778 | 0.0 | 1245.51 | 1.0 | 6 |
+| 400mhz_mu3 | 64 | distributed | per_rb | none | 2000 | 11006.0 | 12816.27 | 13492.695 | 16929.3 | 100.0 | 1232.42 | 0.99965 | 83 |
+| 400mhz_mu3 | 64 | distributed | per_rb | allocation_unit | 2000 | 11978.75 | 14133.68 | 14954.933 | 16559.5 | 100.0 | 1232.43 | 1 | 0 |
 
 Failed cases: 0.

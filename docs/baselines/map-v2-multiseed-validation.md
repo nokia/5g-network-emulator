@@ -5,7 +5,7 @@
 - Independent master seeds: 30
 - Master-seed sequence: `20270000` through `20270029`
 - Catalog entries per seed: 21
-- Runtime: 119.75 seconds
+- Runtime: 99.56 seconds
 - Confidence intervals: two-sided 95% intervals over independent realizations; intervals are pointwise, not simultaneous, and spatial cells are not treated as replicates.
 - Coverage proxy: fraction of map cells with map-only, pre-interference full-channel DL SNR >= 0 dB.
 - Radial LOS bins cover the inscribed disk out to the map apothem; corner cells are excluded from radial diagnostics.
@@ -38,7 +38,7 @@
 
 ## Checks and interpretation
 
-- Maximum absolute bias of the 30-realization ensemble-mean radial LOS probability: 0.038.
+- Maximum absolute bias of the ensemble-mean radial LOS probability: 0.038.
 - Maximum absolute ensemble shadow-standard-deviation error: 0.000 dB.
 - Maximum absolute error of the ensemble-mean axial autocorrelation at the nearest grid-representable lag: 0.007.
 - Maximum absolute ensemble-mean opposite-edge shadow correlation: 0.026; this diagnoses circular FFT seams and is not an acceptance pass.

@@ -1,6 +1,6 @@
 {
   "artifact_policy": "Portable rendered inputs and compact summaries are committed; raw logs remain local-only.",
-  "batch_id": "phy-v2-final3-2a6684c-seed20260927",
+  "batch_id": "phy-v2-rebased-1b55ca1-seed20260927",
   "duration_s": 180,
   "environment": {
     "hostname": "pitahaya",
@@ -10,73 +10,73 @@
   "production_map_manifest_sha256": "0e3fe2f1b46584f786d2efa046bdd0bbbe8b17c1064d0fd239d971b96af269f1",
   "runs": [
     {
-      "elapsed_seconds": 7.2520807343535125,
+      "elapsed_seconds": 6.320108921267092,
       "map_file": "macroscopic_fading_map_URBAN_MICROCELL_2.38.json",
       "map_realization_id": "urban_microcell-2.38-seed-17658170683946555616-f9cf4d6e1a92",
       "map_sha256": "ffe69e7e1d2f38b362757ff8101aa54024da5eabeabd841f57df5faa1125cd22",
       "profile": "offline_umi_n40_npn",
       "raw_logs_committed": false,
       "rendered_config": "docs/baselines/phy-v2-production-inputs/offline_umi_n40_npn.ini",
-      "rendered_config_sha256": "68e8e5f173a4353bcbc78840cabbd1c303a8f9520b858a3d7b9dbbde0593e5be",
+      "rendered_config_sha256": "84593d6a8a6a44ba77def6f11cad5dae27044298e20012c5ca02394d335b73bd",
       "return_code": 0,
-      "run_id": "phy-v2-final3-2a6684c-seed20260927-offline_umi_n40_npn",
+      "run_id": "phy-v2-rebased-1b55ca1-seed20260927-offline_umi_n40_npn",
       "source_config": "config/offline_umi_n40_npn.ini"
     },
     {
-      "elapsed_seconds": 12.489762508776039,
+      "elapsed_seconds": 11.126101574394852,
       "map_file": "macroscopic_fading_map_URBAN_MACROCELL_3.5.json",
       "map_realization_id": "urban_macrocell-3.5-seed-4828336182809713892-563fb5539e7e",
       "map_sha256": "5fc9ba23710b20cfcd4a6297e5d233186a9b966d3a5334555a72b478e9337c40",
       "profile": "offline_uma_n78_pedestrian",
       "raw_logs_committed": false,
       "rendered_config": "docs/baselines/phy-v2-production-inputs/offline_uma_n78_pedestrian.ini",
-      "rendered_config_sha256": "5f86bd11049fe0f3d810601e8d6bf5fb4a5e7cd5a899acae8cf48488391cc0ba",
+      "rendered_config_sha256": "79e89acde6d0235b9b9f79430ff1d2d010118276bbd7b9ce00a0434ef3650a86",
       "return_code": 0,
-      "run_id": "phy-v2-final3-2a6684c-seed20260927-offline_uma_n78_pedestrian",
+      "run_id": "phy-v2-rebased-1b55ca1-seed20260927-offline_uma_n78_pedestrian",
       "source_config": "config/offline_uma_n78_pedestrian.ini"
     },
     {
-      "elapsed_seconds": 99.26787042291835,
+      "elapsed_seconds": 128.07905965810642,
       "map_file": "macroscopic_fading_map_RURAL_MACROCELL_3.5.json",
       "map_realization_id": "rural_macrocell-3.5-seed-4311708892289223397-3f91cfc81818",
       "map_sha256": "cc01fd62f7739cd81c486b233d6e6df1409dfcf5b7686aeb93405f186bd9a678",
       "profile": "offline_rural_n78_vehicular",
       "raw_logs_committed": false,
       "rendered_config": "docs/baselines/phy-v2-production-inputs/offline_rural_n78_vehicular.ini",
-      "rendered_config_sha256": "d31cdccd0b38e7fd6f7f26a9e1d7b7295ec5abfe51ce1e5713657f6667b2632a",
+      "rendered_config_sha256": "385a4efe0ed42671dc5b06ea0921ea4f0706c72e6197465dfcf19fdb5bcd95da",
       "return_code": 0,
-      "run_id": "phy-v2-final3-2a6684c-seed20260927-offline_rural_n78_vehicular",
+      "run_id": "phy-v2-rebased-1b55ca1-seed20260927-offline_rural_n78_vehicular",
       "source_config": "config/offline_rural_n78_vehicular.ini"
     },
     {
-      "elapsed_seconds": 9.277321828063577,
+      "elapsed_seconds": 8.42379662161693,
       "map_file": "macroscopic_fading_map_INDOOR_OPEN_OFFICE_3.5.json",
       "map_realization_id": "indoor_open_office-3.5-seed-527046780482870288-59b7f874db71",
       "map_sha256": "ba753da9e9b34de7bc43e53e684eb89abeb792ac5c7b9dfe35da68b0aec693cc",
       "profile": "offline_indoor_hotspot_n78_pedestrian",
       "raw_logs_committed": false,
       "rendered_config": "docs/baselines/phy-v2-production-inputs/offline_indoor_hotspot_n78_pedestrian.ini",
-      "rendered_config_sha256": "06d365ad86ad49d5c46ee00a1efdf854bbf33aa7f02ca55ffaa8381fc55e81a1",
+      "rendered_config_sha256": "76b96477f7658b0dceaa0eeba064c71816003e1a09b9a1bca4f0a4a6e0a45378",
       "return_code": 0,
-      "run_id": "phy-v2-final3-2a6684c-seed20260927-offline_indoor_hotspot_n78_pedestrian",
+      "run_id": "phy-v2-rebased-1b55ca1-seed20260927-offline_indoor_hotspot_n78_pedestrian",
       "source_config": "config/offline_indoor_hotspot_n78_pedestrian.ini"
     },
     {
-      "elapsed_seconds": 9.260284114163369,
+      "elapsed_seconds": 8.07513111224398,
       "map_file": "macroscopic_fading_map_URBAN_MICROCELL_26.json",
       "map_realization_id": "urban_microcell-26-seed-4596863232196585428-8189c173b01e",
       "map_sha256": "d548bc79e96c041c08bf03927370307b87702c8c49faffea4cdcff52243098e4",
       "profile": "offline_umi_n258_fwa",
       "raw_logs_committed": false,
       "rendered_config": "docs/baselines/phy-v2-production-inputs/offline_umi_n258_fwa.ini",
-      "rendered_config_sha256": "81c96e541addae43baa4b44c0c088c3ecfcdcae34bd7aebbdccb5cb5fd3d7935",
+      "rendered_config_sha256": "afc1a10b12105d0c5043a407497d4d586c3afd923409fedd703f473560ee5e64",
       "return_code": 0,
-      "run_id": "phy-v2-final3-2a6684c-seed20260927-offline_umi_n258_fwa",
+      "run_id": "phy-v2-rebased-1b55ca1-seed20260927-offline_umi_n258_fwa",
       "source_config": "config/offline_umi_n258_fwa.ini"
     }
   ],
   "schema_version": 1,
   "seed": 20260927,
   "source_dirty": false,
-  "source_sha": "2a6684c47137e3ddb187e4278727e8ed7f489a98"
+  "source_sha": "1b55ca191e27a368936476fff33fc622833d8d13"
 }

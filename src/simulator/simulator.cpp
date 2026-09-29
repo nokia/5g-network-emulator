@@ -86,10 +86,11 @@ void simulator::terminate()
         stop_reason_ = run_stop_reason::terminated;
         exit_code_ = run_stop_exit_code(stop_reason_);
     }
-    control.stop();
-    // Closing the control socket first unblocks a simulation thread that may be
-    // writing a large reply; joining the ticker first can otherwise deadlock.
+    // Interrupt closes the socket and releases a blocked reply, but leaves manager
+    // state and the journal intact until the simulation thread has stopped.
+    control.interrupt();
     ticker.stop();
+    control.stop();
     log_runtime_stop(run_stop_reason_name(stop_reason_));
 }
 

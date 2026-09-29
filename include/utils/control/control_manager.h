@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
@@ -52,9 +53,10 @@ public:
     void tick(double sim_t, std::int64_t tti);
 
     void stop();
+    void interrupt();
 
     bool is_enabled() const { return enabled_; }
-    bool stop_requested() const { return stopping_; }
+    bool stop_requested() const { return stopping_.load(); }
     run_stop_reason stop_reason() const { return stop_reason_; }
     std::int64_t credit_until_tti() const { return credit_until_tti_; }
     bool barrier_mode() const { return mode_ == mode_t::barrier; }
@@ -132,7 +134,8 @@ private:
     on_peer_loss_t on_peer_loss_ = on_peer_loss_t::abort;
     std::chrono::milliseconds timeout_{30000};
     std::int64_t credit_until_tti_ = -1;
-    bool stopping_ = false;
+    std::uint64_t credit_generation_ = 0;
+    std::atomic<bool> stopping_{false};
     run_stop_reason stop_reason_ = run_stop_reason::none;
     std::mutex mtx_;
     std::condition_variable cv_;

@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <fstream>
 
 #include <mac_layer/mac_definitions.h>
 #include <utils/monitoring/monitoring_manager.h>
@@ -65,11 +66,15 @@ void control_manager::init(const control_config &cfg, std::vector<ue> *ue_list, 
             throw run_failure(run_exit_code::config,
                               "transport file needs timeline_file");
         }
+        std::ifstream timeline(cfg.timeline_file);
+        if (!timeline.is_open())
+            throw run_failure(run_exit_code::no_input,
+                              "cannot open control timeline: " + cfg.timeline_file);
         std::unique_ptr<transport_file> t(new transport_file(cfg.timeline_file));
         if (!t->ok())
         {
-            throw run_failure(run_exit_code::no_input,
-                              "cannot open control timeline: " + cfg.timeline_file);
+            throw run_failure(run_exit_code::config,
+                              "invalid control timeline: " + cfg.timeline_file);
         }
         transport_.reset(t.release());
     }
@@ -144,14 +149,16 @@ void control_manager::init(const control_config &cfg, std::vector<ue> *ue_list, 
         << END();
 }
 
-void control_manager::stop()
+void control_manager::interrupt()
 {
-    {
-        std::lock_guard<std::mutex> lk(mtx_);
-        stopping_ = true;
-    }
+    stopping_.store(true);
     cv_.notify_all();
     if (transport_) transport_->stop();
+}
+
+void control_manager::stop()
+{
+    interrupt();
     transport_open_ = false;
     if (journal_.is_open()) journal_.close();
 }
@@ -163,6 +170,11 @@ void control_manager::apply_grant(const command &c, ack &a)
 {
     {
         std::lock_guard<std::mutex> lk(mtx_);
+        if (c.connection_generation != credit_generation_)
+        {
+            credit_generation_ = c.connection_generation;
+            credit_until_tti_ = -1;
+        }
         if (c.until_tti > credit_until_tti_) credit_until_tti_ = c.until_tti;
         a.credit_until_tti = credit_until_tti_;
     }
@@ -177,7 +189,9 @@ void control_manager::wait_for_credit(std::int64_t tti)
     const std::chrono::steady_clock::time_point wait_start = std::chrono::steady_clock::now();
     std::unique_lock<std::mutex> lk(mtx_);
     const bool granted = cv_.wait_for(lk, timeout_, [&] {
-        return tti <= credit_until_tti_ || stopping_
+        return (tti <= credit_until_tti_
+                && credit_generation_ == transport_->current_generation())
+            || stopping_
             || (transport_->peer_ever_connected() && !transport_->peer_alive());
     });
 
@@ -333,7 +347,7 @@ void control_manager::apply_due(double sim_t, std::int64_t tti)
     // and it cannot grant that TTI until it stops waiting.
     const bool capped = mode_ != mode_t::barrier;
     int applied = 0;
-    while (!sched_.empty() && sched_.top().at_tti <= tti
+    while (!stopping_.load() && !sched_.empty() && sched_.top().at_tti <= tti
            && (!capped || applied < max_cmds_per_tick_))
     {
         command c = sched_.top().cmd;

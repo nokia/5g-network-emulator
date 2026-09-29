@@ -9,6 +9,7 @@
 #include <iostream>
 #include <libgen.h>
 #include <sstream>
+#include <stdexcept>
 #include <unistd.h>
 
 #include <utils/terminal_logging.h>
@@ -414,7 +415,9 @@ void configuration_loader::load(std::string cfg_file)
                                 if (key == "enabled")
                                 {
                                     if (value == "true" || value == "1") control_c.enabled = true;
-                                    if (value == "false" || value == "0") control_c.enabled = false;
+                                    else if (value == "false" || value == "0") control_c.enabled = false;
+                                    else throw std::invalid_argument(
+                                        "[Control] enabled must be true or false");
                                 }
                                 if (key == "transport") control_c.transport = value;
                                 if (key == "address") control_c.address = value;

@@ -63,6 +63,16 @@ def test_receive_window_smaller_than_mss_splits_the_segment():
     assert [segment.size for segment in first] == [1000]
 
 
+def test_rto_retransmission_is_not_blocked_by_a_full_receive_window():
+    clock = Clock()
+    sender = TcpSender(1, Reno(mss=MSS), clock, Scheduler(clock), MSS, rwnd=3000)
+    sender.app_write(6000)
+    assert sum(segment.size for segment in sender.send_window()) == 3000
+    sender._on_rto()
+    retransmission = sender.send_window()
+    assert retransmission and retransmission[0].seq == 0
+
+
 def test_throughput_approaches_the_bottleneck():
     size = 2 * 1024 * 1024
     cfg = LoopbackConfig(rate_bps=20e6, owd_ttis=10, queue_bytes=256 * 1024, mss=MSS)

@@ -23,7 +23,7 @@ from fikore_transport.backend import (BackendConfig, DownloadCompleted,
                                       TransportBackend)
 from fikore_transport.cc import Cubic, Reno
 from fikore_transport.emulator import Emulator, EmulatorConfig
-from fikore_transport.fikore_link import FikoreLink
+from fikore_transport.fikore_link import FikoreLink, _Outstanding
 from fikore_transport.link import Transmit
 
 EMU = os.environ.get("FIKORE_DIR", str(Path(__file__).resolve().parents[2]))
@@ -303,6 +303,56 @@ def test_event_sequence_gap_is_rejected_before_accounting():
             raise AssertionError("missing event sequence was acknowledged")
         assert link._event_cursor == 0
         assert link.event_accounted_bytes == 0
+    finally:
+        teardown(link)
+
+
+def test_bad_later_event_does_not_partially_commit_the_batch():
+    link = build_link()
+    try:
+        link._outstanding[1] = _Outstanding(1, 0, 0, 1500, "dl", 0, "data")
+        link._outstanding[2] = _Outstanding(2, 0, 0, 1500, "dl", 0, "data")
+        bad = {"cursor": 2, "events": [
+            {"seq": 1, "target": "ue/0", "dir": "dl", "tag": 1,
+             "delivered_bytes": 1500},
+            {"seq": 2, "target": "ue/0", "dir": "dl", "tag": 2,
+             "delivered_bytes": -1},
+        ]}
+        try:
+            link._arrivals_from_events(bad, 0)
+        except RuntimeError as exc:
+            assert "invalid delivered_bytes" in str(exc)
+        else:
+            raise AssertionError("bad event batch was accepted")
+        assert link._event_cursor == 0
+        assert link.event_accounted_bytes == 0
+        assert set(link._outstanding) == {1, 2}
+        assert not link._event_counters
+    finally:
+        teardown(link)
+
+
+def test_bad_state_does_not_commit_valid_event_counters():
+    link = build_link()
+    try:
+        link._outstanding[1] = _Outstanding(1, 0, 0, 1500, "dl", 0, "data")
+        bad = {
+            "cursor": 1,
+            "events": [{"seq": 1, "target": "ue/0", "dir": "dl",
+                        "tag": 1, "delivered_bytes": 500}],
+            "state": [{"target": "ue/0",
+                       "dl": {"ce_packets_total": "not-an-integer"}}],
+        }
+        try:
+            link._arrivals_from_events(bad, 0)
+        except (RuntimeError, ValueError):
+            pass
+        else:
+            raise AssertionError("bad compact state was accepted")
+        assert link._event_cursor == 0
+        assert link.event_accounted_bytes == 0
+        assert not link._event_counters
+        assert 1 in link._outstanding
     finally:
         teardown(link)
 

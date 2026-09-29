@@ -41,6 +41,7 @@ public:
     bool peer_alive() const override;
     bool peer_ever_connected() const override;
     bool command_is_current(const command &c) const override;
+    std::uint64_t current_generation() const override;
 
 private:
     void serve();
@@ -56,6 +57,7 @@ private:
     std::atomic<int> client_fd_{-1};
     std::atomic<std::uint64_t> active_generation_{0};
     std::uint64_t next_generation_ = 1; // socket thread only
+    std::mutex session_mtx_; // makes fd + generation one ownership decision
     std::mutex write_mtx_;
 
     std::mutex inbox_mtx_;

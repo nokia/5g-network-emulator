@@ -70,7 +70,26 @@ def test_ideal_slot_share_is_fixed_and_not_iteration_ordered():
     for sender in senders:
         sender.app_write(100_000)
     sent = [sum(item.size for item in sender.send_window()) for sender in senders]
-    assert sent == [3000, 3000, 3000], sent
+    assert sorted(sent) == [3000, 4500, 4500], sent
+    assert sum(sent) == window.limit
+
+
+def test_ideal_window_rotates_when_fewer_packet_slots_than_flows():
+    window = SharedWindow(3000)
+    for flow in (1, 2, 3):
+        window.register(flow)
+    first = [window.share(0, MSS, flow) for flow in (1, 2, 3)]
+    second = [window.share(1, MSS, flow) for flow in (1, 2, 3)]
+    assert first == [1500, 1500, 0]
+    assert second == [1500, 0, 1500]
+
+
+def test_ideal_window_smaller_than_mss_sends_a_short_fragment():
+    runner = Runner(link())
+    window = SharedWindow(1000)
+    sender = IdealSender(1, runner.clock, runner.sched, MSS, window)
+    sender.app_write(500)
+    assert [item.size for item in sender.send_window()] == [500]
 
 
 def test_without_recovery_a_lossy_transfer_never_completes():

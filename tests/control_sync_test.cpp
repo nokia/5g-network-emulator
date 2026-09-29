@@ -277,6 +277,27 @@ void test_scheduled_command_does_not_cross_a_reconnection()
     assert(second.read_line().empty());
     second.disconnect();
 }
+
+void test_credit_does_not_cross_a_reconnection()
+{
+    write_config("barrier", -1, 200, "abort", "abort");
+    simulator sim(CONFIG);
+
+    client first;
+    assert(first.connect_and_handshake());
+    first.grant(100);
+    assert(json::parse(first.read_line())["credit_until_tti"] == 100);
+    first.disconnect();
+    std::this_thread::sleep_for(std::chrono::milliseconds(400));
+
+    client second;
+    assert(second.connect_and_handshake());
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    sim.run_steps(1);
+    assert(sim.control_plane().stop_requested());
+    assert(sim.control_plane().stop_reason() == run_stop_reason::credit_timeout);
+    second.disconnect();
+}
 }
 
 // A message carrying more commands than max_cmds_per_tick used to stall the barrier for
@@ -334,6 +355,7 @@ int main()
     test_barrier_is_refused_in_real_time();
     test_timeout_abort_requests_stop();
     test_scheduled_command_does_not_cross_a_reconnection();
+    test_credit_does_not_cross_a_reconnection();
     std::remove(CONFIG);
     return 0;
 }

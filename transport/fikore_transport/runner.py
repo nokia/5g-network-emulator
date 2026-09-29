@@ -34,6 +34,7 @@ class Flow:
     # Segments handed to the network whose outcome is not known yet. A cancelled
     # transfer is finished when this reaches zero, not when the application stops.
     in_network: int = 0
+    acks_in_network: int = 0
 
 
 class Runner:
@@ -91,6 +92,7 @@ class Runner:
         if flow is None:
             return
         if arrival.kind == "ack":
+            flow.acks_in_network -= 1
             if arrival.fate == "delivered":
                 ack = self._ack_registry.pop(arrival.seq, None)
                 if ack is not None:
@@ -107,6 +109,7 @@ class Runner:
             ack_id = self._next_ack_id
             self._next_ack_id += 1
             self._ack_registry[ack_id] = ack
+            flow.acks_in_network += 1
             back = "ul" if flow.sender.direction == "dl" else "dl"
             self.link.submit([Transmit(flow.sender.flow, ack_id, flow.ack_bytes,
                                        back, "not-ect", ts_us=ack.ts_echo_us,

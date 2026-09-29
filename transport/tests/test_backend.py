@@ -54,12 +54,25 @@ def test_time_starts_at_zero_and_advances_monotonically():
 
 
 def test_final_window_is_clamped_and_emitted_once():
-    backend = build(window_ttis=10, horizon_ttis=15)
+    class StateAwareLink(LoopbackLink):
+        def __init__(self):
+            super().__init__(LoopbackConfig(rate_bps=20e6, owd_ttis=10,
+                                            mss=MSS, queue_bytes=128 * 1024))
+            self.state_requests = 0
+
+        def request_state_next_step(self):
+            self.state_requests += 1
+
+    link = StateAwareLink()
+    backend = TransportBackend(link, BackendConfig(
+        mss=MSS, window_ttis=10, horizon_ttis=15,
+        retain_request_history=True, retain_arrivals=True))
     first = backend.advance()
     second = backend.advance()
     final = backend.advance()
     assert (first.time_s, second.time_s, final.time_s) == (0.0, 0.01, 0.015)
     assert not first.is_final and not second.is_final and final.is_final
+    assert link.state_requests == 1
     try:
         backend.advance()
     except RuntimeError as exc:
@@ -111,6 +124,18 @@ def test_telemetry_carries_a_measured_round_trip():
     assert telemetry, "telemetry must be emitted"
     rtts = [t.fields.rtt_ms for t in telemetry if t.fields.rtt_ms]
     assert rtts and all(10.0 <= r <= 80.0 for r in rtts), rtts
+
+
+def test_partial_final_window_uses_its_actual_telemetry_duration():
+    backend = build()
+    state = {(0, "dl"): {"delivered_bytes_total": 1000}}
+    backend.runner.clock.tti = 10
+    first = backend._telemetry_for(0, state, 0.010)
+    state[(0, "dl")]["delivered_bytes_total"] = 1500
+    backend.runner.clock.tti = 15
+    partial = backend._telemetry_for(0, state, 0.015)
+    assert abs(first.throughput_mbps - 0.8) < 1e-9
+    assert abs(partial.throughput_mbps - 0.8) < 1e-9
 
 
 def test_close_is_idempotent_and_control_is_accepted():
@@ -173,6 +198,24 @@ def test_ack_over_link_flow_retires_after_its_ack_tail():
         if backend.requests[(0, "seg")].closed and not backend.runner.flows:
             break
     assert backend.requests[(0, "seg")].closed
+    assert not backend.runner.flows
+    assert not backend._retiring_flows
+
+
+def test_cancelled_ack_over_link_flow_keeps_mapping_until_ack_tail_drains():
+    backend = build(ack_over_link=True)
+    backend.submit_request(0, "seg", 300 * 1024)
+    backend.advance()
+    backend.advance()
+    backend.cancel_request(0, "seg")
+    cancelled = False
+    for _ in range(200):
+        events = backend.advance().events
+        cancelled = cancelled or any(
+            isinstance(event, DownloadCancelled) for event in events)
+        if cancelled and not backend.runner.flows:
+            break
+    assert cancelled
     assert not backend.runner.flows
     assert not backend._retiring_flows
 

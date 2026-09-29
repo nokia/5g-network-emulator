@@ -65,6 +65,29 @@ def test_invalid_control_policy_is_config_error(work: Path) -> None:
     assert result.returncode == 78, result.stderr + result.stdout
 
 
+def test_invalid_control_enabled_is_config_error(work: Path) -> None:
+    result = run(render(work / "bad-enabled.ini", enabled="ture"))
+    assert result.returncode == 78, result.stderr + result.stdout
+
+
+def test_malformed_timeline_is_config_error(work: Path) -> None:
+    timeline = work / "bad.ndjson"
+    timeline.write_text(
+        '{"id":1,"cmds":[{"op":"ping","target":"cell"},'
+        '{"op":"events"}]}\n')
+    result = run(render(work / "bad-timeline.ini", transport="file",
+                        timeline_file=timeline))
+    assert result.returncode == 78, result.stderr + result.stdout
+
+
+def test_unreadable_timeline_shape_is_config_error(work: Path) -> None:
+    directory = work / "timeline-directory"
+    directory.mkdir()
+    result = run(render(work / "directory-timeline.ini", transport="file",
+                        timeline_file=directory))
+    assert result.returncode == 78, result.stderr + result.stdout
+
+
 def test_control_socket_setup_failure_is_io_error(work: Path) -> None:
     result = run(render(work / "bad-socket.ini",
                         address="/no/such/fikore/directory/control.sock"))
@@ -121,6 +144,9 @@ def main() -> int:
         test_malformed_config_is_config_error,
         test_fatal_runtime_error_is_software,
         test_invalid_control_policy_is_config_error,
+        test_invalid_control_enabled_is_config_error,
+        test_malformed_timeline_is_config_error,
+        test_unreadable_timeline_shape_is_config_error,
         test_control_socket_setup_failure_is_io_error,
         test_credit_timeout_is_tempfail,
         test_lost_control_peer_is_io_error,

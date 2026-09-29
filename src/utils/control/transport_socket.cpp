@@ -5,7 +5,9 @@
 **********************************************/
 
 #include <arpa/inet.h>
+#include <algorithm>
 #include <cerrno>
+#include <chrono>
 #include <cstring>
 #include <netinet/in.h>
 #include <poll.h>
@@ -129,9 +131,13 @@ void transport_socket::stop()
 {
     if (stopping_.exchange(true)) return;
 
-    const int client = client_fd_.exchange(-1);
-    active_generation_.store(0);
-    if (client >= 0) ::shutdown(client, SHUT_RDWR);
+    int client = -1;
+    {
+        std::lock_guard<std::mutex> session_lk(session_mtx_);
+        client = client_fd_.exchange(-1);
+        active_generation_.store(0);
+        if (client >= 0) ::shutdown(client, SHUT_RDWR);
+    }
     if (listen_fd_ >= 0) ::shutdown(listen_fd_, SHUT_RDWR);
 
     if (thread_.joinable()) thread_.join();
@@ -149,18 +155,43 @@ bool transport_socket::send_line(int fd, const std::string &line)
 {
     if (fd < 0) return false;
     std::lock_guard<std::mutex> lk(write_mtx_);
+    const std::chrono::steady_clock::time_point deadline =
+        std::chrono::steady_clock::now()
+        + std::chrono::milliseconds(SEND_TIMEOUT_MS);
     ssize_t written = 0;
     while (written < (ssize_t)line.size())
     {
-        const ssize_t n = ::send(fd, line.data() + written, line.size() - written, MSG_NOSIGNAL);
-        if (n <= 0)
+        if (std::chrono::steady_clock::now() >= deadline)
         {
             ::shutdown(fd, SHUT_RDWR);
             return false;
         }
-        written += n;
+        const ssize_t n = ::send(fd, line.data() + written, line.size() - written,
+                                 MSG_NOSIGNAL | MSG_DONTWAIT);
+        if (n > 0)
+        {
+            written += n;
+            continue;
+        }
+        if (n < 0 && errno == EINTR) continue;
+        if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
+        {
+            const auto now = std::chrono::steady_clock::now();
+            if (now >= deadline) break;
+            const int remaining_ms = (int)std::chrono::duration_cast<
+                std::chrono::milliseconds>(deadline - now).count();
+            struct pollfd pfd;
+            pfd.fd = fd;
+            pfd.events = POLLOUT;
+            pfd.revents = 0;
+            if (::poll(&pfd, 1, std::max(remaining_ms, 1)) > 0) continue;
+        }
+        ::shutdown(fd, SHUT_RDWR);
+        return false;
     }
-    return true;
+    if (written == (ssize_t)line.size()) return true;
+    ::shutdown(fd, SHUT_RDWR);
+    return false;
 }
 
 // No negotiation: both sides state the same constant or the connection is dropped. The
@@ -257,15 +288,13 @@ void transport_socket::serve()
                 }
                 else
                 {
-                    struct timeval send_timeout;
-                    send_timeout.tv_sec = SEND_TIMEOUT_MS / 1000;
-                    send_timeout.tv_usec = (SEND_TIMEOUT_MS % 1000) * 1000;
-                    ::setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO,
-                                 &send_timeout, sizeof(send_timeout));
                     buffer.clear();
                     peer_ever_connected_.store(true);
-                    active_generation_.store(next_generation_++);
-                    client_fd_.store(fd);
+                    {
+                        std::lock_guard<std::mutex> session_lk(session_mtx_);
+                        active_generation_.store(next_generation_++);
+                        client_fd_.store(fd);
+                    }
                     LOG_INFO_I("transport_socket") << " client connected, proto " << FIKORE_CONTROL_PROTO << END();
                 }
             }
@@ -276,9 +305,15 @@ void transport_socket::serve()
             const ssize_t n = ::recv(client, chunk, sizeof(chunk), 0);
             if (n <= 0)
             {
-                active_generation_.store(0);
-                client_fd_.store(-1);
-                ::close(client);
+                {
+                    std::lock_guard<std::mutex> session_lk(session_mtx_);
+                    if (client_fd_.load() == client)
+                    {
+                        active_generation_.store(0);
+                        client_fd_.store(-1);
+                        ::close(client);
+                    }
+                }
                 LOG_INFO_I("transport_socket") << " client disconnected" << END();
                 continue;
             }
@@ -358,6 +393,11 @@ bool transport_socket::command_is_current(const command &c) const
         && c.connection_generation == active_generation_.load();
 }
 
+std::uint64_t transport_socket::current_generation() const
+{
+    return active_generation_.load();
+}
+
 bool transport_socket::poll(std::vector<command> &out)
 {
     std::lock_guard<std::mutex> lk(inbox_mtx_);
@@ -371,6 +411,7 @@ bool transport_socket::poll(std::vector<command> &out)
 
 void transport_socket::reply(const ack &a)
 {
+    std::lock_guard<std::mutex> session_lk(session_mtx_);
     if (a.connection_generation != active_generation_.load()) return;
     send_line(client_fd_.load(), ndjson::serialize_ack(a));
 }

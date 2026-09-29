@@ -141,6 +141,7 @@ class TransportBackend:
         self._final_emitted = False
         self._closed = False
         self._telemetry_baseline: dict[int, dict] = {}
+        self._telemetry_tti_baseline: dict[int, int] = {}
         self._windows_by_ue: dict[int, SharedWindow] = {}
 
     # -- NetworkBackend -----------------------------------------------------------
@@ -149,6 +150,8 @@ class TransportBackend:
         key = (ue_id, request_id)
         if key in self._seen_requests:
             raise ValueError(f"request {request_id} is already live on ue {ue_id}")
+        if self.cfg.transport not in ("tcp", "ideal"):
+            raise ValueError(f"unsupported transport: {self.cfg.transport}")
         flow_id = self._next_flow
         self._next_flow += 1
         register = getattr(self.link, "register_flow", None)
@@ -167,8 +170,6 @@ class TransportBackend:
                                self.cfg.mss, direction=self.cfg.direction,
                                ecn=self.cfg.ecn, rwnd=self.cfg.rwnd)
             receiver = TcpReceiver(flow_id, self.cfg.mss)
-        else:
-            raise ValueError(f"unsupported transport: {self.cfg.transport}")
         flow = Flow(sender, receiver, ack_over_link=self.cfg.ack_over_link)
         self.runner.add_flow(flow)
         sender.app_write(bytes_total)
@@ -196,7 +197,12 @@ class TransportBackend:
         horizon = self.cfg.horizon_ttis
         remaining = (self.cfg.window_ttis if horizon is None
                      else max(horizon - self.runner.clock.tti, 0))
-        for _ in range(min(self.cfg.window_ttis, remaining)):
+        steps = min(self.cfg.window_ttis, remaining)
+        for _ in range(steps):
+            if horizon is not None and self.runner.clock.tti + 1 >= horizon:
+                request_state = getattr(self.link, "request_state_next_step", None)
+                if request_state is not None:
+                    request_state()
             self.runner.tick()
         self._windows += 1
 
@@ -261,7 +267,7 @@ class TransportBackend:
     def _cleanup_retiring_flows(self) -> None:
         for flow_id, request in list(self._retiring_flows.items()):
             flow = request.flow
-            if flow.in_network != 0:
+            if flow.in_network != 0 or flow.acks_in_network != 0:
                 continue
             if not request.cancelled and not flow.sender.complete():
                 continue
@@ -294,7 +300,10 @@ class TransportBackend:
         now = state.get((ue_id, self.cfg.direction), {})
         base = self._telemetry_baseline.get(ue_id, {})
         self._telemetry_baseline[ue_id] = dict(now)
-        window_s = self.cfg.window_ttis * self.cfg.telemetry_every_windows / 1000.0
+        previous_tti = self._telemetry_tti_baseline.get(ue_id, 0)
+        elapsed_ttis = max(self.runner.clock.tti - previous_tti, 1)
+        self._telemetry_tti_baseline[ue_id] = self.runner.clock.tti
+        window_s = elapsed_ttis / 1000.0
 
         def delta(key: str) -> float:
             return max(float(now.get(key, 0.0)) - float(base.get(key, 0.0)), 0.0)

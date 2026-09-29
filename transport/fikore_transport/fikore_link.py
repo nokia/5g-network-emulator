@@ -34,6 +34,7 @@ from the message format:
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass
 
 from .emulator import PROTO, Emulator
@@ -99,6 +100,7 @@ class FikoreLink:
         self._event_cursor = 0
         self._event_counters: dict[int, dict[str, float]] = {}
         self.state_every_ttis = state_every_ttis
+        self._force_state = False
         self.use_events = use_events
         self.round_trips = 0
         self.received_bytes = 0
@@ -129,6 +131,9 @@ class FikoreLink:
         applied at the same quiescent point."""
         physical = self.ue_id_map.get(ue, ue)
         self._queued_sets.append({"target": f"ue/{physical}", "set": dict(params)})
+
+    def request_state_next_step(self) -> None:
+        self._force_state = True
 
     def submit(self, items: list[Transmit], at_tti: int) -> None:
         if not items:
@@ -212,9 +217,11 @@ class FikoreLink:
             events = {"op": "events", "after": self._event_cursor}
             # Backend telemetry is emitted after a window, so sample on its last slot
             # rather than its first; otherwise every observation is one window stale.
-            if (self.state_every_ttis > 0
-                    and (tti + 1) % self.state_every_ttis == 0):
+            if (self._force_state or
+                    (self.state_every_ttis > 0
+                     and (tti + 1) % self.state_every_ttis == 0)):
                 events["include_state"] = True
+                self._force_state = False
             cmds.append(events)
         else:
             cmds.append({"op": "get", "target": "ue/*"})
@@ -296,6 +303,49 @@ class FikoreLink:
                 f"event cursor {cursor} does not match last sequence "
                 f"{expected_seq - 1}")
 
+        # Validate and stage the whole batch before mutating cursors, counters or tag
+        # lifetime. A bad later event must not make replay double-account earlier ones.
+        staged = {tag: dict(counters)
+                  for tag, counters in self._event_counters.items()}
+        terminal_order: list[tuple[int, int]] = []
+        terminal_seen: set[int] = set()
+        delta_accounted = 0.0
+        counter_keys = ("delivered_bytes", "expired_bytes",
+                        "queue_dropped_bytes", "radio_dropped_bytes", "ce_bytes")
+        for event in events:
+            tag = int(event["tag"])
+            pending = self._outstanding.get(tag)
+            if pending is None or tag in terminal_seen:
+                raise RuntimeError(f"event for unknown or terminal tag {tag}: {event}")
+            ue = int(str(event["target"]).split("/")[1])
+            direction = str(event["dir"])
+            if ue != pending.ue or direction != pending.direction:
+                raise RuntimeError(f"event does not match tag {tag}: {event}")
+
+            counters = staged.setdefault(tag, {})
+            for key in counter_keys:
+                value = float(event.get(key, 0.0))
+                if not math.isfinite(value) or value < 0:
+                    raise RuntimeError(f"invalid {key} for tag {tag}: {value}")
+                counters[key] = counters.get(key, 0.0) + value
+            counters["dropped_bytes"] = (counters["queue_dropped_bytes"]
+                                         + counters["radio_dropped_bytes"])
+            accounted = (counters["delivered_bytes"] + counters["dropped_bytes"]
+                         + counters["expired_bytes"])
+            if accounted > pending.size + EPS_BYTES:
+                raise RuntimeError(
+                    f"tag {tag} accounted {accounted} bytes for a "
+                    f"{pending.size}-byte object")
+            delta_accounted += (
+                float(event.get("delivered_bytes", 0.0))
+                + float(event.get("expired_bytes", 0.0))
+                + float(event.get("queue_dropped_bytes", 0.0))
+                + float(event.get("radio_dropped_bytes", 0.0)))
+            if accounted + EPS_BYTES >= pending.size:
+                terminal_seen.add(tag)
+                terminal_order.append((tag, ue))
+
+        staged_state: list[tuple[int, str, dict, int]] = []
         for entry in result.get("state", []):
             physical = int(str(entry["target"]).split("/")[1])
             ue = self._physical_to_external.get(physical, physical)
@@ -303,39 +353,24 @@ class FikoreLink:
                 state = entry.get(direction)
                 if state is None:
                     continue
-                self.last_state[(ue, direction)] = state
-                self.ce_by_ue[(ue, direction)] = int(state.get("ce_packets_total", 0))
+                if not isinstance(state, dict):
+                    raise RuntimeError(f"invalid {direction} state for ue/{physical}")
+                ce_packets = int(state.get("ce_packets_total", 0))
+                staged_state.append((ue, direction, state, ce_packets))
 
         out: list[Arrival] = []
         self.max_events_per_reply = max(self.max_events_per_reply, len(events))
-        for event in events:
-            tag = int(event["tag"])
-            pending = self._outstanding.get(tag)
-            if pending is None:
-                # A retry may replay an event already consumed locally only if the
-                # caller reused an old cursor after processing a successful reply,
-                # which is a client bug rather than something to account twice.
-                raise RuntimeError(f"event for unknown or terminal tag {tag}: {event}")
-            ue = int(str(event["target"]).split("/")[1])
-            direction = str(event["dir"])
-            if ue != pending.ue or direction != pending.direction:
-                raise RuntimeError(f"event does not match tag {tag}: {event}")
-
-            counters = self._event_counters.setdefault(tag, {})
-            for key in ("delivered_bytes", "expired_bytes", "queue_dropped_bytes",
-                        "radio_dropped_bytes", "ce_bytes"):
-                counters[key] = counters.get(key, 0.0) + float(event.get(key, 0.0))
-            self.event_accounted_bytes += (
-                float(event.get("delivered_bytes", 0.0))
-                + float(event.get("expired_bytes", 0.0))
-                + float(event.get("queue_dropped_bytes", 0.0))
-                + float(event.get("radio_dropped_bytes", 0.0)))
-            counters["dropped_bytes"] = (counters["queue_dropped_bytes"]
-                                         + counters["radio_dropped_bytes"])
-            arrival = self._terminal(tag, counters, ue, tti)
-            if arrival is not None:
-                self._event_counters.pop(tag, None)
-                out.append(arrival)
+        self._event_counters = staged
+        self.event_accounted_bytes += delta_accounted
+        for ue, direction, state, ce_packets in staged_state:
+            self.last_state[(ue, direction)] = state
+            self.ce_by_ue[(ue, direction)] = ce_packets
+        for tag, ue in terminal_order:
+            arrival = self._terminal(tag, self._event_counters[tag], ue, tti)
+            if arrival is None:
+                raise RuntimeError(f"terminal tag {tag} did not close")
+            self._event_counters.pop(tag, None)
+            out.append(arrival)
 
         self._event_cursor = cursor
         out.sort(key=lambda a: (a.flow, a.kind, a.seq))

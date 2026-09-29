@@ -34,19 +34,41 @@ class SharedWindow:
     def __init__(self, limit_bytes: int) -> None:
         self.limit = limit_bytes
         self.in_flight = 0
-        self.active = 0
+        self.active: set[int] = set()
         self._share_tti = -1
-        self._share_bytes = 0
+        self._shares: dict[int, int] = {}
+        self._rotation = 0
 
-    def share(self, tti: int, mss: int) -> int:
-        # Every sender sees the same slot-start share. Recomputing from shrinking
-        # free space made the result depend on Runner's flow iteration order.
+    def register(self, flow: int) -> None:
+        self.active.add(flow)
+
+    def unregister(self, flow: int) -> None:
+        self.active.discard(flow)
+
+    def share(self, tti: int, mss: int, flow: int) -> int:
+        # Allocate packet slots centrally at slot start. Recomputing from shrinking
+        # free space made the result depend on Runner's flow iteration order; rounding
+        # every equal share down could leave all flows at zero forever.
         if tti != self._share_tti:
             free = max(self.limit - self.in_flight, 0)
-            raw = free // max(self.active, 1)
-            self._share_bytes = raw // mss * mss
+            flows = sorted(self.active)
+            self._shares = {item: 0 for item in flows}
+            if flows:
+                packet_slots, residual_bytes = divmod(free, mss)
+                slots, remainder = divmod(packet_slots, len(flows))
+                for item in flows:
+                    self._shares[item] = slots * mss
+                start = self._rotation % len(flows)
+                for offset in range(remainder):
+                    self._shares[flows[(start + offset) % len(flows)]] += mss
+                if residual_bytes:
+                    residual_owner = (start + remainder) % len(flows)
+                    self._shares[flows[residual_owner]] += residual_bytes
+                    self._rotation = (residual_owner + 1) % len(flows)
+                else:
+                    self._rotation = (start + max(remainder, 1)) % len(flows)
             self._share_tti = tti
-        return self._share_bytes
+        return self._shares.get(flow, 0)
 
     def take(self, nbytes: int) -> None:
         self.in_flight += nbytes
@@ -87,13 +109,13 @@ class IdealSender:
     def app_write(self, nbytes: int) -> None:
         self.app_available += nbytes
         if not self._registered:
-            self.window.active += 1
+            self.window.register(self.flow)
             self._registered = True
 
     def set_unlimited(self) -> None:
         self.app_unlimited = True
         if not self._registered:
-            self.window.active += 1
+            self.window.register(self.flow)
             self._registered = True
 
     def app_cancel(self) -> int:
@@ -114,7 +136,7 @@ class IdealSender:
 
     def _retire(self) -> None:
         if self._registered:
-            self.window.active -= 1
+            self.window.unregister(self.flow)
             self._registered = False
 
     # -- sending ------------------------------------------------------------------
@@ -122,11 +144,12 @@ class IdealSender:
     def send_window(self) -> list[Transmit]:
         if self.cancelled:
             return []
-        budget = self.window.share(self.clock.tti, self.mss)
+        budget = self.window.share(self.clock.tti, self.mss, self.flow)
         out: list[Transmit] = []
         while budget > 0:
-            size = self.mss if self.app_unlimited else min(self.mss, self.app_available)
-            if size <= 0 or budget < size:
+            available = self.mss if self.app_unlimited else self.app_available
+            size = min(self.mss, available, budget)
+            if size <= 0:
                 break
             seq = self.snd_nxt
             self.snd_nxt += size

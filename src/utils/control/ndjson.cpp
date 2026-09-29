@@ -79,6 +79,10 @@ bool parse_line(const std::string &line, std::uint64_t fallback_id,
     double at_t = -1.0;
     try
     {
+        const std::uint64_t id = msg.contains("id")
+            ? msg["id"].get<std::uint64_t>() : fallback_id;
+        if (message_id != nullptr) *message_id = id;
+
         if (msg.contains("at_tti")) at_tti = msg["at_tti"].get<std::int64_t>();
         if (msg.contains("at_t"))
         {
@@ -88,8 +92,6 @@ bool parse_line(const std::string &line, std::uint64_t fallback_id,
             if (at_tti < 0) at_tti = (std::int64_t)llround(at_t * 1000.0);
         }
 
-        const std::uint64_t id = msg.contains("id") ? msg["id"].get<std::uint64_t>() : fallback_id;
-        if (message_id != nullptr) *message_id = id;
         std::vector<command> parsed;
 
         std::vector<json> items;

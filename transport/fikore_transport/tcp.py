@@ -174,7 +174,7 @@ class TcpSender:
         # One retransmission always fits, even with no room left in the window: it
         # replaces bytes already counted as in flight rather than adding new ones,
         # and holding it back until the window opens is what deadlocks a recovery.
-        if self.rtx_pending:
+        if self.rtx_pending or self.snd_nxt < self.snd_high:
             budget = max(budget, float(self.mss))
         while budget > 0:
             nxt = self._next_to_send()

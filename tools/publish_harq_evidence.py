@@ -8,6 +8,7 @@ import csv
 import hashlib
 import json
 import shutil
+import statistics
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -143,10 +144,10 @@ def write_comparison(campaigns: list[dict], output: Path) -> list[Path]:
         "All rates are Mbit/s. Each row uses identical profile geometry, "
         "traffic, mobility, and seed within its paired campaign.",
         "",
-        "The disabled/no-retry/production pair and observable production "
-        "run last 180 seconds. The two additional seed sweeps last 30 "
-        "seconds with a 2-second warm-up and are sensitivity checks, not "
-        "direct long-run estimates.",
+        "The disabled, no-retry, and production arms last 180 seconds "
+        "with a 20-second warm-up. The two additional production seed "
+        "sweeps last 30 seconds with a 2-second warm-up and are "
+        "sensitivity checks, not direct long-run estimates.",
         "",
         "| Profile | Direction | "
         + " | ".join(labels)
@@ -180,7 +181,7 @@ def write_comparison(campaigns: list[dict], output: Path) -> list[Path]:
         lines.extend(
             [
                 "",
-                "## Observable production runs",
+                "## HARQ and accounting telemetry",
                 "",
                 "| Campaign | Maximum retransmission rate | "
                 "Maximum radio-drop rate | Maximum HARQ queue | "
@@ -238,6 +239,67 @@ def write_comparison(campaigns: list[dict], output: Path) -> list[Path]:
     return [comparison_csv, report]
 
 
+def write_o2i_pair(output: Path) -> Path:
+    source = output / "disabled-ue-summary.csv"
+    with source.open() as handle:
+        rows = list(csv.DictReader(handle))
+    by_profile: dict[str, dict[tuple[str, str], dict[str, str]]] = {}
+    for row in rows:
+        if row["profile"] not in {
+            "offline_umi_n258_fwa",
+            "offline_umi_n258_fwa_high_loss",
+        }:
+            continue
+        key = (row["ue_id"], row["direction"])
+        by_profile.setdefault(row["profile"], {})[key] = row
+    nominal = by_profile["offline_umi_n258_fwa"]
+    high_loss = by_profile["offline_umi_n258_fwa_high_loss"]
+    if nominal.keys() != high_loss.keys():
+        raise ValueError("n258 O2I arms do not contain the same UE keys")
+
+    output_rows = []
+    for direction in ("dl", "ul"):
+        keys = sorted(
+            (key for key in nominal if key[1] == direction),
+            key=lambda key: int(key[0]),
+        )
+        for key in keys:
+            reductions = {
+                metric: (
+                    float(nominal[key][metric])
+                    - float(high_loss[key][metric])
+                )
+                for metric in (
+                    "sinr_p05_db",
+                    "sinr_p50_db",
+                    "sinr_p95_db",
+                )
+            }
+            values = list(reductions.values())
+            output_rows.append(
+                {
+                    "direction": direction,
+                    "ue_id": key[0],
+                    "p05_reduction_db": reductions["sinr_p05_db"],
+                    "p50_reduction_db": reductions["sinr_p50_db"],
+                    "p95_reduction_db": reductions["sinr_p95_db"],
+                    "mean_reduction_db": statistics.fmean(values),
+                    "quantile_reduction_std_db": statistics.pstdev(values),
+                    "quantile_reduction_span_db": max(values) - min(values),
+                }
+            )
+    destination = output / "o2i-paired-sinr.csv"
+    with destination.open("w", newline="") as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=list(output_rows[0]),
+            lineterminator="\n",
+        )
+        writer.writeheader()
+        writer.writerows(output_rows)
+    return destination
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -248,10 +310,14 @@ def main() -> None:
         help="LABEL=PATH; may be repeated",
     )
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--replace", action="store_true")
     args = parser.parse_args()
     output = args.output.resolve()
     if output.exists():
-        raise SystemExit(f"refusing to replace existing output: {output}")
+        if not args.replace:
+            raise SystemExit(
+                f"refusing to replace existing output: {output}")
+        shutil.rmtree(output)
     output.mkdir(parents=True)
 
     campaigns = [
@@ -264,6 +330,7 @@ def main() -> None:
         for artifact in campaign["artifacts"]
     ]
     artifacts.extend(write_comparison(campaigns, output))
+    artifacts.append(write_o2i_pair(output))
     evidence = {
         "schema_version": 1,
         "campaigns": [

@@ -53,6 +53,8 @@ The canonical profiles are:
 4. `offline_indoor_hotspot_n78_pedestrian.ini`;
 5. `offline_umi_n258_fwa.ini`.
 
+All five general-purpose study UEs use `l4s_dual_queue: false`; L4S is enabled only in dedicated comparison profiles. Historical rendered inputs remain immutable, including older rural runs that intentionally recorded the previous L4S-enabled study queue.
+
 The HARQ stress extension adds `offline_umi_n258_fwa_high_loss.ini`. Each production-map run uses seed `20260927` and 180 simulated seconds. Summary
 statistics exclude the first 20 seconds when the timestamped source metric
 supports warm-up filtering; metrics that cannot be filtered are explicitly

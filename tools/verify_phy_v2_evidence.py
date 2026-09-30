@@ -35,16 +35,61 @@ def check(path_text: str, expected: str) -> None:
             f"expected {expected}, got {actual}")
 
 
-def check_git_blob(commit: str, path_text: str, expected: str) -> None:
+def commit_exists(commit: str) -> bool:
+    return subprocess.run(
+        ["git", "cat-file", "-e", f"{commit}^{{commit}}"],
+        cwd=ROOT,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    ).returncode == 0
+
+
+def resolve_commit(
+    commit: str,
+    rebased_equivalents: dict[str, str],
+) -> str:
+    if commit_exists(commit):
+        return commit
+    equivalent = rebased_equivalents.get(commit)
+    if equivalent is None or not commit_exists(equivalent):
+        raise ValueError(
+            f"evidence source commit is unavailable: {commit}")
+    return equivalent
+
+
+def check_git_blob(
+    commit: str,
+    path_text: str,
+    expected: str,
+    rebased_equivalents: dict[str, str],
+) -> None:
+    source_commit = resolve_commit(commit, rebased_equivalents)
     payload = subprocess.check_output(
-        ["git", "show", f"{commit}:{path_text}"],
+        ["git", "show", f"{source_commit}:{path_text}"],
         cwd=ROOT,
     )
     actual = hashlib.sha256(payload).hexdigest()
     if actual != expected:
         raise ValueError(
-            f"git blob hash mismatch for {commit}:{path_text}: "
+            f"git blob hash mismatch for {source_commit}:{path_text}: "
             f"expected {expected}, got {actual}")
+
+
+def stable_patch_id(commit: str) -> str:
+    patch = subprocess.check_output(
+        ["git", "show", "--pretty=format:", commit],
+        cwd=ROOT,
+    )
+    result = subprocess.check_output(
+        ["git", "patch-id", "--stable"],
+        cwd=ROOT,
+        input=patch,
+        text=False,
+    ).decode().strip()
+    if not result:
+        raise ValueError(f"commit has no stable patch id: {commit}")
+    return result.split()[0]
 
 
 def main() -> None:
@@ -53,6 +98,22 @@ def main() -> None:
     args = parser.parse_args()
     manifest = json.loads(args.manifest.resolve().read_text())
     checked = 0
+    rebase_mapping = None
+    rebased_equivalents: dict[str, str] = {}
+    rebase_source_map = manifest.get("rebase_source_map")
+    if rebase_source_map is not None:
+        check(
+            rebase_source_map["path"],
+            rebase_source_map["sha256"],
+        )
+        checked += 1
+        rebase_mapping = json.loads(
+            (ROOT / rebase_source_map["path"]).read_text()
+        )
+        rebased_equivalents = {
+            entry["old_commit"]: entry["rebased_commit"]
+            for entry in rebase_mapping["mappings"]
+        }
 
     for key in ("production_catalog", "production_manifest"):
         artifact = manifest["map_generation"][key]
@@ -100,6 +161,7 @@ def main() -> None:
                         run["map_source_git_commit"],
                         run["map_source_git_path"],
                         run["map_sha256"],
+                        rebased_equivalents,
                     )
                 else:
                     check(
@@ -108,8 +170,12 @@ def main() -> None:
                     )
                 checked += 1
 
-    harq_evidence = manifest.get("harq_evidence")
-    if harq_evidence is not None:
+    harq_packages = []
+    if manifest.get("harq_evidence") is not None:
+        harq_packages.append(manifest["harq_evidence"])
+    harq_packages.extend(
+        manifest.get("historical_harq_evidence", []))
+    for harq_evidence in harq_packages:
         check(harq_evidence["path"], harq_evidence["sha256"])
         checked += 1
         harq_manifest = json.loads(
@@ -143,8 +209,12 @@ def main() -> None:
                 )
                 checked += 1
 
-    scheduler_evidence = manifest.get("scheduler_evidence")
-    if scheduler_evidence is not None:
+    scheduler_packages = []
+    if manifest.get("scheduler_evidence") is not None:
+        scheduler_packages.append(manifest["scheduler_evidence"])
+    scheduler_packages.extend(
+        manifest.get("historical_scheduler_evidence", []))
+    for scheduler_evidence in scheduler_packages:
         check(
             scheduler_evidence["path"],
             scheduler_evidence["sha256"],
@@ -153,18 +223,32 @@ def main() -> None:
         scheduler_manifest = json.loads(
             (ROOT / scheduler_evidence["path"]).read_text()
         )
-        subprocess.check_call(
-            [
-                "git",
-                "cat-file",
-                "-e",
-                f"{scheduler_manifest['source_sha']}^{{commit}}",
-            ],
-            cwd=ROOT,
+        resolve_commit(
+            scheduler_manifest["source_sha"],
+            rebased_equivalents,
         )
         for artifact in scheduler_manifest["artifacts"]:
             check(artifact["path"], artifact["sha256"])
             checked += 1
+
+    if rebase_mapping is not None:
+        for entry in rebase_mapping["mappings"]:
+            observed = stable_patch_id(entry["rebased_commit"])
+            if observed != entry["stable_patch_id"]:
+                raise ValueError(
+                    "rebased patch-id mismatch for "
+                    f"{entry['rebased_commit']}"
+                )
+            old_exists = commit_exists(entry["old_commit"])
+            if (
+                old_exists
+                and stable_patch_id(entry["old_commit"])
+                != entry["stable_patch_id"]
+            ):
+                raise ValueError(
+                    "pre-rebase patch-id mismatch for "
+                    f"{entry['old_commit']}"
+                )
 
     analysis_metadata = json.loads(
         (

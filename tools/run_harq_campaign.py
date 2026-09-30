@@ -23,6 +23,11 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=20260927)
     parser.add_argument("--duration-s", type=int, default=180)
     parser.add_argument(
+        "--batch-id-prefix",
+        default="harq",
+        help="prefix for unique run IDs and log directories",
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=ROOT / "results" / "harq-campaign",
@@ -52,7 +57,7 @@ def main() -> None:
             "--max-rtx",
             str(max_rtx),
             "--batch-id",
-            f"harq-{case_name}-seed{args.seed}",
+            f"{args.batch_id_prefix}-{case_name}-seed{args.seed}",
             "--output",
             str((args.output / case_name).resolve()),
         ]

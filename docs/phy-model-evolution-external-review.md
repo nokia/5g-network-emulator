@@ -407,6 +407,17 @@ For the n258 FWA pair, high-loss indoor penetration reduces median-UE SINR by 38
 
 The longer PF functional campaign shows that Jain fairness approaches one with and without reranking in the homogeneous 64-UE cases, while allocation-unit reranking substantially reduces maximum effective-service gaps.
 
+The generalized matrix contains 288 cases and 86,400 warmed-up TTI timings across all aliases, two UE populations, three grids, grouped and distributed/per-PRB resolution, finite and full-buffer demand, and homogeneous and heterogeneous channels. A representative 20 MHz, 16-UE, localized/grouped, full-buffer result shows the intended trade-off:
+
+| Scheduler | Homogeneous throughput / Jain | Heterogeneous throughput / Jain | Heterogeneous maximum gap |
+|---|---:|---:|---:|
+| BET, allocation-unit | 66.12 Mbit/s / 0.982 | 51.29 Mbit/s / 0.303 | 100 TTIs |
+| Max Throughput | 66.12 Mbit/s / 0.982 | 66.47 Mbit/s / 0.487 | 100 TTIs |
+| Round Robin | 66.21 Mbit/s / 1.000 | 61.76 Mbit/s / 0.987 | 3 TTIs |
+| PF, allocation-unit | 66.30 Mbit/s / 1.000 | 61.78 Mbit/s / 0.989 | 5 TTIs |
+
+The heterogeneous arm keeps both groups eligible by pairing 50 m outdoor UEs with 200 m low-loss-indoor UEs. The 120-TTI observation is deliberately short. Pure BET's inverse-history score strongly favors the initially lower-rate group and has not converged within this window, while MT maximizes aggregate rate by starving that group. RR and PF retain high short-window fairness with a modest aggregate-rate cost. These are scheduler characterizations, not universal asymptotic rankings.
+
 | Grid | Scheduling unit | DL Jain none → rerank | Maximum DL effective-service gap none → rerank |
 |---|---|---:|---:|
 | 20 MHz, \(\mu=1\) | grouped | 0.9990 → 0.9999 | 96 → 18 TTIs |
@@ -542,11 +553,13 @@ The document revision is assigned independently of Git because a document cannot
 
 ### A.2 Software revisions
 
-**Model implementation source:** `69da774ea288694055be59759cdd74b652faaaf0`
+**Model implementation source:** `0f884e05ef65780add10dbf81c2e0aea9ec67ad3`
 
 **Packet-profile source:** `4e4ec5fdd26a74ad9c0b838313f39de4d0c9b021`
 
 **Runtime-benchmark source:** `1b55ca191e27a368936476fff33fc622833d8d13`
+
+**Scheduler-family benchmark source:** `a849796d8ba83ba0d481a2d0f2c572cc5f4e7527`
 
 | Component or campaign | Commit | Purpose |
 |---|---|---|
@@ -555,6 +568,9 @@ The document revision is assigned independently of Git because a document cannot
 | Hardened legacy BLER/HARQ implementation | `7a0c8d773e18fec3531e40892a8156bda4350c12` | Active bounded lookup, retries, integer accounting, grants, timers, capture verdicts, and stress tests |
 | Exact HARQ observability | `4e4ec5fdd26a74ad9c0b838313f39de4d0c9b021` | Conservation residual, queue/retry/radio telemetry, and profile analysis |
 | Privileged capture gate and final smoke fix | `69da774ea288694055be59759cdd74b652faaaf0` | Opt-in UDP/TCP namespace validation and preservation of the traffic generator's non-negative emission contract |
+| Audited NFQUEUE shutdown and saturation handling | `5c94f507d33346fcfacc601919392c10956ee29a` | Two-phase receive stop and verdict drain, non-throwing detach retry, normal teardown, payload-length fallback, and full HARQ-queue regression |
+| Final HARQ/NFQUEUE adversarial closeout | `714108a0676d01654daa93ca7de4a19039dd6db0` | Fresh traffic may use a grant too small for the ready retry; netlink receive drains to `EAGAIN`; malformed zero-length packets are dropped; persistent shutdown failure terminates after reporting |
+| Malformed NFQUEUE fail-fast closeout | `0f884e05ef65780add10dbf81c2e0aea9ec67ad3` | A failed verdict for a malformed zero-length packet terminates instead of losing the packet identifier and risking a silent kernel-queue stall |
 | Integrated implementation and all rebased validation runs | `1b55ca191e27a368936476fff33fc622833d8d13` | Model, packet profiles, map statistics, analysis, and runtime benchmark |
 | Evidence refresh after rebase | `b3b33885e09c38193fc6c0ecd8df3559f40222e9` | Portable manifests, refreshed figures, and committed summaries |
 | Deterministic map-catalog implementation | `8e1b3680d76b21daf76fd43596a9918972368fb7` | Production map-generation semantics |
@@ -579,6 +595,7 @@ The document revision is assigned independently of Git because a document cannot
 
 | Campaign | Source commit | Seed(s) | Duration or sample count | Date |
 |---|---|---|---|---|
+| Scheduler-family characterization | `a849796d8ba83ba0d481a2d0f2c572cc5f4e7527` | Deterministic benchmark | 288 cases × 300 measured TTIs | 2026-09-30 |
 | Paired HARQ disabled/no-retry/production campaign | `7a0c8d773e18fec3531e40892a8156bda4350c12` | `20260927` | 3 modes × 6 profiles × 180 s | 2026-09-30 |
 | Observable production HARQ campaign | `4e4ec5fdd26a74ad9c0b838313f39de4d0c9b021` | `20260927` | 6 profiles × 180 s, 20 s warm-up | 2026-09-30 |
 | Production HARQ seed sweep | `4e4ec5fdd26a74ad9c0b838313f39de4d0c9b021` | `20260928`, `20260929` | 6 profiles × 30 s/seed | 2026-09-30 |
@@ -604,6 +621,7 @@ The validation host used an AMD Ryzen 7 5800H with 8 physical cores and 16 logic
 | Legacy/current catalog comparison | `docs/baselines/map-v2.1-paired-profile-comparison.*` |
 | PF runtime and functional results | `docs/baselines/pf-runtime-*`, `docs/baselines/pf-functional-long*` |
 | Throughput scheduler guide and benchmark | `docs/throughput-schedulers.md`, `tools/benchmark_scheduler_family.py` |
+| Scheduler-family matrix | `docs/baselines/scheduler-family-v2/` |
 | HARQ contract, table provenance, and campaign evidence | `docs/harq-legacy-bler.md`, `docs/baselines/harq-*` |
 | Figure-generation script | `tools/generate_phy_v2_figures.py` |
 | Evidence verifier | `tools/verify_phy_v2_evidence.py` |

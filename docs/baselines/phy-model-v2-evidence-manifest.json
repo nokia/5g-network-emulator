@@ -161,17 +161,17 @@
     {
       "id": "manuscript",
       "path": "docs/phy-model-evolution-external-review.md",
-      "sha256": "c28230f3adbdee6e5e92d0e2c94e27f7475877bb24d58f924b693a7709504fd3"
+      "sha256": "6d22755602191ca22d3aaa988f65c387a60463b1d4b374fefb31ef83c72e7afb"
     },
     {
       "id": "throughput-scheduler-guide",
       "path": "docs/throughput-schedulers.md",
-      "sha256": "031d251cd9057360c53f791dd992a135ee5766c67a34f09111ba3ef30155ddc8"
+      "sha256": "97a7356c9d5c0b55ee2033ee5432cf5114e7d7de30e440fa246f2d4abfb50789"
     },
     {
       "id": "harq-design-guide",
       "path": "docs/harq-legacy-bler.md",
-      "sha256": "6cc19a77b3952f3f5321cd1ed6633f82f752097c8a323359952733021fd3c0fd"
+      "sha256": "94dbe65627d30d7d7529acc4fde06ad3d6ef17be35db4499cfb37299f68607f9"
     },
     {
       "id": "legacy-bler-table-characterization",
@@ -293,7 +293,7 @@
   "schema_version": 2,
   "scheduler_evidence": {
     "path": "docs/baselines/scheduler-family-v2/evidence.json",
-    "sha256": "de954a10ad29f9c17696480704256fec6147232c998a69629043d5f4a5123b38"
+    "sha256": "00e972398aba4746b4bc39028650e84f27bdf3f4939776a9cd156ab56b328824"
   },
   "source": {
     "analyzer_source_sha": "1b55ca191e27a368936476fff33fc622833d8d13",
@@ -301,7 +301,7 @@
     "dev_baseline_sha": "e995563fd3e8fa300f4b0accca3b494f7177101c",
     "feature_baseline_sha": "648aa7bedab82e55faed769ba16234c94f4d749d",
     "harq_analyzer_source_sha": "4e4ec5fdd26a74ad9c0b838313f39de4d0c9b021",
-    "implementation_source_sha": "69da774ea288694055be59759cdd74b652faaaf0",
+    "implementation_source_sha": "0f884e05ef65780add10dbf81c2e0aea9ec67ad3",
     "map_catalog_source_sha": "8e1b3680d76b21daf76fd43596a9918972368fb7",
     "map_statistics_source_sha": "1b55ca191e27a368936476fff33fc622833d8d13",
     "packet_profile_source_sha": "4e4ec5fdd26a74ad9c0b838313f39de4d0c9b021",

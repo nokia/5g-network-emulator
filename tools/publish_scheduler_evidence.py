@@ -25,11 +25,15 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("source", type=Path)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--replace", action="store_true")
     args = parser.parse_args()
     source = args.source.resolve()
     output = args.output.resolve()
     if output.exists():
-        raise SystemExit(f"refusing to replace existing output: {output}")
+        if not args.replace:
+            raise SystemExit(
+                f"refusing to replace existing output: {output}")
+        shutil.rmtree(output)
 
     metadata = json.loads((source / "metadata.json").read_text())
     if metadata["source_dirty"]:

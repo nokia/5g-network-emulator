@@ -152,8 +152,15 @@ std::uint64_t simulated_packet_handler::quantize_generated_bits(float bits)
 
 float simulated_packet_handler::ingest(int tx_dir, float current_t)
 {
+    const float generated_sample =
+        traffic_m->generate(tx_dir, current_t);
+    if (!std::isfinite(generated_sample))
+        throw std::invalid_argument(
+            "generated traffic bits must be finite");
     const std::uint64_t generated =
-        quantize_generated_bits(traffic_m->generate(tx_dir, current_t));
+        generated_sample > 0.0f
+            ? quantize_generated_bits(generated_sample)
+            : 0;
     if(generated > 0) packetize(generated, current_t, 0, ECN_NOT_ECT);
 
     // Injected bits are packetized on their own, one object at a time, so that an

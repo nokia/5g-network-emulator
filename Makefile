@@ -40,7 +40,7 @@ TRANSPORT_TESTS := \
 	transport/tests/test_prague.py \
 	transport/tests/test_transports.py
 
-.PHONY: all tools run test test-api test-transport test-transport-integration smoke clean print-objects
+.PHONY: all tools run test test-api test-transport test-transport-integration test-nfqueue smoke clean print-objects
 .SECONDARY: $(TEST_OBJECTS)
 
 all: $(TARGET) $(TOOLS_TARGETS)
@@ -110,6 +110,10 @@ test-transport:
 test-transport-integration: all
 	@echo "[TEST] transport/tests/test_fikore_link.py"
 	@PYTHONPATH=transport $(PYTHON) transport/tests/test_fikore_link.py
+
+test-nfqueue: all
+	@echo "[TEST] tests/nfqueue_namespace_test.py"
+	@PYTHONPATH=. $(PYTHON) tests/nfqueue_namespace_test.py
 
 test-api:
 	@echo "[TEST] api/tests"

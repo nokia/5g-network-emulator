@@ -7,6 +7,8 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 
+#include <exception>
+
 #define _BSD_SOURCE             /* See feature_test_macros(7) */
 #include <endian.h>
 
@@ -291,10 +293,9 @@ static int queue_cb(const struct nlmsghdr *nlh, void *data)
 	if(orig_len == 0) {
 		nfiface->last_recv_id = id;
 		nfiface->total_recv++;
-		return netfilter_interface_release_pkt(
-			nfiface, id, 0) == 0
-			? MNL_CB_OK
-			: MNL_CB_ERROR;
+		if(netfilter_interface_release_pkt(nfiface, id, 0) != 0)
+			std::terminate();
+		return MNL_CB_OK;
 	}
 
 	if(attr[NFQA_TIMESTAMP]) {

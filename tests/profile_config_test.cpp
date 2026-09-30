@@ -101,6 +101,19 @@ void check_profile(const expected_profile &expected)
     assert(shape.get_n_freq_rbg() == expected.frequency_rbgs);
     assert(shape.get_n_time_rb() == (1 << expected.numerology));
 }
+
+void check_no_l4s_study(
+    const char *path,
+    const char *expected_study_id)
+{
+    configuration_loader loader(path);
+    const std::list<ue_full_config> groups =
+        loader.get_ue_c_list();
+    assert(!groups.empty());
+    assert(groups.front().id == expected_study_id);
+    for (const ue_full_config &group : groups)
+        assert(!group.ue_c.l4s_c.enabled);
+}
 } // namespace
 
 int main()
@@ -240,6 +253,25 @@ int main()
 
     for (const expected_profile &profile : profiles)
         check_profile(profile);
+
+    check_no_l4s_study(
+        "config/offline_umi_n40_npn.ini",
+        "studyNPN");
+    check_no_l4s_study(
+        "config/offline_uma_n78_pedestrian.ini",
+        "studyPedestrian");
+    check_no_l4s_study(
+        "config/offline_rural_n78_vehicular.ini",
+        "studyVehicular");
+    check_no_l4s_study(
+        "config/offline_indoor_hotspot_n78_pedestrian.ini",
+        "studyIndoor");
+    check_no_l4s_study(
+        "config/offline_umi_n258_fwa.ini",
+        "studyFWA");
+    check_no_l4s_study(
+        "config/emulated_rural_n78_single_with_background.ini",
+        "capturedStudy");
 
     const std::string reordered_path =
         "build/tests/profile_config_reordered.ini";

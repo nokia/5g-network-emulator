@@ -82,14 +82,16 @@ It is only a management link. If your `.ini` emits telemetry UDP traffic from in
 
 ## Recommended Example Config
 
-The best ready-to-use emulated example is [config/emulated_rural_n78_single_with_background.ini](/home/pablop/devel/5g-network-emulator/config/emulated_rural_n78_single_with_background.ini).
+The best ready-to-use emulated example is [`config/emulated_rural_n78_single_with_background.ini`](../config/emulated_rural_n78_single_with_background.ini).
 
 Why this file is the best default example:
 
 - it matches the lab queue plan directly with `UE1 -> 100/101`;
-- it keeps `l4s_dual_queue: true`, so it exercises the L4S / DualQ path;
+- it keeps `l4s_dual_queue: false`, so unattended baseline runs do not silently enable DualQ behavior;
 - it adds simulated background users to create load around the captured UE;
 - it already enables UDP telemetry output on `127.0.0.1:8098`, which is where the API collector listens.
+
+Use `config/emulated_uma_n78_compare_with_background.ini` or `config/emulated_umi_n40_npn_compare_with_background.ini` when the experiment explicitly compares an L4S captured UE with a legacy captured UE.
 
 Important:
 
@@ -111,10 +113,7 @@ sudo BACKEND=host UE_COUNT=2 run_scripts/run_fikore_nfqueue_lab.sh up
 sudo run_scripts/run_fikore_nfqueue_lab.sh status
 ```
 
-This creates two namespace UEs:
-
-- `ue1`: intended for the L4S path
-- `ue2`: intended for the legacy path
+This creates two namespace UEs. The selected `.ini` determines whether either captured path uses L4S; the recommended rural baseline leaves it disabled.
 
 If you need a different lab size, change `UE_COUNT` only when running `up`. Later `run` reuses the existing topology.
 

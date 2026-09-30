@@ -2,7 +2,11 @@
 
 ## Abstract
 
-FikoRE is a single-cell 5G radio-access-network emulator designed to expose real or generated application traffic to controlled variations in coverage, capacity, latency, loss, mobility, and scheduling. Its physical layer is a system-level abstraction: it represents the main relationships between position, propagation, received power, interference, modulation and coding, radio-resource allocation, packet errors, and effective delivery, but it does not generate waveforms or emulate a complete receiver. This paper gives a self-contained description of the implemented physical and MAC-layer model, explains the simplifications that define its validity boundary, presents deterministic and statistical validation, and describes the planned evolution toward multicell interference, explicit beam state, carrier aggregation, calibrated MIMO, and externally calibrated link-to-system prediction. The current model uses deterministic spatial maps based on Alpha-Beta-Gamma path loss and correlated shadowing, explicit building and vehicle penetration states, resource-consistent signal and noise accounting, allocation-aware uplink power finalization, threshold-based link adaptation, a generalized MT/PF/BET scheduler family, and an operationally hardened legacy table-driven BLER/HARQ mode. Validation covers 630 independently seeded maps, packet-level reference scenarios, scheduler characterization for 1 to 256 UEs, deterministic and million-decision HARQ tests, and paired disabled/no-retry/production HARQ campaigns. These results establish reproducibility and internal consistency, not deployment-level predictive accuracy: long delivery gaps remain possible in challenging UMa and RMa scenarios, interference and MIMO remain deliberately limited, and the legacy BLER table lacks receiver and link-level calibration provenance.
+FikoRE is a single-cell 5G radio-access-network emulator that exposes real or generated application traffic to controlled changes in coverage, capacity, latency, loss, mobility, and scheduling. It advances a packet-level model in 1 ms intervals and represents the relationships between position, propagation, received power, interference, link adaptation, radio-resource allocation, packet errors, retransmissions, and delivered payload. It does not generate waveforms or emulate a complete receiver.
+
+The implemented model combines deterministic Alpha-Beta-Gamma path-loss and correlated-shadowing maps, explicit building and vehicle penetration states, resource-consistent signal and noise accounting, allocation-aware uplink power finalization, threshold-based MCS and rank selection, MT/PF/BET/RR scheduling, and a hardened legacy table-driven BLER/HARQ path. Integer packet accounting closes exactly across delivered, expired, queue-dropped, radio-dropped, and pending bits.
+
+Validation covers 630 independently seeded maps, canonical packet-level scenarios, a 288-case scheduler matrix, deterministic and million-decision HARQ tests, and paired disabled/no-retry/production HARQ campaigns. The evidence establishes reproducibility and internal consistency, not deployment-level predictive accuracy. Interference remains a single-cell surrogate, rank and MIMO are scalar abstractions, and the legacy BLER table has no documented receiver or link-level calibration. The roadmap therefore focuses on calibrated multicell interference, beam and blockage state, carrier aggregation, MIMO, and link-to-system prediction beyond the implemented legacy HARQ path.
 
 ## 1. Purpose and modelling philosophy
 
@@ -10,11 +14,22 @@ FikoRE occupies a middle ground between a static link-budget calculator and a co
 
 The current model is intended to answer questions such as how offered traffic is divided among users with different radio conditions, how coverage and MCS affect nominal radio capacity, how uplink power limits interact with the number of allocated PRBs, how TDD and scheduler granularity affect service continuity, and how packet demand differs from nominal grid capacity. It is not intended to predict the exact BLER of a commercial receiver, perform site planning, reproduce beam-management procedures, or replace deployment-specific propagation calibration.
 
-The original FikoRE architecture was introduced as an application-level RAN emulator rather than a standards-calibration simulator [21]. The physical-model work described here refines that architecture by making the bandwidth reference, uplink power semantics, map generation, penetration state, scheduler history, and validation boundary explicit. Comparable open simulators such as 5G-LENA and Simu5G provide broader NR system models and useful calibration precedents [19], [20], while the Vienna methodology illustrates the link-level calibration process that remains necessary before FikoRE can claim predictive MCS or BLER accuracy [18].
+The original FikoRE architecture was introduced as an application-level RAN emulator rather than a standards-calibration simulator [21]. The physical-model work described here refines that architecture by making the bandwidth reference, uplink power semantics, map generation, penetration state, scheduler history, packet-error behavior, and validation boundary explicit. Comparable open simulators such as 5G-LENA and Simu5G provide broader NR system models and useful calibration precedents [19], [20], while the Vienna methodology illustrates the link-level calibration process that remains necessary before FikoRE can claim predictive MCS or BLER accuracy [18].
+
+The main body is self-contained and describes model behavior rather than source-code layout. Reproduction commands, exact configuration files, source identities, campaign manifests, and artifact hashes are grouped in Appendix A and the evidence protocol.
 
 ## 2. End-to-end architecture
 
-FikoRE advances the serving cell in transmission time intervals of \(\Delta t=1\ \mathrm{ms}\). During each interval, UE positions are updated; when a channel-state refresh is due, the macroscopic map is sampled at the current position and penetration and small-scale effects are applied; the physical layer then supplies per-resource SINR and nominal capacity to the MAC scheduler, which allocates available time-frequency units before the packet queues consume the resulting grants. The packet layer records effective delivered bits and queue or expiry losses; these effective bits update scheduler history at the end of the TTI.
+FikoRE advances the serving cell in transmission time intervals of \(\Delta t=1\ \mathrm{ms}\). The processing order is fixed so that movement, channel state, grants, packet outcomes, and scheduler memory refer to the same interval.
+
+| Stage | State transition in one TTI |
+|---|---|
+| Position | Update each UE position and mobility state |
+| Channel | Sample the large-scale map when due and apply penetration, fading, interference, and power |
+| PHY | Derive per-resource SINR, rank, MCS, and nominal capacity |
+| MAC | Rank eligible UEs and allocate directionally available time-frequency units |
+| Packet/HARQ | Quantize capacity to integer bits, consume queues, decide ACK/NACK-like outcomes, retry, expire, or release packets |
+| History and telemetry | Commit effective-service history once, update queue/fate counters, and publish monitoring |
 
 The evaluated model contains one serving cell and one configured carrier. It supports TDD and symmetric FDD, although all reference evidence uses TDD. A carrier is represented by a rectangular time-frequency grid. Frequency resources may be scheduled as individual physical resource blocks or grouped into resource-block groups, while the time dimension may be localized over the complete 1 ms interval or distributed over the numerology-dependent slots inside that interval.
 
@@ -35,6 +50,8 @@ The physical layer supplies continuous nominal capacity per scheduling unit. The
 | O2I | Outdoor-to-indoor or environmental penetration state |
 | MT / PF / BET / RR | Max Throughput / Proportional Fair / Blind Equal Throughput / Round Robin scheduler |
 | HARQ | Retransmission process driven by an ACK/NACK-like statistical decision |
+| `harq_model` | Configuration choice between active `legacy_bler` and the explicit `disabled` ablation |
+| `throughput_intra_tti_update` | Configuration choice between no provisional update and allocation-unit PF/BET reranking |
 | \(N_{\mathrm{RB,car}}\) | Number of modelled frequency-domain PRBs in the carrier |
 | \(n_b\) | Number of PRBs in scheduling unit \(b\) |
 | \(\Gamma_{i,b}\) | SINR of UE \(i\) on scheduling unit \(b\) |
@@ -269,7 +286,7 @@ DL rank is selected from thresholds applied to mean SINR and is bounded by confi
 
 The scheduler assigns continuous nominal capacity \(B_{i,b}\), while the packet layer reports integer effective bits \(B^{\mathrm{eff}}_{i,b}\). Capacity is quantized once at the PDCP boundary and only a sub-bit residual is carried forward. Effective payload can be lower because the queue contains fewer bits, a ready retry does not fit the grant, an initial transmission or retry fails, or a packet expires. Resource summaries therefore distinguish available units, assigned units, units with positive effective payload, and assigned units that produce no effective payload.
 
-A retransmission is attempted only when the current grant can carry the complete stored HARQ block. Its charged bits equal the transmitted block, effective payload cannot exceed charged bits, and rate-cap tokens use charged rather than candidate capacity. The block retains its original MCS and selected rank while the current SINR drives the retry lookup. Packet, fragment, queue, fate, and cumulative counters are integer bits and satisfy an exact admitted-equals-terminal-plus-pending invariant.
+A retransmission is attempted only when the current grant can carry the complete stored HARQ block. A smaller grant may carry fresh data on another logical HARQ process while the larger retry waits; if no fresh data exists, that allocation produces no air charge or effective payload. Charged bits equal the transmitted block, effective payload cannot exceed charged bits, and rate-cap tokens use charged rather than candidate capacity. The retry retains its original MCS and selected rank while the current SINR drives the table lookup. Packet, fragment, queue, fate, and cumulative counters are integer bits and satisfy an exact admitted-equals-terminal-plus-pending invariant.
 
 ### 5.2 Throughput scheduler family
 
@@ -280,6 +297,13 @@ M_{i,b}(t)=w_i\frac{r_{i,b}(t)^\alpha}{\max(\bar R_i(t),\epsilon)^\beta}.
 \]
 
 Here \(w_i\) is priority, \(r_{i,b}\) is current nominal achievable rate, and \(\bar R_i\) is effective-service history. MT uses \((\alpha,\beta)=(1,0)\) and never enters the history lifecycle. PF uses \((\alpha,\beta)=(\alpha_{\mathrm{PF}},1)\), where \(\alpha_{\mathrm{PF}}\) is cell-wide. Pure BET uses \((0,1)\) and therefore ranks inverse history independently of instantaneous rate once eligibility is established. RR retains an independent cursor implementation, ignores priority, and never enters this formula. The PF rate-over-history recipe follows established proportional-fair scheduling principles [10], [11].
+
+| Configured alias | Scheduler behavior |
+|---|---|
+| `metric_type: 4` | MT: current weighted rate, no history |
+| `metric_type: 6` | PF: weighted \(r^{\alpha_{\mathrm{PF}}}/\bar R\) |
+| `metric_type: 1` | BET: inverse service history after eligibility |
+| `metric_type: 5` | RR: independent rotating cursor |
 
 PF and BET history is updated once per active 1 ms TTI:
 
@@ -296,7 +320,7 @@ Exact metric comparisons use an absolute tolerance of \(10^{-6}\). Candidates wi
 
 ### 5.3 Intra-TTI reranking
 
-Without intra-TTI reranking, all allocation units in a TTI see the same committed PF or BET denominator, so one user can win several units before history changes. In `allocation_unit` mode, the scheduler maintains a provisional current-TTI service value
+Without intra-TTI reranking, all allocation units in a TTI see the same committed PF or BET denominator, so one user can win several units before history changes. Setting `throughput_intra_tti_update: allocation_unit` makes the scheduler maintain a provisional current-TTI service value
 
 \[
 \tilde R_i(t,b)=(1-a)\bar R_i(t)+a\,x_i^{\mathrm{nom}}(t,b),
@@ -308,7 +332,7 @@ For UL, planning and provisional reranking occur before allocation-aware power i
 
 ### 5.4 Legacy BLER and HARQ
 
-The active `legacy_bler` mode restores the historical static table with shape \(2\times5\times4\times28\times60\): modulation table, RBG class \(1/2/4/8/16\) PRBs, one through four layers, MCS 0 through 27, and bounded SINR bin. Every axis and finite SINR are checked before lookup; unsupported MCS 28 is rejected. The 67,200 packed float64 values have SHA-256 `d61acbe2a5cea399570c53b40f0374261ca28ac80ccefed0aee85728ea9bda70`, contain 544 duplicate curves, and contain no adjacent BLER increase with SINR.
+The production default `harq_model: legacy_bler` restores the historical static table with shape \(2\times5\times4\times28\times60\): modulation table, RBG class \(1/2/4/8/16\) PRBs, one through four layers, MCS 0 through 27, and bounded SINR bin. Every axis and finite SINR are checked before lookup; unsupported MCS 28 is rejected. The 67,200 packed float64 values have SHA-256 `d61acbe2a5cea399570c53b40f0374261ca28ac80ccefed0aee85728ea9bda70`, contain 544 duplicate curves, and contain no adjacent BLER increase with SINR.
 
 For table BLER \(p\) and zero-based attempt ordinal \(n\), FikoRE preserves the historical failure law
 
@@ -318,7 +342,7 @@ P_{\mathrm{fail}}(p,n)=\operatorname{clip}_{[0,1]}\left[\left(1-(1-p)^{n+1}\righ
 
 Attempt zero is the initial transmission and attempts \(1,\ldots,N_{\max}\) are retries. This expression is not claimed to represent Chase combining or incremental redundancy and is non-monotonic for some early attempts; it is retained for reproducibility pending external calibration. `max_rtx` is authoritative, each queued block has its own ready deadline, and BLER, feedback-period, processing-delay, and propagation-jitter streams are independent. `disabled` remains an explicit ablation mode.
 
-Captured real traffic uses one completion state per kernel UID. Successful and failed fragments share one ordering structure, exactly one final accept, CE-marked accept, or drop verdict is sent, failed verdict sends retain state for retry, and detach or shutdown resolves all originals under a bounded watchdog. This operational hardening addresses the historical hang mechanism but does not improve the physical validity of the BLER values.
+Captured real traffic uses one completion state per original packet. Successful and failed fragments share one ordering structure, and the packet receives exactly one final accept, congestion-marked accept, or drop decision. If the operating-system verdict send fails, FikoRE retains the state and retries; detach and shutdown stop reception before draining all copied packets. This operational hardening removes a prior capture-deadlock class but does not improve the physical validity of the BLER values.
 
 ## 6. Reference physical configurations
 
@@ -332,23 +356,47 @@ The following profiles define representative, internally consistent single-carri
 | Indoor n78 pedestrian | Indoor open office, 3.5 GHz, 100 MHz, \(\mu=1\) | 24 dBm | 8.7/0 dBi | 2/9 dB | 23 dBm study UE; 10 dBm background |
 | UMi n258 FWA | UMi, 26 GHz, 400 MHz, \(\mu=3\) | 35 dBm | 24/26 dBi | 7/10 dB | 23 dBm study UE; 10 dBm background |
 
+The same profiles also define a repeatable MAC policy rather than leaving scheduler behavior implicit:
+
+| Profile | Scheduler | Intra-TTI policy | HARQ policy | Study queue |
+|---|---|---|---|---|
+| UMi n40 NPN | PF | Allocation-unit reranking | `legacy_bler`, four retries | Legacy single queue |
+| UMa n78 pedestrian | PF | Allocation-unit reranking | `legacy_bler`, four retries | Legacy single queue |
+| RMa n78 vehicular | RR | Not applicable | `legacy_bler`, four retries | Legacy single queue |
+| Indoor n78 pedestrian | PF | Allocation-unit reranking | `legacy_bler`, four retries | Legacy single queue |
+| UMi n258 FWA | PF | Allocation-unit reranking | `legacy_bler`, four retries | Legacy single queue |
+
+All five general-purpose study UEs disable the optional DualQ/L4S queue by default. Dedicated live-traffic comparison profiles enable L4S explicitly when the experiment is intended to compare scalable and legacy congestion control.
+
 Configured DL power is treated as total carrier power. The distinction between conducted power, total radiated power, and EIRP must remain explicit when mapping these profiles to equipment. The n258 gains are equivalent aligned FWA gains and do not constitute a beamforming model.
 
 ## 7. Validation methodology
 
 ### 7.1 Deterministic and unit-level validation
 
-Implementation-level tests verify per-PRB thermal noise, physical-carrier power distribution, deterministic grouped-versus-per-PRB SINR, total UL power conservation over 1 to 275 PRBs, FR1 and FR2 overhead selection, MIMO table indexes, scheduler recipe and history policy, TDD structural-resource accounting, shared DL/UL environment state, map origin, exact-frequency lookup, and rejection of unsupported asymmetric FDD. HARQ tests cover every lookup boundary, failure-law reference values, retry limits 0/1/4, grant conservation, sub-bit progress, per-block deadlines, RNG-stream independence, exact packet closure, captured-verdict retry and shutdown, one million deterministic decisions, and 100,000 queue cycles. Map catalogs, the BLER payload, and committed evidence are hash-verified.
+Deterministic validation is grouped by model boundary so that a failure can be assigned to one contract:
+
+| Boundary | Main checks |
+|---|---|
+| Carrier and power | Per-PRB signal/noise reference, grouped/per-PRB SINR invariance, FR1/FR2 overhead, and UL power conservation over 1–275 PRBs |
+| Link adaptation and MIMO indexes | MCS boundaries, valid one-to-four-layer table indexes, bounded rank, and explicit rejection of unsupported axes |
+| Scheduler and duplexing | MT/PF/BET formulas, RR independence, one history update per active TTI, tie rotation, TDD structural-resource accounting, and unsupported asymmetric FDD rejection |
+| Packet and HARQ | Integer-bit closure, charged-grant conservation, retry limits 0/1/4, per-block deadlines, independent RNG streams, bounded queues, capture verdict retry, and clean shutdown |
+| Environment and maps | Shared DL/UL penetration realization, independent keyed streams, explicit map origin, exact-frequency selection, and deterministic catalog hashes |
+
+Stress validation adds one million deterministic HARQ decisions, 100,000 queue cycles, saturated-queue accounting, sanitizer runs, and recursive verification of every committed artifact and the embedded BLER-table payload.
 
 ### 7.2 Map ensemble
 
-Thirty independent master seeds are evaluated for each of the 21 scenario-frequency entries, giving 630 maps. The realization, not the spatial cell, is the independent statistical unit. Diagnostics include radial LOS probability over the inscribed disk, link-gain quantiles, shadow mean and standard deviation, axial correlation at the nearest representable target lag, and opposite-edge correlation to detect periodic seams. Confidence intervals are pointwise and describe generator variability; they are not simultaneous goodness-of-fit tests or field-prediction intervals.
+Thirty independent master seeds, `20270000` through `20270029`, are evaluated for each of the 21 scenario-frequency entries, giving 630 maps. The realization, not the spatial cell, is the independent statistical unit. Diagnostics include radial LOS probability over the inscribed disk, link-gain quantiles, shadow mean and standard deviation, axial correlation at the nearest representable target lag, and opposite-edge correlation to detect periodic seams. Confidence intervals are pointwise and describe generator variability; they are not simultaneous goodness-of-fit tests or field-prediction intervals.
 
 ### 7.3 Packet-level profiles
 
-Five principal profiles are run for 180 simulated seconds with one common seed and a 20-second analysis warm-up, with n258 high-loss added as a sixth HARQ stress profile. The profiles contain 11 UEs for UMi n40, RMa, indoor n78, and n258, and 21 UEs for UMa n78. Reported quantities include offered and delivered throughput, queue, expiry, and radio errors, SINR and MCS quantiles, sampled outage classification, non-overlapping zero-delivery windows, observed delivery gaps inside contiguous positive-offer segments, resource assignment, effective-unit fill, payload-to-grant efficiency, retransmitted bits, HARQ occupancy and age, and exact closure residual.
+Five principal profiles are run for 180 simulated seconds with seed `20260927` and a 20-second analysis warm-up, with n258 high-loss added as a sixth HARQ stress profile. The profiles contain 11 UEs for UMi n40, RMa, indoor n78, and n258, and 21 UEs for UMa n78. Reported quantities include offered and delivered throughput, queue, expiry, and radio errors, SINR and MCS quantiles, sampled outage classification, non-overlapping zero-delivery windows, observed delivery gaps inside contiguous positive-offer segments, resource assignment, effective-unit fill, payload-to-grant efficiency, retransmitted bits, HARQ occupancy and age, and exact closure residual.
 
-A UE is classified as sampled radio outage when its MCS is below zero in at least 99% of post-warm-up radio samples. Delivery gaps are not scheduler-starvation measurements because queue backlog is not present in the current logs and the observations combine traffic generation, queueing, scheduling, expiry, and radio state.
+The packet table in Section 8.2 comes from the explicit `harq_model: disabled` arm and is retained as the queue/scheduler ablation baseline. The shipped profiles use active `legacy_bler`; their paired disabled, no-retry, and four-retry results are reported separately in Section 8.5. This separation prevents a disabled-HARQ table from being mistaken for production behavior.
+
+A UE is classified as sampled radio outage when its MCS is below zero in at least 99% of post-warm-up radio samples. Queue and HARQ occupancy are logged, but delivery gaps still combine offered traffic, positive-rate eligibility, scheduling, retries, expiry, and release timing. A delivery gap is therefore not labelled scheduler starvation unless those causes are conditioned separately.
 
 ### 7.4 Controlled map and penetration comparisons
 
@@ -358,9 +406,9 @@ The penetration comparison uses the same map, traffic, mobility, powers, gains, 
 
 ### 7.5 Runtime and scheduler functional evaluation
 
-Runtime tests use one emulator thread, disabled verbose logging, 20 warm-up TTIs, 100 individually timed TTIs, and ten process repetitions per case, giving 1,000 TTI timings. Populations are 1, 16, 64, and 256 UEs, and the benchmark spans 20 MHz, 100 MHz, and 400 MHz grouped and distributed per-PRB grids. The 1 ms threshold is a compute-budget threshold for this host and benchmark configuration, not an end-to-end real-time guarantee.
+Three complementary experiments answer different scheduler questions. The scheduler-family matrix covers MT, BET, PF, and RR over 288 combinations of homogeneous or heterogeneous channels, finite or full-buffer demand, 16 or 64 UEs, three grids, and grouped or distributed/per-PRB allocation. Each case uses 20 warm-up TTIs followed by 100 measured TTIs and three repetitions, giving 300 timings per case and 86,400 timings overall.
 
-Scheduler characterization spans MT, BET, PF, and RR under homogeneous and near/far channels, full-buffer and finite demand, and grouped and per-PRB allocation. Longer PF and BET behavior is measured after 500 warm-up TTIs and over 2,000 measured TTIs; this is long relative to the configured 100 ms EWMA window but is not a proof of asymptotic convergence.
+A separate runtime-envelope experiment extends the population to 1, 16, 64, and 256 UEs and uses ten repetitions, giving 1,000 TTI timings per case. A third, longer PF experiment uses 500 warm-up TTIs and 2,000 measured TTIs to examine convergence relative to the 100 ms history window. The 1 ms threshold used in timing tables is a host-specific compute budget, not an end-to-end real-time guarantee.
 
 ### 7.6 HARQ campaign
 
@@ -416,7 +464,7 @@ The generalized matrix contains 288 cases and 86,400 warmed-up TTI timings acros
 | Round Robin | 66.21 Mbit/s / 1.000 | 61.76 Mbit/s / 0.987 | 3 TTIs |
 | PF, allocation-unit | 66.30 Mbit/s / 1.000 | 61.78 Mbit/s / 0.989 | 5 TTIs |
 
-The heterogeneous arm keeps both groups eligible by pairing 50 m outdoor UEs with 200 m low-loss-indoor UEs. The 120-TTI observation is deliberately short. Pure BET's inverse-history score strongly favors the initially lower-rate group and has not converged within this window, while MT maximizes aggregate rate by starving that group. RR and PF retain high short-window fairness with a modest aggregate-rate cost. These are scheduler characterizations, not universal asymptotic rankings.
+The heterogeneous arm keeps both groups eligible by pairing 50 m outdoor UEs with 200 m low-loss-indoor UEs. The 100-TTI measured window follows 20 warm-up TTIs and is deliberately short. Pure BET's inverse-history score strongly favors the initially lower-rate group and has not converged within this window, while MT maximizes aggregate rate by starving that group. RR and PF retain high short-window fairness with a modest aggregate-rate cost. These are scheduler characterizations, not universal asymptotic rankings.
 
 | Grid | Scheduling unit | DL Jain none → rerank | Maximum DL effective-service gap none → rerank |
 |---|---|---:|---:|
@@ -459,47 +507,59 @@ In the observable production run, the largest aggregate retransmission rate is 1
 
 ## 9. Current validity boundary
 
-The current model is internally reproducible and dimensionally consistent for its declared abstractions, but several limitations prevent predictive deployment claims.
+The current model is internally reproducible and dimensionally consistent for its declared abstractions, but the following limits prevent predictive deployment claims:
 
-First, the ABG coefficients, shadow deviations, and map dimensions are not accompanied by one consolidated source-campaign table containing frequency, distance, height, and environment ranges. Generated map extent must therefore not be interpreted as model-validity extent.
+| Limitation | Consequence | Required extension |
+|---|---|---|
+| Propagation provenance | Stored map extent can exceed the measurement range behind an ABG fit | Consolidate source campaigns, validity ranges, heights, frequencies, and uncertainty |
+| Single-cell interference surrogate | SINR does not respond to explicit neighbour geometry, beam state, scheduler activity, or penetration | Add staged multicell geometry and load/scheduling coupling |
+| Scalar rank and MIMO | Rank has no channel matrix, precoder, receiver, layer SINR, or codeword mapping | Calibrate rank/layer state and then add matrix or lookup-based MIMO |
+| Uncalibrated MCS and legacy BLER | Operational HARQ is reproducible but not predictive of a documented receiver | Generate link-level BLER data and calibrated link-to-system mapping |
+| Limited statistical sampling | One principal packet seed and two short HARQ sensitivity seeds do not form a deployment distribution | Run predeclared seed and load ensembles |
+| Incomplete cause classification | Queue/HARQ occupancy is visible, but every empty allocation is not classified by eligibility, backlog, scheduler, packet fit, or radio failure | Emit per-UE and per-allocation reason codes |
+| Host-specific timing | Empirical runtime tails do not include external applications, packet capture, or operating-system guarantees | Repeat on target hosts with isolated and end-to-end timing |
 
-Second, the interference surrogate does not represent neighbour geometry, antenna patterns, beams, load, scheduling, or penetration. It can perturb SINR but cannot reproduce the coupling between traffic load and inter-cell interference.
-
-Third, rank and MIMO are scalar abstractions. The model has no channel matrix, precoder, receiver, layer-specific SINR, codeword mapping, or calibrated rank-transition distribution. The reference evidence validates rank one only.
-
-Fourth, MCS, nominal capacity, and legacy BLER are not calibrated against a documented link-level NR implementation. The active table has reproducible bytes and bounded axes but no committed decoder, TBS, code-block, redundancy-version, combining, or receiver provenance. Operational HARQ evidence must therefore not be interpreted as predictive radio reliability.
-
-Fifth, the principal packet-level tables use one traffic, map, mobility, and fading seed. Two additional HARQ seeds test retry sensitivity but do not constitute a deployment or offered-load distribution.
-
-Sixth, delivery metrics are sampled every 10 ms, and initial or final zero-delivery runs are lower bounds under censoring. Queue and HARQ occupancy are now observed, but the scheduler still does not emit one classified empty-resource reason per UE and allocation unit.
-
-Finally, timing results apply to one non-isolated host and an accelerated benchmark with bounded generated load. Their empirical tails are useful for implementation choices but are not operating-system or application-level timing guarantees.
+Delivery metrics are sampled every 10 ms, so initial and final zero-delivery runs are lower bounds under censoring. These limitations constrain interpretation; they do not invalidate the deterministic comparisons reported in Section 8.
 
 ## 10. Planned model evolution
 
 ### 10.1 Multicell interference
 
-The next interference model should separate reference-signal strength from traffic-dependent SINR without turning FikoRE into a site-planning simulator. The minimum useful extension is a small explicit neighbour geometry with per-resource activity determined by cell load. A load-coupled model can represent the fixed point
+The next interference model should separate reference-signal strength from traffic-dependent SINR without turning FikoRE into a site-planning simulator. A staged implementation would allow experiments to choose cost and fidelity explicitly:
+
+| Stage | Added state | Intended use |
+|---|---|---|
+| Static neighbours | A small set of neighbour positions, carrier powers, scalar antenna gains, and path losses | Repeatable geometry-aware interference with fixed activity |
+| Load-coupled neighbours | One utilization variable per cell and direction, updated from offered demand and available capacity | Capture the feedback between load, interference, and achievable rate |
+| Scheduled neighbours | Per-resource neighbour activity and optional correlated TDD patterns | Study scheduler and resource-overlap effects |
+
+A load-coupled intermediate model can represent the fixed point
 
 \[
 \rho_c=\sum_{u\in c}\frac{d_u}{W\log_2\!\left(1+\mathrm{SINR}_u(\boldsymbol{\rho})\right)},
 \]
 
-where cell load \(\rho_c\) changes the interference imposed on neighbouring cells [12]. Open decisions include explicit wraparound geometry versus scenario-calibrated neighbour gains, whether interference is updated per PRB or per RBG, and how scheduler runtime constrains the number of neighbours.
+where \(\rho_c\) is the fraction of time-frequency resources used by cell \(c\), \(d_u\) is UE demand, and \(\boldsymbol{\rho}\) scales interference from all neighbours [12]. FikoRE could solve this equation once per slower load interval while retaining its 1 ms serving-cell scheduler. A later scheduled model would replace \(\rho_c\) with actual PRB/RBG overlap. Required design choices are neighbour count, wraparound or finite geometry, antenna and penetration treatment, DL/UL coupling, convergence policy, and the runtime budget per TTI.
 
 ### 10.2 Beam state and blockage
 
-The existing n258 profiles use equivalent aligned scalar gains. A first explicit beam model should introduce serving and interfering Tx/Rx beam identifiers, alignment state, blockage state, measurement cadence, reporting delay, beam-sweep resource cost, and failure-recovery behavior. A possible link term is
+The existing n258 profiles use equivalent aligned scalar gains: they represent an already aligned FWA link and contain no beam search or blockage dynamics. A minimal explicit extension would give each link a transmit-beam identifier, receive-beam identifier, alignment state, and blockage state. The resulting link term could be
 
 \[
 G_{\mathrm{beam}}(t)=G_{\mathrm{tx}}(b_{\mathrm{tx}})+G_{\mathrm{rx}}(b_{\mathrm{rx}})-L_{\mathrm{align}}(a_t)-L_{\mathrm{block}}(z_t).
 \]
 
-Alignment and blockage should be independent dimensions rather than mutually exclusive labels. The model must distinguish absolute antenna gain from a gain or loss delta relative to the current scalar profile [13].
+The first implementation could use a finite-state process: aligned, misaligned, beam search, failure, and recovery. State transitions would be driven by mobility, measurement cadence, reporting delay, and optional blockage events; beam sweeps would consume explicit symbols or TTIs. Alignment and blockage should remain independent because a correctly selected beam can still be blocked, and a clear path can still be misaligned [13].
+
+TR 38.901 provides two useful blockage precedents [1]. Model A is a computationally light stochastic attenuation process, while Model B represents explicit blocker geometry. A practical sequence is therefore to begin with spatially consistent stochastic blockage and fixed antenna-pattern tables, then add blocker geometry only for experiments that need body or vehicle trajectories. Absolute antenna gain, array-pattern gain, alignment loss, and blockage loss must be kept separate to avoid double-counting the scalar gains already present in the n258 profiles.
 
 ### 10.3 Carrier aggregation
 
-Carrier aggregation must not be represented as one invalidly wide carrier. One UE MAC entity should retain shared logical-channel and RLC queues, while each serving cell has its own frequency, bandwidth part, numerology, resource grid, channel state, CQI, MCS, HARQ state, and grants. PCell and SCell activation and optional cross-carrier scheduling add control state, and simultaneous UL carriers must share a joint \(P_{\mathrm{CMAX}}\) constraint rather than multiplying UE power [5], [14], [22]–[24].
+Carrier aggregation must not be represented as one invalidly wide carrier because each component carrier can have a different frequency, bandwidth part, numerology, propagation state, interference process, CQI, MCS, HARQ process, and grant. The UE should retain one application-facing MAC/RLC queue hierarchy, while each serving cell owns a separate PHY and resource grid. The shared scheduler then decides both which UE and which carrier receives service.
+
+An incremental implementation could start with downlink aggregation of two always-active component carriers and independent per-carrier scheduling. A second stage would add PCell/SCell activation, deactivation timers, bandwidth-part state, and optional cross-carrier scheduling. Uplink aggregation must additionally enforce one UE power budget across simultaneous carriers; assigning \(P_{\max}\) independently on each carrier would create non-physical power. TS 38.300 defines the serving-cell and carrier-aggregation architecture, while TS 38.213 provides the relevant power-control and overlapping-transmission constraints [3], [22].
+
+Dual connectivity is a distinct extension rather than another CA flag: it introduces separate cell groups, potentially independent schedulers and timing, and explicit inter-group power sharing. Keeping CA and dual connectivity separate in the model avoids conflating one MAC entity over several carriers with two coordinated serving nodes.
 
 ### 10.4 MIMO
 
@@ -509,23 +569,39 @@ A practical next-stage MIMO abstraction should expose selected rank, post-proces
 \left(v,\Gamma_{\ell,k,\mathrm{cw}},P_{\ell,k},n_{\mathrm{cw}},m_{\mathrm{cw}}\right).
 \]
 
-The minimum implementation could use calibrated lookup distributions conditioned on scenario, antenna configuration, and reference SINR. A higher-fidelity option would add correlated channel matrices, codebook precoding, and an explicit receiver. Required calibration includes rank distributions, antenna correlation, layer-quality distributions, receiver type, and RI feedback cadence.
+In this tuple, \(v\) is selected rank, \(\Gamma_{\ell,k,\mathrm{cw}}\) is post-processing SINR for layer \(\ell\), resource \(k\), and codeword \(\mathrm{cw}\), \(P_{\ell,k}\) is layer power, \(n_{\mathrm{cw}}\) is codeword count, and \(m_{\mathrm{cw}}\) is codeword MCS. The scheduler consumes rank and per-codeword achievable rate, while the error model consumes the SINR vector, MCS, and transport-block context.
+
+Two implementation levels are plausible. A calibrated lookup model would sample rank and layer-quality offsets conditioned on scenario, antenna configuration, mobility, and reference SINR; it is inexpensive and suitable when only application-facing capacity matters. A matrix model would generate a correlated channel, apply a codebook precoder and receiver, and derive post-processing SINR explicitly. The latter supports beam and MU-MIMO studies but requires antenna geometry, spatial correlation, precoder, receiver, feedback delay, and calibration data. The current scalar rank-one evidence should remain the baseline until either option is independently validated.
 
 ### 10.5 Link-to-system abstraction, HARQ, and OLLA
 
-Replacing the operational legacy BLER mode with a predictive link-to-system abstraction requires reproducible AWGN BLER curves indexed by MCS, bounded TBS class, rank, receiver, and redundancy version. Frequency-selective SINR can then be compressed per codeword with a calibrated effective-SINR mapping. For EESM,
+The operational legacy BLER path already provides retries and packet accounting; this section concerns its calibrated replacement. A predictive link-to-system abstraction requires reproducible AWGN BLER curves indexed by MCS, transport-block or code-block size, rank, receiver, and redundancy version. For a frequency-selective allocation, post-processing SINRs can be compressed per codeword with a calibrated effective-SINR mapping. For EESM,
 
 \[
 \gamma_{\mathrm{eff}}=-\beta_m\ln\!\left(\frac{1}{K}\sum_{k=1}^{K}e^{-\gamma_k/\beta_m}\right),
 \]
 
-where \(\gamma_k\) and \(\beta_m\) are linear dimensionless SINR quantities and data-resource elements should be weighted appropriately. MIESM provides a modulation-aware alternative, while recursive effective-SINR methods can support HARQ accumulation [15], [16].
+where \(\gamma_k\) is post-processing SINR on resource \(k\) and \(\beta_m\) is an MCS-specific calibration parameter. The parameter is not a tuning constant chosen from system-level results: it should be fitted against link-level fading results so that effective SINR reproduces AWGN BLER for the same MCS [25]. MIESM is a modulation-aware alternative that maps SINR through mutual information before compression.
 
-Outer-loop link adaptation should maintain a separate bounded belief offset that is updated from ACK/NACK outcomes toward a declared BLER target [17]. The current generic SINR offset is unsuitable because it shifts both scheduling belief and reported physical SINR.
+The effective SINR then indexes code-block BLER curves generated by an NR-compliant link-level simulator. Transport-block size determines LDPC base graph, lifting, and segmentation; code-block error probabilities are combined into transport-block error probability [25], [26]. This makes packet size and allocation shape part of the error model instead of relying on one BLER curve per MCS.
+
+HARQ history depends on the combining method. Chase combining retains the coded transmission and combines SINR across attempts, whereas incremental redundancy also changes the accumulated effective code rate. 5G-LENA provides a concrete open implementation precedent for EESM calibration, LDPC segmentation, and both HARQ-CC and HARQ-IR [19], [25]. FikoRE should preserve its current bounded retry, timing, and packet-accounting contracts while replacing only the failure-probability calculation.
+
+Outer-loop link adaptation should maintain a separate bounded belief offset that is updated from ACK/NACK outcomes toward a declared BLER target [17]. That offset belongs to the scheduler's link-quality belief; it must not shift reported physical SINR or RSRP. The present generic SINR offset moves both and is therefore unsuitable as OLLA state.
 
 ### 10.6 Calibration and observability
 
-The highest-priority supporting work is not another channel feature but calibration and observability. Current telemetry records queue and HARQ occupancy, retry ordinal, retransmitted and radio-dropped bits, charged grants, and exact packet-accounting residual. The remaining work should consolidate ABG coefficient provenance and validity ranges, generate link-level BLER reference data, compare selected scenarios against independent RSRP and SINR measurements, and emit positive-rate eligibility, finalized MCS, and classified empty-resource reasons per UE and allocation unit. Those observations are needed to distinguish source idleness, sampled outage, scheduler starvation, packet-fit waste, expiry, and radio decoding loss.
+The highest-priority supporting work is calibration and observability rather than another unvalidated feature. The current implementation already exports queue and HARQ occupancy, retry ordinal, retransmitted and radio-dropped bits, charged grants, and exact packet-accounting residual.
+
+| Missing evidence or signal | Why it matters | Proposed output |
+|---|---|---|
+| Consolidated ABG provenance | A map can be generated outside the measurement range of its fit | Coefficient table with campaign, frequency, distance, height, environment, and uncertainty |
+| Independent radio measurements | Internal consistency does not establish field accuracy | Paired RSRP/SINR/MCS traces with synchronized position and configuration |
+| Link-level BLER data | The legacy table cannot identify decoder or TBS behavior | Versioned curves and calibration metadata per MCS/TBS/rank/receiver |
+| Empty-resource reason | A zero-delivery interval can have several causes | Per-UE reason taxonomy: no backlog, disabled, non-positive rate, rate cap, scheduler loss, retry-fit waste, expiry, or radio failure |
+| Scheduler belief versus physical state | OLLA and control need estimated quality without corrupting observables | Separate reported SINR, scheduler SINR belief, OLLA offset, and ACK/NACK history |
+
+These additions would let an experiment distinguish source idleness, sampled outage, scheduler competition, packet-fit waste, expiry, and radio decoding loss without inferring cause from throughput alone.
 
 ## 11. Conclusions
 
@@ -647,7 +723,7 @@ The evidence package separates implementation source, experiment source, and doc
 
 ## References
 
-1. 3GPP TR 38.901 v18.1.0, *Study on channel model for frequencies from 0.5 to 100 GHz*, Release 18, 2024.
+1. 3GPP TR 38.901 v18.1.0, *Study on channel model for frequencies from 0.5 to 100 GHz*, Release 18, 2026.
 2. 3GPP TS 38.104 v18.8.0, *NR; Base Station radio transmission and reception*, Release 18, 2025.
 3. 3GPP TS 38.213 v18.7.0, *NR; Physical layer procedures for control*, Release 18, 2025.
 4. 3GPP TS 38.214 v18.9.0, *NR; Physical layer procedures for data*, Release 18, 2026.
@@ -671,3 +747,5 @@ The evidence package separates implementation source, experiment source, and doc
 22. 3GPP TS 38.300, *NR; NR and NG-RAN Overall Description; Stage-2*, Release 18.
 23. 3GPP TS 38.321, *NR; Medium Access Control (MAC) Protocol Specification*, Release 18.
 24. 3GPP TS 38.331, *NR; Radio Resource Control (RRC) Protocol Specification*, Release 18.
+25. S. Lagén, K. Wanuga, H. Elkotby, S. Goyal, N. Patriciello, and L. Giupponi, “New Radio Physical Layer Abstraction for System-Level Simulations of 5G Networks,” *IEEE ICC*, 2020, <https://doi.org/10.1109/ICC40277.2020.9149444>.
+26. 3GPP TS 38.212, *NR; Multiplexing and Channel Coding*, Release 18.

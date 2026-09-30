@@ -62,7 +62,14 @@ def ue_section(
     ue_count: int,
     distance_m: int,
     target_mbps: float,
+    location: str = "outdoor",
+    penetration: str | None = None,
 ) -> str:
+    penetration_line = (
+        f"building_penetration: {penetration}\n"
+        if penetration is not None
+        else ""
+    )
     return f"""[UE]
 ue_id: {name}
 ue_type: 1
@@ -87,8 +94,8 @@ max_distance: {max(5000, distance_m)}
 priority: 1
 pkt_delay_budget: 10
 ue_height: 1.5
-ue_location_type: outdoor
-"""
+ue_location_type: {location}
+{penetration_line}"""
 
 
 def config_text(
@@ -116,7 +123,14 @@ def config_text(
         ue_sections = (
             ue_section("benchmarkNear", near_count, 50, target_mbps)
             + "\n"
-            + ue_section("benchmarkFar", far_count, 2000, target_mbps)
+            + ue_section(
+                "benchmarkFar",
+                far_count,
+                200,
+                target_mbps,
+                "indoor",
+                "low_loss",
+            )
         )
 
     pf_alpha = "pf_alpha: 1\n" if scheduler == "pf" else ""
@@ -510,8 +524,9 @@ def main() -> None:
         "per case, divided equally across UEs. Finite-demand cases offer "
         "1 Mbit/s per UE and direction.",
         "",
-        "Homogeneous cases place every UE at 200 m. Near/far cases split "
-        "UEs equally between 50 m and 2,000 m.",
+        "Homogeneous cases place every UE outdoors at 200 m. Near/far "
+        "cases split UEs between 50 m outdoor and 200 m low-loss indoor "
+        "conditions so both groups remain eligible while their rates differ.",
         "",
         markdown_table(rows),
         "",

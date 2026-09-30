@@ -372,30 +372,40 @@ static void *run(void *arg) {
 	int ret = 1;
 	//mnl_socket_setsockopt(nl, NETLINK_NO_ENOBUFS, &ret, sizeof(int));
 
-	for (;;) {
+	while (nfiface->running.load()) {
 		ret = mnl_socket_recvfrom(nfiface->nl, nfiface->buf, nfiface->sizeof_buf);
 		if (ret == -1) {
+			if(errno == EAGAIN || errno == EWOULDBLOCK) {
+				usleep(1000);
+				continue;
+			}
 			PERROR("mnl_socket_recvfrom");
 			nfiface->recv_fails++;
 			if(errno == ENOBUFS)
 				continue; // Do not exit in this scenario	
-			//exit(EXIT_FAILURE);
+			if(!nfiface->running.load())
+				break;
+			continue;
 		}
+		if(ret == 0)
+			continue;
 		ret = mnl_cb_run(nfiface->buf, ret, 0, nfiface->portid, queue_cb, nfiface);
 		if (ret < 0){
 			PERROR("mnl_cb_run");
 			//exit(EXIT_FAILURE);
 		}
 	}
-
+	return NULL;
 }
 
 
 static void netfilter_interface_free(netfilter_interface_t *iface) {
 	if(iface) {
-		mnl_socket_close(iface->nl);
+		if(iface->nl)
+			mnl_socket_close(iface->nl);
 		if(iface->buf)
-			delete(iface->buf);
+			free(iface->buf);
+		pthread_mutex_destroy(&iface->verdict_mutex);
 		delete(iface);
 	}
 }
@@ -416,11 +426,20 @@ netfilter_interface_t *netfilter_interface_open(int queue_num, add_pkt_callback_
 	nfiface->callback = callback;
 	nfiface->callback_data = handler;
 	nfiface->buf = NULL;
+	nfiface->nl = NULL;
+	nfiface->thread_started = false;
+	nfiface->running.store(false);
+	pthread_mutex_init(&nfiface->verdict_mutex, NULL);
 	/* largest possible packet payload, plus netlink data overhead: */
 	nfiface->sizeof_buf = 0xffff + (MNL_SOCKET_BUFFER_SIZE/2);;
 
-	nfiface->last_recv_id = nfiface->total_recv = nfiface->last_rlsd_id = nfiface->total_rlsd = 0;
-	nfiface->bytes_recv = nfiface->recv_fails = nfiface->rlsd_fails = 0;
+	nfiface->last_recv_id.store(0);
+	nfiface->total_recv.store(0);
+	nfiface->last_rlsd_id.store(0);
+	nfiface->total_rlsd.store(0);
+	nfiface->bytes_recv.store(0);
+	nfiface->recv_fails.store(0);
+	nfiface->rlsd_fails.store(0);
 
 	nfiface->nl = mnl_socket_open2(NETLINK_NETFILTER, SOCK_NONBLOCK);
 	if (nfiface->nl == NULL) {
@@ -467,24 +486,32 @@ netfilter_interface_t *netfilter_interface_open(int queue_num, add_pkt_callback_
 		return NULL;
 	}
 	
+	nfiface->running.store(true);
 	ret = pthread_create(&nfiface->tid, NULL, &run, nfiface);
 
 	if(ret) {
 		PERROR("pthread_create");
+		nfiface->running.store(false);
 		netfilter_interface_free(nfiface);
 		return NULL;
 	}
+	nfiface->thread_started = true;
 	return nfiface;
 }
 
 
 int netfilter_interface_release_pkt(netfilter_interface_t *nfiface, uint32_t pkt_id, int accept) {
+	if(nfiface == NULL || !nfiface->running.load())
+		return -1;
 	char buf[MNL_SOCKET_BUFFER_SIZE];
 	struct nlmsghdr *nlh;
 	nlh = nfq_nlmsg_put(buf, NFQNL_MSG_VERDICT, nfiface->queue_num);
 	nfq_nlmsg_verdict_put(nlh, pkt_id, accept ? NF_ACCEPT : NF_DROP);
 
-	if (mnl_socket_sendto(nfiface->nl, nlh, nlh->nlmsg_len) < 0) {
+	pthread_mutex_lock(&nfiface->verdict_mutex);
+	int send_result = mnl_socket_sendto(nfiface->nl, nlh, nlh->nlmsg_len);
+	pthread_mutex_unlock(&nfiface->verdict_mutex);
+	if (send_result < 0) {
 		PERROR("mnl_socket_send");
 		nfiface->rlsd_fails++;
 		return -1;
@@ -497,6 +524,8 @@ int netfilter_interface_release_pkt(netfilter_interface_t *nfiface, uint32_t pkt
 }
 
 int netfilter_interface_release_pkt_payload(netfilter_interface_t *nfiface, uint32_t pkt_id, int accept, const uint8_t *payload, uint32_t payload_len) {
+	if(nfiface == NULL || !nfiface->running.load())
+		return -1;
 	char buf[0xffff + MNL_SOCKET_BUFFER_SIZE];
 	struct nlmsghdr *nlh;
 	nlh = nfq_nlmsg_put(buf, NFQNL_MSG_VERDICT, nfiface->queue_num);
@@ -505,7 +534,10 @@ int netfilter_interface_release_pkt_payload(netfilter_interface_t *nfiface, uint
 		nfq_nlmsg_verdict_put_pkt(nlh, payload, payload_len);
 	}
 
-	if (mnl_socket_sendto(nfiface->nl, nlh, nlh->nlmsg_len) < 0) {
+	pthread_mutex_lock(&nfiface->verdict_mutex);
+	int send_result = mnl_socket_sendto(nfiface->nl, nlh, nlh->nlmsg_len);
+	pthread_mutex_unlock(&nfiface->verdict_mutex);
+	if (send_result < 0) {
 		PERROR("mnl_socket_send");
 		nfiface->rlsd_fails++;
 		return -1;
@@ -518,8 +550,13 @@ int netfilter_interface_release_pkt_payload(netfilter_interface_t *nfiface, uint
 }
 
 void netfilter_interface_close(netfilter_interface_t *nfiface) {
-
-	pthread_cancel(nfiface->tid);
+	if(nfiface == NULL)
+		return;
+	nfiface->running.store(false);
+	if(nfiface->thread_started) {
+		pthread_join(nfiface->tid, NULL);
+		nfiface->thread_started = false;
+	}
 	netfilter_interface_free(nfiface);
 
 }

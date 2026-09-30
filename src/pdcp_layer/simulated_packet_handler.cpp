@@ -5,6 +5,8 @@
 **********************************************/
 
 #include <cmath>
+#include <limits>
+#include <stdexcept>
 
 #include <pdcp_layer/simulated_packet_handler.h>
 
@@ -44,17 +46,32 @@ bool simulated_packet_handler::get_traffic_target(int tx_dir, float &bps) const
     return true;
 }
 
-bool simulated_packet_handler::inject_bits(float bits, std::uint32_t tag, std::uint8_t ecn)
+bool simulated_packet_handler::inject_bits(
+    std::uint64_t bits,
+    std::uint32_t tag,
+    std::uint8_t ecn)
 {
-    if(bits <= 0.0f) return true;
+    if(bits == 0) return true;
+    if (bits
+        > std::numeric_limits<std::uint64_t>::max()
+            - injected_bits_total_)
+        return false;
     for(size_t i = 0; i < pending_injections_.size(); i++)
     {
         // Same object and same marking merge; a different marking does not, because
         // the two would produce different packets.
         if(pending_injections_[i].tag == tag && pending_injections_[i].ecn == ecn)
         {
+            if (bits
+                > std::numeric_limits<std::uint64_t>::max()
+                    - pending_injections_[i].bits)
+                return false;
             pending_injections_[i].bits += bits;
             injected_bits_total_ += bits;
+            if(tag != 0)
+            {
+                objects_[tag].injected_bits += bits;
+            }
             return true;
         }
     }
@@ -64,18 +81,37 @@ bool simulated_packet_handler::inject_bits(float bits, std::uint32_t tag, std::u
     p.ecn = ecn;
     pending_injections_.push_back(p);
     injected_bits_total_ += bits;
-    if(tag != 0) objects_[tag];
+    if(tag != 0)
+    {
+        objects_[tag].injected_bits += bits;
+    }
     return true;
 }
 
-void simulated_packet_handler::packetize(float bits, float current_t, std::uint32_t tag,
-                                         std::uint8_t ecn)
+void simulated_packet_handler::packetize(
+    std::uint64_t bits,
+    float current_t,
+    std::uint32_t tag,
+    std::uint8_t ecn)
 {
-    const float pkt_size = traffic_m->get_pkt_size(0);
-    const int pkts = (int)ceil(bits / pkt_size);
-    for(int i = 0; i < pkts - 1; i++)
+    if (bits == 0)
+        return;
+    const int configured_packet_size = traffic_m->get_pkt_size(0);
+    if (configured_packet_size <= 0)
+        throw std::invalid_argument("packet size must be positive");
+    const std::uint64_t packet_size =
+        static_cast<std::uint64_t>(configured_packet_size);
+    const std::uint64_t packets =
+        (bits + packet_size - 1) / packet_size;
+    for(std::uint64_t i = 0; i + 1 < packets; i++)
     {
-        ip_pkt pkt(current_t, pkt_size, pkt_size, current_id, bh_d, bh_d_var);
+        ip_pkt pkt(
+            current_t,
+            packet_size,
+            packet_size,
+            current_id,
+            bh_d,
+            bh_d_var);
         pkt.tag = tag;
         pkt.ecn = ecn;
         pkt.original_ecn = ecn;
@@ -83,7 +119,8 @@ void simulated_packet_handler::packetize(float bits, float current_t, std::uint3
         current_id++;
     }
 
-    const float bits_left = bits - (pkts - 1) * pkt_size;
+    const std::uint64_t bits_left =
+        bits - (packets - 1) * packet_size;
     if(bits_left > 0)
     {
         ip_pkt pkt(current_t, bits_left, bits_left, current_id, bh_d, bh_d_var);
@@ -95,16 +132,35 @@ void simulated_packet_handler::packetize(float bits, float current_t, std::uint3
     }
 }
 
+std::uint64_t simulated_packet_handler::quantize_generated_bits(float bits)
+{
+    if (!std::isfinite(bits) || bits < 0.0f)
+        throw std::invalid_argument(
+            "generated traffic bits must be finite and non-negative");
+    const double capacity =
+        static_cast<double>(bits) + generated_residual_bits_;
+    if (capacity
+        > static_cast<double>(
+              std::numeric_limits<std::uint64_t>::max()))
+        throw std::overflow_error("generated traffic bit count overflow");
+    const std::uint64_t whole_bits =
+        static_cast<std::uint64_t>(std::floor(capacity));
+    generated_residual_bits_ =
+        capacity - static_cast<double>(whole_bits);
+    return whole_bits;
+}
+
 float simulated_packet_handler::ingest(int tx_dir, float current_t)
 {
-    const float generated = traffic_m->generate(tx_dir, current_t);
+    const std::uint64_t generated =
+        quantize_generated_bits(traffic_m->generate(tx_dir, current_t));
     if(generated > 0) packetize(generated, current_t, 0, ECN_NOT_ECT);
 
     // Injected bits are packetized on their own, one object at a time, so that an
     // injection of N bytes always yields the same packets regardless of what the
     // generator produced in the same step and of what the other objects injected.
     // Injection adds to the configured traffic, it does not replace it.
-    float injected = 0.0f;
+    std::uint64_t injected = 0;
     for(size_t i = 0; i < pending_injections_.size(); i++)
     {
         injected += pending_injections_[i].bits;
@@ -144,7 +200,7 @@ void simulated_packet_handler::flush_released()
 float simulated_packet_handler::release()
 {
     int count = 0;
-    float bits = 0.0f;
+    std::uint64_t bits = 0;
     float latency = 0.0f;
     float ip_latency = 0.0f;
     for(std::deque<harq_pkt>::iterator it = pkt_list.begin(); it != pkt_list.end();)
@@ -188,12 +244,15 @@ void simulated_packet_handler::update_pending_packet(const ip_pkt& pkt, bit_fate
 
     const bool dropped = fate != bit_fate::delivered;
     pending_packet_result& state = pending_results[pkt.uid];
-    if(state.original_size <= 0.0f) state.original_size = pkt.original_size;
+    if(state.original_size == 0) state.original_size = pkt.original_size;
     state.accounted_bits += pkt.size;
     state.dropped = state.dropped || dropped;
     state.congestion_signal = state.congestion_signal || pkt.ce_marked;
 
-    if(state.original_size > 0.0f && state.accounted_bits + BIT_ROUND_MARGIN >= state.original_size)
+    if (state.accounted_bits > state.original_size)
+        throw std::logic_error(
+            "packet fragment accounting exceeds original size");
+    if(state.original_size > 0 && state.accounted_bits == state.original_size)
     {
         if(state.dropped) verdict(pkt, final_packet_verdict::DROP);
         else if(state.congestion_signal) verdict(pkt, final_packet_verdict::ACCEPT_CE);

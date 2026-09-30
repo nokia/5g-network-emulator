@@ -97,6 +97,8 @@ test: $(TARGET) $(TEST_BINS)
 	@python3 tools/maps/validate_maps.py
 	@echo "[TEST] tools/maps/test_generator_v2.py"
 	@python3 tools/maps/test_generator_v2.py
+	@echo "[TEST] tools/analyze_legacy_bler_table.py"
+	@python3 tools/analyze_legacy_bler_table.py --expect-sha256 d61acbe2a5cea399570c53b40f0374261ca28ac80ccefed0aee85728ea9bda70 > /dev/null
 
 test-transport:
 	@set -e; \

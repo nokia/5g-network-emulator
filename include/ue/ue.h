@@ -162,7 +162,7 @@ public:
     {
         return scheduler_max_service_gap_ttis[tx_dir];
     }
-    float get_delivered_bits_total(int tx_dir) const
+    std::uint64_t get_delivered_bits_total(int tx_dir) const
     {
         return tx_dir == TX_DL
                    ? pdcp_dl.delivered_bits_total()
@@ -192,7 +192,11 @@ public:
     mobility_model& mobility() { return mobility_m; }
     bool set_traffic_target(int tx_dir, float bps) { return pdcp(tx_dir).set_traffic_target(bps); }
     bool get_traffic_target(int tx_dir, float &bps) { return pdcp(tx_dir).get_traffic_target(bps); }
-    bool inject_bits(int tx_dir, float bits, std::uint32_t tag, std::uint8_t ecn = ECN_NOT_ECT)
+    bool inject_bits(
+        int tx_dir,
+        std::uint64_t bits,
+        std::uint32_t tag,
+        std::uint8_t ecn = ECN_NOT_ECT)
     { return pdcp(tx_dir).inject_bits(bits, tag, ecn); }
     // A tag is unique per UE, so forgetting it is not directional.
     bool forget_object(std::uint32_t tag)

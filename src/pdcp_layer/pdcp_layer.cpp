@@ -4,7 +4,10 @@
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 **********************************************/
 
+#include <algorithm>
+#include <cmath>
 #include <limits>
+#include <stdexcept>
 #include <utility>
 
 #include <pdcp_layer/pdcp_layer.h>
@@ -17,7 +20,8 @@ pdcp_layer::pdcp_layer(packet_handler_config handler_cfg, int _verbosity)
                    handler_cfg.pdcp_c.rtx_proc_delay, handler_cfg.pdcp_c.rtx_proc_delay_var,
                    pdcp_rng_seed(handler_cfg.traffic_c.random_v, handler_cfg.ue_id,
                                  handler_cfg.tx_dir, PDCP_STREAM_HARQ),
-                   _verbosity),
+                   _verbosity,
+                   handler_cfg.pdcp_c.model),
       _ip_buffer(_verbosity),
       _packet_h(make_packet_handler(handler_cfg)),
       verbosity(_verbosity),
@@ -38,7 +42,8 @@ void pdcp_layer::exit()
 
 void pdcp_layer::init(int _mod_i, int _layers, int _logic_units)
 {
-    _harq_buffer.init(_mod_i, _layers, _logic_units);
+    (void)_layers;
+    _harq_buffer.init(_mod_i, _logic_units);
     _packet_h->init();
 }
 
@@ -103,67 +108,127 @@ float pdcp_layer::get_oldest_timestamp()
     return current_t;
 }
 
-float pdcp_layer::handle_pkt(float bits, int mcs, float sinr, float distance)
+std::uint64_t pdcp_layer::quantize_grant(float bits)
 {
-    if(!_harq_buffer.is_pkt_ready())
+    if (!std::isfinite(bits) || bits < 0.0f)
+        throw std::invalid_argument(
+            "scheduler grant must be finite and non-negative");
+    const double capacity =
+        static_cast<double>(bits) + grant_residual_bits_;
+    if (capacity
+        > static_cast<double>(
+              std::numeric_limits<std::uint64_t>::max()))
+        throw std::overflow_error("scheduler grant bit count overflow");
+    const std::uint64_t whole_bits =
+        static_cast<std::uint64_t>(std::floor(capacity));
+    grant_residual_bits_ =
+        capacity - static_cast<double>(whole_bits);
+    return whole_bits;
+}
+
+float pdcp_layer::handle_pkt(
+    float bits,
+    int mcs,
+    float sinr,
+    float distance,
+    int layers)
+{
+    last_charged_grant_bits_ = 0;
+    const std::uint64_t grant_bits = quantize_grant(bits);
+    if (grant_bits == 0)
+        return 0.0f;
+
+    if(_harq_buffer.is_pkt_ready())
     {
-        if(has_pkts())
-        {
-            while(bits > 0 && has_pkts())
-            {
-                harq_pkt pkt(current_id, _ip_buffer.get_oldest_timestamp(), current_t, mcs, distance, 0, bh_d, bh_d_var);
-                current_id++;
-                _ip_buffer.get_pkts(bits, pkt);
-                harq_pkt dropped;
-                while(_ip_buffer.pop_aqm_dropped_pkt(dropped))
-                {
-                    _packet_h->record_error(dropped.bits, bit_fate::queue_dropped);
-                    _packet_h->drop(std::move(dropped), bit_fate::queue_dropped);
-                }
-                if(pkt.bits <= 0.0f) continue;
-                if(is_expired(pkt))
-                {
-                    drop_harq_pkt(std::move(pkt), bit_fate::expired);
-                    continue;
-                }
-                if(_harq_buffer.get_rtx(mcs, sinr, 0))
-                {
-                    _harq_buffer.add_pkts(std::move(pkt));
-                   return 0;
-                }
-                else
-                {
-                    bits = pkt.bits;
-                    release_pkts(std::move(pkt));
-                    return bits;
-                }
-            }
-            return 0.0;
-        }
-		return 0.0;
-    }
-    else
-    {
+        const harq_pkt *ready = _harq_buffer.peek_oldest();
+        if (ready == nullptr || ready->bits > grant_bits)
+            return 0.0f;
+
         harq_pkt pkt = _harq_buffer.get_pkt();
-        // Leaving the HARQ buffer means going over the air again, whatever the outcome.
+        if (is_expired(pkt))
+        {
+            drop_harq_pkt(std::move(pkt), bit_fate::expired);
+            return 0.0f;
+        }
+        last_charged_grant_bits_ = pkt.bits;
         rtx_bits_total_ += pkt.bits;
-        if(_harq_buffer.get_rtx(pkt.mcs_i, sinr, pkt.n_tx))
+        const int attempt = pkt.attempt_ordinal;
+        if(_harq_buffer.get_rtx(
+               pkt.mcs_i,
+               sinr,
+               attempt,
+               pkt.layers))
         {
-            if(pkt.n_tx < 4) _harq_buffer.queue(std::move(pkt), distance);
-            else
-            {
-                // Retransmissions exhausted: a radio failure, not an overfed client.
-                drop_harq_pkt(std::move(pkt), bit_fate::radio_dropped);
-            }
-            return 0;
+            if (!_harq_buffer.retry_available_after(attempt)
+                || !_harq_buffer.enqueue_retry(
+                    pkt,
+                    distance,
+                    attempt + 1))
+                drop_harq_pkt(
+                    std::move(pkt),
+                    bit_fate::radio_dropped);
+            return 0.0f;
         }
-        else
-        {
-            bits = pkt.bits;
-            release_pkts(std::move(pkt));
-            return bits;
-        }
+        const float effective_bits =
+            static_cast<float>(pkt.bits);
+        release_pkts(std::move(pkt));
+        return effective_bits;
     }
+
+    if(!_ip_buffer.has_pkts())
+        return 0.0f;
+
+    harq_pkt pkt(
+        current_id,
+        _ip_buffer.get_oldest_timestamp(),
+        current_t,
+        mcs,
+        distance,
+        0,
+        bh_d,
+        bh_d_var);
+    current_id++;
+    pkt.layers = std::max(1, std::min(layers, 4));
+    _ip_buffer.get_pkts(grant_bits, pkt);
+    harq_pkt dropped;
+    while(_ip_buffer.pop_aqm_dropped_pkt(dropped))
+    {
+        _packet_h->record_error(
+            dropped.bits,
+            bit_fate::queue_dropped);
+        _packet_h->drop(
+            std::move(dropped),
+            bit_fate::queue_dropped);
+    }
+    if(pkt.bits == 0)
+        return 0.0f;
+    if(is_expired(pkt))
+    {
+        drop_harq_pkt(std::move(pkt), bit_fate::expired);
+        return 0.0f;
+    }
+
+    last_charged_grant_bits_ = pkt.bits;
+    if(_harq_buffer.get_rtx(
+           mcs,
+           sinr,
+           0,
+           pkt.layers))
+    {
+        if (!_harq_buffer.retry_available_after(0)
+            || !_harq_buffer.enqueue_retry(
+                pkt,
+                distance,
+                1))
+            drop_harq_pkt(
+                std::move(pkt),
+                bit_fate::radio_dropped);
+        return 0.0f;
+    }
+
+    const float effective_bits = static_cast<float>(pkt.bits);
+    release_pkts(std::move(pkt));
+    return effective_bits;
 }
 
 void pdcp_layer::drop_harq_pkt(harq_pkt pkt, bit_fate fate)
@@ -302,8 +367,20 @@ pdcp_queue_status pdcp_layer::get_queue_status() const
     {
         status.harq_oldest_id = oldest_harq->id;
         status.harq_oldest_age = current_t - oldest_harq->ip_t;
-        status.harq_oldest_n_tx = oldest_harq->n_tx;
+        status.harq_oldest_retry_ordinal =
+            oldest_harq->attempt_ordinal;
     }
+    status.harq_high_water_blocks =
+        static_cast<int>(_harq_buffer.high_water_mark());
+    status.harq_capacity_blocks =
+        static_cast<int>(_harq_buffer.queue_capacity());
+    status.harq_model =
+        harq_model_name(_harq_buffer.configured_model());
+    status.retransmitted_bits_total = rtx_bits_total_;
+    status.radio_dropped_bits_total =
+        _packet_h->radio_dropped_bits_total();
+    status.last_charged_grant_bits =
+        last_charged_grant_bits_;
 
     status.pkt_delay_budget_s = pkt_delay_budget_s;
     dualpi2_stats l4s_stats = _ip_buffer.get_l4s_stats();

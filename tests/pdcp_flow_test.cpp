@@ -26,15 +26,22 @@ public:
 
     void start() override {}
     void close() override {}
-    void verdict(uint32_t pkt_id, packet_capture_action action) override
+    bool verdict(
+        uint32_t pkt_id,
+        packet_capture_action action) override
     {
+        if (verdict_failures_remaining > 0)
+        {
+            verdict_failures_remaining--;
+            return false;
+        }
         verdicts.emplace_back(pkt_id, action);
         if(action == packet_capture_action::DROP)
         {
             dropped.push_back((int)pkt_id);
             payloads.erase(pkt_id);
             original_ecns.erase(pkt_id);
-            return;
+            return true;
         }
 
         released.push_back((int)pkt_id);
@@ -50,11 +57,13 @@ public:
             payloads.erase(it);
         }
         original_ecns.erase(pkt_id);
+        return true;
     }
     packet_capture_stats stats() const override
     {
         packet_capture_stats out;
         out.queue_num = pkt_capture::queue_num();
+        out.total_recv = capture_count;
         out.total_rlsd = (uint32_t)(released.size() + dropped.size());
         return out;
     }
@@ -68,14 +77,17 @@ public:
         payloads[id] = payload;
         original_ecns[id] = ecn;
         enqueue_captured_packet(info, std::move(payload), ecn);
+        capture_count++;
     }
 
     std::vector<int> released;
     std::vector<int> dropped;
     std::vector<std::vector<uint8_t> > released_payloads;
     std::vector<std::pair<uint32_t, packet_capture_action>> verdicts;
+    int verdict_failures_remaining = 0;
 
 private:
+    std::uint64_t capture_count = 0;
     std::unordered_map<uint32_t, std::vector<uint8_t>> payloads;
     std::unordered_map<uint32_t, uint8_t> original_ecns;
 };
@@ -165,7 +177,13 @@ void test_ip_buffer_admission()
     assert(buffer.size() == 1);
     assert(near(buffer.get_oldest_timestamp(), 0.0f));
 
-    assert(!buffer.add_pkt(ip_pkt(0.0f, 20000000000.0f, 20000000000.0f, 2, 0.0f, 0.0f)));
+    assert(!buffer.add_pkt(ip_pkt(
+        0.0f,
+        20000000000ULL,
+        20000000000ULL,
+        2,
+        0.0f,
+        0.0f)));
     assert(buffer.size() == 1);
     assert(buffer.get_error(true) > 0.0f);
 }
@@ -182,11 +200,13 @@ void test_pdcp_release_flow()
 
     assert(layer.has_pkts());
 
-    float first_sent = layer.handle_pkt(1500.0f, 0, 30.0f, 10.0f);
+    float first_sent =
+        layer.handle_pkt(1500.0f, 0, 30.0f, 10.0f, 1);
     assert(near(first_sent, 1500.0f));
     assert(near(layer.release(), 1500.0f));
 
-    float second_sent = layer.handle_pkt(1000.0f, 0, 30.0f, 10.0f);
+    float second_sent =
+        layer.handle_pkt(1000.0f, 0, 30.0f, 10.0f, 1);
     assert(near(second_sent, 500.0f));
     assert(near(layer.release(), 500.0f));
     assert(!layer.has_pkts());
@@ -218,11 +238,11 @@ void test_simulated_pdcp_timeout_drop()
 void test_harq_and_packet_handlers()
 {
     harq_handler harq(4, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0);
-    harq.init(0, 1, 1);
+    harq.init(0, 1);
 
-    harq_pkt pkt(7, 0.0f, 0.0f, 0, 0, 1200.0f, 0.0f, 0.0f);
-    harq.add_pkts(pkt);
     harq.step(0.0f);
+    harq_pkt pkt(7, 0.0f, 0.0f, 0, 0, 1200, 0.0f, 0.0f);
+    assert(harq.enqueue_retry(pkt, 0.0f, 1));
 
     assert(harq.is_pkt_ready());
     harq_pkt ready = harq.get_pkt();
@@ -243,12 +263,12 @@ void test_harq_and_packet_handlers()
 void test_harq_timeout_drop()
 {
     harq_handler harq(4, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0);
-    harq.init(0, 1, 1);
+    harq.init(0, 1);
 
     harq_pkt fresh(8, 0.99f, 1.0f, 0, 0, 1000.0f, 0.0f, 0.0f);
     harq_pkt old(9, 0.0f, 1.0f, 0, 0, 1200.0f, 0.0f, 0.0f);
-    harq.add_pkts(fresh);
-    harq.add_pkts(old);
+    assert(harq.enqueue_retry(fresh, 0.0f, 1));
+    assert(harq.enqueue_retry(old, 0.0f, 1));
 
     harq_pkt expired;
     assert(harq.pop_pkt_older_than(0.5f, expired));
@@ -452,8 +472,10 @@ void test_captured_packet_handler_rewrites_ecn_payload()
     handler.init();
     handler.step(0.0f);
     fake_ptr->capture(20, 99, ECN_ECT1, make_ipv4_payload(ECN_ECT1));
+    handler.ingest(TX_DL, 0.0f);
 
-    ip_pkt pkt(0.0f, 160.0f, 160.0f, 99, 0.0f, 0.0f);
+    assert(handler.has_ingress_pkts());
+    ip_pkt pkt = handler.pop_ingress_pkt();
     pkt.ecn = ECN_CE;
     pkt.original_ecn = ECN_ECT1;
     pkt.ce_marked = true;
@@ -466,6 +488,102 @@ void test_captured_packet_handler_rewrites_ecn_payload()
     assert(fake_ptr->released_payloads.size() == 1);
     assert(fake_ptr->verdicts.front().second == packet_capture_action::ACCEPT_CE);
     assert((fake_ptr->released_payloads.front()[1] & 0x03) == ECN_CE);
+}
+
+void test_captured_completion_order_retry_and_shutdown()
+{
+    pdcp_config config(
+        4,
+        0.0f,
+        0.0f,
+        0.0f,
+        0.0f,
+        0.0f,
+        0.0f,
+        0.0f,
+        true,
+        harq_model::disabled);
+    std::unique_ptr<fake_packet_capture> fake(
+        new fake_packet_capture(80));
+    fake_packet_capture *fake_ptr = fake.get();
+    std::unique_ptr<pkt_capture> capture(std::move(fake));
+    captured_packet_handler handler(
+        std::move(capture),
+        nullptr,
+        config,
+        1);
+
+    handler.init();
+    handler.step(0.0f);
+    fake_ptr->capture(100, 100);
+    fake_ptr->capture(100, 101);
+    handler.ingest(TX_DL, 0.0f);
+    ip_pkt first = handler.pop_ingress_pkt();
+    ip_pkt second = handler.pop_ingress_pkt();
+
+    harq_pkt later_success(
+        30,
+        second.ip_t,
+        0.0f,
+        0,
+        0,
+        second.size,
+        0.0f,
+        0.0f);
+    later_success.pkts.push_back(second);
+    handler.push(std::move(later_success));
+
+    harq_pkt predecessor_drop(
+        31,
+        first.ip_t,
+        0.0f,
+        0,
+        0,
+        first.size,
+        0.0f,
+        0.0f);
+    predecessor_drop.pkts.push_back(first);
+    handler.drop(
+        std::move(predecessor_drop),
+        bit_fate::radio_dropped);
+
+    assert(near(handler.release(), 800.0f));
+    assert(fake_ptr->verdicts.size() == 2);
+    assert(fake_ptr->verdicts[0].first == 100);
+    assert(
+        fake_ptr->verdicts[0].second
+        == packet_capture_action::DROP);
+    assert(fake_ptr->verdicts[1].first == 101);
+    assert(
+        fake_ptr->verdicts[1].second
+        == packet_capture_action::ACCEPT);
+
+    fake_ptr->capture(100, 102);
+    handler.ingest(TX_DL, 0.0f);
+    ip_pkt retry_packet = handler.pop_ingress_pkt();
+    harq_pkt retry_success(
+        32,
+        retry_packet.ip_t,
+        0.0f,
+        0,
+        0,
+        retry_packet.size,
+        0.0f,
+        0.0f);
+    retry_success.pkts.push_back(retry_packet);
+    handler.push(std::move(retry_success));
+    fake_ptr->verdict_failures_remaining = 1;
+    assert(near(handler.release(), 0.0f));
+    assert(near(handler.release(), 800.0f));
+    assert(fake_ptr->verdicts.back().first == 102);
+
+    fake_ptr->capture(100, 103);
+    handler.ingest(TX_DL, 0.0f);
+    handler.quit();
+    assert(fake_ptr->verdicts.back().first == 103);
+    assert(
+        fake_ptr->verdicts.back().second
+        == packet_capture_action::DROP);
 }
 }
 
@@ -483,5 +601,6 @@ int main()
     test_dualpi2_classification_and_ce_marking();
     test_dualpi2_classic_drop_notification();
     test_captured_packet_handler_rewrites_ecn_payload();
+    test_captured_completion_order_retry_and_shutdown();
     return 0;
 }

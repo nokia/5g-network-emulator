@@ -16,11 +16,11 @@
 struct packet_capture_stats
 {
     int queue_num = -1;
-    uint32_t total_recv = 0;
-    uint32_t total_rlsd = 0;
-    uint32_t bytes_recv = 0;
-    uint32_t recv_fails = 0;
-    uint32_t rlsd_fails = 0;
+    uint64_t total_recv = 0;
+    uint64_t total_rlsd = 0;
+    uint64_t bytes_recv = 0;
+    uint64_t recv_fails = 0;
+    uint64_t rlsd_fails = 0;
 };
 
 enum class packet_capture_action
@@ -77,8 +77,8 @@ public:
             handle_capture(meta);
         };
         nfiface = netfilter_interface_open(queue_num_v, cb, this);
-        is_running = true;
-        is_closed = false;
+        is_running = nfiface != nullptr;
+        is_closed = nfiface == nullptr;
     }
 
     void check_pkt_order(int id)
@@ -87,23 +87,35 @@ public:
         prev_id = id; 
     }
 
-    virtual void verdict(uint32_t pkt_id, packet_capture_action action)
+    virtual bool verdict(
+        uint32_t pkt_id,
+        packet_capture_action action)
     {
         std::lock_guard<std::mutex> lock(mtx);
+        if (nfiface == nullptr)
+            return false;
         check_pkt_order((int)pkt_id);
 
         if(action == packet_capture_action::DROP)
         {
-            netfilter_interface_release_pkt(nfiface, pkt_id, 0);
+            if (netfilter_interface_release_pkt(
+                    nfiface,
+                    pkt_id,
+                    0) != 0)
+                return false;
             payloads.erase(pkt_id);
-            return;
+            return true;
         }
 
         if(action == packet_capture_action::ACCEPT)
         {
-            netfilter_interface_release_pkt(nfiface, pkt_id, 1);
+            if (netfilter_interface_release_pkt(
+                    nfiface,
+                    pkt_id,
+                    1) != 0)
+                return false;
             payloads.erase(pkt_id);
-            return;
+            return true;
         }
 
         std::unordered_map<uint32_t, stored_payload>::iterator it = payloads.find(pkt_id);
@@ -111,14 +123,22 @@ public:
         {
             LOG_ERROR_I("pkt_capture::verdict") << "Missing payload for pkt_id " << pkt_id
                                                 << " with ACCEPT_CE; falling back to DROP" << END();
-            netfilter_interface_release_pkt(nfiface, pkt_id, 0);
-            return;
+            return netfilter_interface_release_pkt(
+                       nfiface,
+                       pkt_id,
+                       0) == 0;
         }
 
         apply_ipv4_ecn(it->second.payload, ECN_CE);
-        netfilter_interface_release_pkt_payload(nfiface, pkt_id, 1, it->second.payload.data(),
-                                                (uint32_t)it->second.payload.size());
+        if (netfilter_interface_release_pkt_payload(
+                nfiface,
+                pkt_id,
+                1,
+                it->second.payload.data(),
+                (uint32_t)it->second.payload.size()) != 0)
+            return false;
         payloads.erase(it);
+        return true;
     }
 
 public:
@@ -156,11 +176,11 @@ public:
         packet_capture_stats out;
         out.queue_num = queue_num_v;
         if(nfiface == nullptr) return out;
-        out.total_recv = nfiface->total_recv;
-        out.total_rlsd = nfiface->total_rlsd;
-        out.bytes_recv = nfiface->bytes_recv;
-        out.recv_fails = nfiface->recv_fails;
-        out.rlsd_fails = nfiface->rlsd_fails;
+        out.total_recv = nfiface->total_recv.load();
+        out.total_rlsd = nfiface->total_rlsd.load();
+        out.bytes_recv = nfiface->bytes_recv.load();
+        out.recv_fails = nfiface->recv_fails.load();
+        out.rlsd_fails = nfiface->rlsd_fails.load();
         return out;
     }
 
@@ -203,6 +223,15 @@ protected:
     void enqueue_captured_packet(captured_packet_info info, std::vector<uint8_t> payload, uint8_t original_ecn)
     {
         std::lock_guard<std::mutex> lock(mtx);
+        if (captured_packets.size() >= max_captured_packets)
+        {
+            if (nfiface != nullptr)
+                netfilter_interface_release_pkt(
+                    nfiface,
+                    info.pkt_id,
+                    0);
+            return;
+        }
         payloads[info.pkt_id] = stored_payload(std::move(payload), original_ecn);
         captured_packets.push_back(info);
     }
@@ -231,4 +260,5 @@ private:
 private:
     bool is_running = false;
     bool is_closed = true;
+    static constexpr std::size_t max_captured_packets = 65536;
 };

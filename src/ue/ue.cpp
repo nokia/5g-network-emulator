@@ -323,8 +323,16 @@ float ue::handle_pkt(float bits, int tx_dir, int f_index)
     // The cap is on the bits granted over the air, retransmissions and padding included.
     // Tokens may go negative: the UE stops being a candidate until the per-TTI refill
     // brings them back, which keeps the long run rate at rmax without splitting an RBG.
-    if (ctl.rmax_bps[tx_dir] > 0.0f) ctl.rmax_tokens[tx_dir] -= bits;
-    float eff_tp = pdcp(tx_dir).handle_pkt(bits, phy(tx_dir).get_mcs(f_index), phy(tx_dir).get_sinr(f_index), mobility_m.get_distance());
+    float eff_tp = pdcp(tx_dir).handle_pkt(
+        bits,
+        phy(tx_dir).get_mcs(f_index),
+        phy(tx_dir).get_sinr(f_index),
+        mobility_m.get_distance(),
+        phy(tx_dir).get_ri());
+    if (ctl.rmax_bps[tx_dir] > 0.0f)
+        ctl.rmax_tokens[tx_dir] -=
+            static_cast<float>(
+                pdcp(tx_dir).last_charged_grant_bits());
     scheduler_effective_bits[tx_dir] += eff_tp;
     return eff_tp;
 }
@@ -450,6 +458,15 @@ void ue::emit_pdcp_monitoring()
     ul_point.fields["error_mbps_sum"] = make_metric_field(pdcp_ul.get_error(true), field_aggregation::sum);
     ul_point.fields["latency_s_mean"] = make_metric_field(pdcp_ul.get_latency(true), field_aggregation::mean);
     ul_point.fields["ip_latency_s_mean"] = make_metric_field(pdcp_ul.get_ip_latency(true), field_aggregation::mean);
+    const pdcp_queue_status ul_status = pdcp_ul.get_queue_status();
+    ul_point.tags["harq_model"] = ul_status.harq_model;
+    ul_point.fields["harq_queue_blocks_last"] = make_metric_field(ul_status.harq_size, field_aggregation::last);
+    ul_point.fields["harq_queue_high_water_blocks_last"] = make_metric_field(ul_status.harq_high_water_blocks, field_aggregation::last);
+    ul_point.fields["harq_oldest_age_s_last"] = make_metric_field(ul_status.harq_oldest_age, field_aggregation::last);
+    ul_point.fields["harq_oldest_retry_ordinal_last"] = make_metric_field(ul_status.harq_oldest_retry_ordinal, field_aggregation::last);
+    ul_point.fields["retransmitted_bits_total_last"] = make_metric_field(static_cast<double>(ul_status.retransmitted_bits_total), field_aggregation::last);
+    ul_point.fields["radio_dropped_bits_total_last"] = make_metric_field(static_cast<double>(ul_status.radio_dropped_bits_total), field_aggregation::last);
+    ul_point.fields["charged_grant_bits_last"] = make_metric_field(static_cast<double>(ul_status.last_charged_grant_bits), field_aggregation::last);
     monitoring.publish(ul_point);
 
     metric_point dl_point;
@@ -463,6 +480,15 @@ void ue::emit_pdcp_monitoring()
     dl_point.fields["error_mbps_sum"] = make_metric_field(pdcp_dl.get_error(true), field_aggregation::sum);
     dl_point.fields["latency_s_mean"] = make_metric_field(pdcp_dl.get_latency(true), field_aggregation::mean);
     dl_point.fields["ip_latency_s_mean"] = make_metric_field(pdcp_dl.get_ip_latency(true), field_aggregation::mean);
+    const pdcp_queue_status dl_status = pdcp_dl.get_queue_status();
+    dl_point.tags["harq_model"] = dl_status.harq_model;
+    dl_point.fields["harq_queue_blocks_last"] = make_metric_field(dl_status.harq_size, field_aggregation::last);
+    dl_point.fields["harq_queue_high_water_blocks_last"] = make_metric_field(dl_status.harq_high_water_blocks, field_aggregation::last);
+    dl_point.fields["harq_oldest_age_s_last"] = make_metric_field(dl_status.harq_oldest_age, field_aggregation::last);
+    dl_point.fields["harq_oldest_retry_ordinal_last"] = make_metric_field(dl_status.harq_oldest_retry_ordinal, field_aggregation::last);
+    dl_point.fields["retransmitted_bits_total_last"] = make_metric_field(static_cast<double>(dl_status.retransmitted_bits_total), field_aggregation::last);
+    dl_point.fields["radio_dropped_bits_total_last"] = make_metric_field(static_cast<double>(dl_status.radio_dropped_bits_total), field_aggregation::last);
+    dl_point.fields["charged_grant_bits_last"] = make_metric_field(static_cast<double>(dl_status.last_charged_grant_bits), field_aggregation::last);
     monitoring.publish(dl_point);
 }
 
@@ -533,6 +559,7 @@ void ue::emit_queue_monitoring()
         point.tags["ue_id"] = std::to_string(id);
         point.tags["tx_dir"] = tx_dir_tag(tx_dir);
         point.tags["queue_mode"] = using_l4s ? "l4s" : "legacy";
+        point.tags["harq_model"] = status.harq_model;
         point.ts_ns = ts_ns;
         point.fields["generated_packets_sum"] = make_metric_field(layer.get_generated_packets(true), field_aggregation::sum);
         point.fields["using_l4s_last"] = make_metric_field(using_l4s ? 1 : 0, field_aggregation::last);
@@ -540,11 +567,18 @@ void ue::emit_queue_monitoring()
         point.fields["ip_buffer_packets_last"] = make_metric_field(status.ip_buffer_size, field_aggregation::last);
         point.fields["capture_packets_last"] = make_metric_field(status.capture_size, field_aggregation::last);
         point.fields["release_packets_last"] = make_metric_field(status.release_size, field_aggregation::last);
+        point.fields["release_high_water_packets_last"] = make_metric_field(status.release_high_water, field_aggregation::last);
         point.fields["harq_packets_last"] = make_metric_field(status.harq_size, field_aggregation::last);
+        point.fields["harq_high_water_packets_last"] = make_metric_field(status.harq_high_water_blocks, field_aggregation::last);
+        point.fields["harq_capacity_packets_last"] = make_metric_field(status.harq_capacity_blocks, field_aggregation::last);
         point.fields["ip_oldest_age_s_last"] = make_metric_field(status.ip_oldest_age, field_aggregation::last);
         point.fields["capture_oldest_age_s_last"] = make_metric_field(status.capture_oldest_age, field_aggregation::last);
         point.fields["release_oldest_age_s_last"] = make_metric_field(status.release_oldest_age, field_aggregation::last);
         point.fields["harq_oldest_age_s_last"] = make_metric_field(status.harq_oldest_age, field_aggregation::last);
+        point.fields["harq_oldest_retry_ordinal_last"] = make_metric_field(status.harq_oldest_retry_ordinal, field_aggregation::last);
+        point.fields["retransmitted_bits_total_last"] = make_metric_field(static_cast<double>(status.retransmitted_bits_total), field_aggregation::last);
+        point.fields["radio_dropped_bits_total_last"] = make_metric_field(static_cast<double>(status.radio_dropped_bits_total), field_aggregation::last);
+        point.fields["charged_grant_bits_last"] = make_metric_field(static_cast<double>(status.last_charged_grant_bits), field_aggregation::last);
         point.fields["nfqueue_queue_num_last"] = make_metric_field(status.nfqueue_queue_num, field_aggregation::last);
         point.fields["nfqueue_ce_rewrite_packets_last"] = make_metric_field(status.nfqueue_ce_rewrite_packets, field_aggregation::last);
         point.fields["nfqueue_drop_packets_last"] = make_metric_field(status.nfqueue_drop_packets, field_aggregation::last);
@@ -755,8 +789,8 @@ void ue::print_traffic()
         LOG_INFO_I("ue::print_traffic") << " UL IP buf: " << ul_status.ip_buffer_size << " pkts (oldest UID " << ul_status.ip_oldest_uid << ", delay " << ul_status.ip_oldest_age << " s)" << END();
         LOG_INFO_I("ue::print_traffic") << " DL IP buf: " << dl_status.ip_buffer_size << " pkts (oldest UID " << dl_status.ip_oldest_uid << ", delay " << dl_status.ip_oldest_age << " s)" << END();
 
-        LOG_INFO_I("ue::print_traffic") << " UL HARQ buf: " << ul_status.harq_size << " pkts (oldest ID " << ul_status.harq_oldest_id << ", delay " << ul_status.harq_oldest_age << " s, n_tx " << ul_status.harq_oldest_n_tx << ")" << END();
-        LOG_INFO_I("ue::print_traffic") << " DL HARQ buf: " << dl_status.harq_size << " pkts (oldest ID " << dl_status.harq_oldest_id << ", delay " << dl_status.harq_oldest_age << " s, n_tx " << dl_status.harq_oldest_n_tx << ")" << END();
+        LOG_INFO_I("ue::print_traffic") << " UL HARQ buf: " << ul_status.harq_size << " pkts (oldest ID " << ul_status.harq_oldest_id << ", delay " << ul_status.harq_oldest_age << " s, retry ordinal " << ul_status.harq_oldest_retry_ordinal << ")" << END();
+        LOG_INFO_I("ue::print_traffic") << " DL HARQ buf: " << dl_status.harq_size << " pkts (oldest ID " << dl_status.harq_oldest_id << ", delay " << dl_status.harq_oldest_age << " s, retry ordinal " << dl_status.harq_oldest_retry_ordinal << ")" << END();
 
         LOG_INFO_I("ue::print_traffic") << " UL capture buf: " << ul_status.capture_size << " pkts (oldest UID " << ul_status.capture_oldest_uid << ", delay " << ul_status.capture_oldest_age << " s)" << END();
         LOG_INFO_I("ue::print_traffic") << " DL capture buf: " << dl_status.capture_size << " pkts (oldest UID " << dl_status.capture_oldest_uid << ", delay " << dl_status.capture_oldest_age << " s)" << END();

@@ -8,7 +8,10 @@
 
 #include <chrono>
 #include <cstdint>
+#include <deque>
 #include <memory>
+#include <unordered_map>
+#include <unordered_set>
 
 #include <netfilter/pkt_capture.h>
 #include <pdcp_layer/packet_handler.h>
@@ -26,25 +29,56 @@ public:
     void drop_ingress_pkt(ip_pkt pkt) override;
     void push(harq_pkt pkt) override;
     void drop(harq_pkt pkt, bit_fate fate) override;
+    void flush_released() override;
     float release() override;
     void fill_queue_status(pdcp_queue_status& status, float current_t) const override;
 
 private:
+    struct completion_state
+    {
+        explicit completion_state(const ip_pkt &source)
+            : packet(source),
+              original_bits(source.original_size)
+        {
+        }
+
+        ip_pkt packet;
+        std::uint64_t original_bits = 0;
+        std::uint64_t accounted_bits = 0;
+        bool failed = false;
+        bool ce_marked = false;
+        float ready_time = 0.0f;
+    };
+
     float get_current_ts() const;
-    void sort_by_id();
-    bool add_data(ip_pkt *recv_pkt);
-    bool remove_data(int id, float bits);
-    bool check_order(int id);
-    void update_order(int id);
-    void verdict(const ip_pkt& pkt, final_packet_verdict verdict) override;
+    completion_state &state_for(const ip_pkt &pkt);
+    void account_fragment(
+        const ip_pkt &pkt,
+        bool failed,
+        float ready_time);
+    bool state_is_complete(const completion_state &state) const;
+    bool state_is_ready(const completion_state &state) const;
+    final_packet_verdict state_verdict(
+        const completion_state &state) const;
+    bool release_state(std::uint32_t uid, float &delivered_bits);
+    void force_drop_all();
+    bool verdict(
+        const ip_pkt& pkt,
+        final_packet_verdict verdict) override;
 
 private:
     bool do_check = true;
     std::chrono::microseconds *init_t = nullptr;
     uint32_t prev_uid = static_cast<uint32_t>(-1);
-    int prev_released_id = -1;
     int ce_rewrite_packets = 0;
     int drop_packets = 0;
     std::unique_ptr<pkt_capture> pkt_cptr;
-    std::deque<ip_pkt> out_pkts;
+    std::unordered_map<std::uint32_t, completion_state> completions;
+    std::deque<std::uint32_t> completion_order;
+    std::size_t completion_high_water = 0;
+    std::unordered_set<std::uint32_t> finalized_uids;
+    std::deque<std::uint32_t> finalized_order;
+    static constexpr std::size_t max_completion_states = 65536;
+    static constexpr std::size_t max_finalized_history = 65536;
+    bool quitting = false;
 };

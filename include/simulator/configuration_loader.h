@@ -35,15 +35,6 @@ std::string getBaseMapPath();
 // MAC LAYER
 //
 
-// HARQ DEFINITIONS
-#define HARQ_PROCESSING_DELAY_DFLT 1 // ms
-#define HARQ_PROCESSING_DELAY_VAR 1  // ms
-#define HARQ_RTX_PERIOD_DFLT 4       // ms
-#define HARQ_RTX_PERIOD_VAR 0        // ms
-#define HARQ_RTX_VAR_DFLT 1          // ms
-#define HARQ_MAX_DFLT_RTX 4
-#define HARQ_AIR_DELAY_DFLT 0.01 // Percentage
-
 // SCHEDULER DEFINITIONS
 #define DEFAULT_METRIC SCH_METRIC_DEFAULT // Round Robin
 #define DELTA_METRIC_DEFAULT 1.0
@@ -76,11 +67,11 @@ std::string getBaseMapPath();
 #define BACKHAUL_D_VAR_DEFAULT 0.001
 #define DEFAULT_ORDER_PKTS true
 #define MAX_RTX_DEFAULT 4
-#define AIR_DELAY_VAR_DEFAULT 0.01   // %
-#define RTX_PERIOD_DEFAULT 4         // ms
-#define RTX_PERIOD_VAR_DEFAULT 0     // ms
-#define RTX_PROC_DELAY_DEFAULT 1     // ms
-#define RTX_PROC_DELAY_VAR_DEFAULT 1 // ms
+#define AIR_DELAY_VAR_DEFAULT 0.0f
+#define RTX_PERIOD_DEFAULT 0.004f
+#define RTX_PERIOD_VAR_DEFAULT 0.0f
+#define RTX_PROC_DELAY_DEFAULT 0.001f
+#define RTX_PROC_DELAY_VAR_DEFAULT 0.001f
 
 //
 // SCENARIO
@@ -263,6 +254,7 @@ private:
     float backhaul_d = BACKHAUL_D_DEFAULT;
     float backhaul_d_var = BACKHAUL_D_VAR_DEFAULT;
     bool order_pkts = DEFAULT_ORDER_PKTS;
+    harq_model harq_model_value = harq_model::legacy_bler;
     // PDCP UL CONFIG
     int max_rtx_ul = MAX_RTX_DEFAULT;
     float air_delay_var_ul = AIR_DELAY_VAR_DEFAULT;

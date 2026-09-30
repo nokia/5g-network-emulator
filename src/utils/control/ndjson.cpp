@@ -5,6 +5,7 @@
 **********************************************/
 
 #include <cmath>
+#include <limits>
 
 #include <nlohmann/json.hpp>
 #include <common/direction.h>
@@ -170,9 +171,17 @@ bool parse_line(const std::string &line, std::uint64_t fallback_id,
                     error = "inject needs dl.bytes or ul.bytes";
                     return false;
                 }
-                if (c.bytes <= 0.0)
+                if (!std::isfinite(c.bytes)
+                    || c.bytes <= 0.0
+                    || std::floor(c.bytes) != c.bytes
+                    || c.bytes
+                        > static_cast<double>(
+                              std::numeric_limits<std::uint64_t>::max()
+                              / 8))
                 {
-                    error = "inject needs a positive size";
+                    error =
+                        "inject needs a positive integer byte count within "
+                        "the uint64 bit range";
                     return false;
                 }
                 if (item.contains("ecn"))

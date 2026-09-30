@@ -5,6 +5,9 @@
 **********************************************/
 
 #include <chrono>
+#include <algorithm>
+#include <cmath>
+#include <stdexcept>
 #include <utility>
 
 #include <pdcp_layer/captured_packet_handler.h>
@@ -19,6 +22,12 @@ packet_handler::packet_handler(pdcp_config pdcp_c, unsigned int seed, int _verbo
 {
     bh_d = pdcp_c.bh_d;
     bh_d_var = pdcp_c.bh_d_var;
+    if (!std::isfinite(bh_d)
+        || !std::isfinite(bh_d_var)
+        || bh_d < 0.0f
+        || bh_d_var < 0.0f)
+        throw std::invalid_argument(
+            "backhaul delays must be finite and non-negative seconds");
     verbosity = _verbosity;
 }
 
@@ -64,8 +73,19 @@ void packet_handler::drop_ingress_pkt(ip_pkt pkt)
 
 void packet_handler::push(harq_pkt pkt)
 {
-    pkt.t_out += pkt.backhaul_d + gauss_dist(gauss_dist_gen)*pkt.backhaul_d_var;
+    if (pkt_list.size() >= max_release_blocks_)
+    {
+        record_error(pkt.bits, bit_fate::queue_dropped);
+        drop(std::move(pkt), bit_fate::queue_dropped);
+        return;
+    }
+    pkt.t_out += std::max(
+        0.0f,
+        pkt.backhaul_d
+            + gauss_dist(gauss_dist_gen) * pkt.backhaul_d_var);
     pkt_list.push_back(std::move(pkt));
+    release_high_water_ =
+        std::max(release_high_water_, pkt_list.size());
 }
 
 void packet_handler::drop(harq_pkt pkt, bit_fate fate)
@@ -86,7 +106,7 @@ void packet_handler::flush_released()
 float packet_handler::release()
 {
     int count = 0;
-    float bits = 0;
+    std::uint64_t bits = 0;
     float latency = 0;
     float ip_latency = 0;
     for(std::deque<harq_pkt>::iterator it=pkt_list.begin(); it!=pkt_list.end();)
@@ -119,6 +139,8 @@ float packet_handler::release()
 void packet_handler::fill_queue_status(pdcp_queue_status& status, float current_t) const
 {
     status.release_size = (int)pkt_list.size();
+    status.release_high_water =
+        static_cast<int>(release_high_water_);
     if(!pkt_list.empty())
     {
         const harq_pkt &pkt = pkt_list.front();
@@ -162,7 +184,7 @@ float packet_handler::get_tp(bool elapsed)
     else return BIT2MBIT*tp_mean.get()*S2MS;
 }
 
-void packet_handler::record_error(float bits, bit_fate fate)
+void packet_handler::record_error(std::uint64_t bits, bit_fate fate)
 {
     if(verbosity > 0) e_mean.add(bits);
     switch(fate)
@@ -180,7 +202,9 @@ void packet_handler::push_ingress_pkt(ip_pkt pkt)
     ingress_pkts.push_back(std::move(pkt));
 }
 
-void packet_handler::verdict(const ip_pkt&, final_packet_verdict verdict_value)
+bool packet_handler::verdict(
+    const ip_pkt&,
+    final_packet_verdict verdict_value)
 {
     switch(verdict_value)
     {
@@ -195,6 +219,7 @@ void packet_handler::verdict(const ip_pkt&, final_packet_verdict verdict_value)
         final_drop_packets_interval++;
         break;
     }
+    return true;
 }
 
 std::unique_ptr<packet_handler> make_packet_handler(packet_handler_config cfg)

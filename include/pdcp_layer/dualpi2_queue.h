@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <deque>
 #include <random>
 
@@ -31,7 +32,7 @@ public:
     void clear();
 
     int size() const;
-    float bits() const { return l_bits + c_bits; }
+    std::uint64_t bits() const { return l_bits + c_bits; }
     dualpi2_stats get_stats() const;
     dualpi2_stats get_interval_stats();
     const dualpi2_config& config() const { return cfg; }
@@ -52,8 +53,8 @@ private:
     std::deque<ip_pkt> l_queue;
     std::deque<ip_pkt> c_queue;
     std::deque<ip_pkt> dropped_queue;
-    float l_bits = 0.0f;
-    float c_bits = 0.0f;
+    std::uint64_t l_bits = 0;
+    std::uint64_t c_bits = 0;
     float current_t = 0.0f;
 
     float p_base = 0.0f;

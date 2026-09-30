@@ -102,7 +102,23 @@ void add_directional(std::vector<param_entry> &out, int tx_dir)
             "injected so far. Mind pkt_delay_budget_s: anything that does not make it "
             "out in time is discarded as expired.",
             [tx_dir](ue &u, double bytes, std::string &reason) {
-                if (!u.inject_bits(tx_dir, (float)(bytes * 8.0), 0))
+                if (!std::isfinite(bytes)
+                    || bytes < 0.0
+                    || std::floor(bytes) != bytes
+                    || bytes
+                        > static_cast<double>(
+                              std::numeric_limits<std::uint64_t>::max()
+                              / 8))
+                {
+                    reason =
+                        "inject_bytes must be a non-negative integer byte "
+                        "count within the uint64 bit range";
+                    return false;
+                }
+                if (!u.inject_bits(
+                        tx_dir,
+                        static_cast<std::uint64_t>(bytes) * 8,
+                        0))
                 {
                     reason = "this UE has no simulated traffic source";
                     return false;

@@ -26,8 +26,14 @@ public:
     float release() override;
     bool set_traffic_target(int tx_dir, float bps) override;
     bool get_traffic_target(int tx_dir, float &bps) const override;
-    bool inject_bits(float bits, std::uint32_t tag, std::uint8_t ecn) override;
-    float injected_bits_total() const override { return injected_bits_total_; }
+    bool inject_bits(
+        std::uint64_t bits,
+        std::uint32_t tag,
+        std::uint8_t ecn) override;
+    std::uint64_t injected_bits_total() const override
+    {
+        return injected_bits_total_;
+    }
     int get_pkt_size() const override { return traffic_m->get_pkt_size(0); }
     const std::unordered_map<std::uint32_t, object_counters> &objects() const override { return objects_; }
     bool forget_object(std::uint32_t tag) override { return objects_.erase(tag) > 0; }
@@ -46,14 +52,19 @@ public:
 private:
     struct pending_packet_result
     {
-        float original_size = 0.0f;
-        float accounted_bits = 0.0f;
+        std::uint64_t original_size = 0;
+        std::uint64_t accounted_bits = 0;
         bool dropped = false;
         bool congestion_signal = false;
     };
 
     void update_pending_packet(const ip_pkt& pkt, bit_fate fate);
-    void packetize(float bits, float current_t, std::uint32_t tag, std::uint8_t ecn);
+    void packetize(
+        std::uint64_t bits,
+        float current_t,
+        std::uint32_t tag,
+        std::uint8_t ecn);
+    std::uint64_t quantize_generated_bits(float bits);
 
 private:
     // One object's worth of bits waiting to be packetized, with what its packets
@@ -61,7 +72,7 @@ private:
     struct pending_injection
     {
         std::uint32_t tag = 0;
-        float bits = 0.0f;
+        std::uint64_t bits = 0;
         std::uint8_t ecn = ECN_NOT_ECT;
     };
 
@@ -71,7 +82,8 @@ private:
     // Injected bits waiting for the next ingest, kept per object so that each one is
     // packetized on its own and its byte count is conserved exactly.
     std::vector<pending_injection> pending_injections_;
-    float injected_bits_total_ = 0.0f;
+    std::uint64_t injected_bits_total_ = 0;
+    double generated_residual_bits_ = 0.0;
     int current_id = 0;
     std::unordered_map<uint32_t, pending_packet_result> pending_results;
     std::unordered_map<std::uint32_t, object_counters> objects_;

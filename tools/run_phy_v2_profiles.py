@@ -58,6 +58,8 @@ def render_config(
     run_id: str,
     duration_s: int,
     map_file: Path | None = None,
+    harq_model: str | None = None,
+    max_rtx: int | None = None,
 ) -> str:
     lines = source.read_text().splitlines()
     rendered = []
@@ -77,6 +79,17 @@ def render_config(
             rendered.append(f"map_file: {map_file}")
         elif line.strip().startswith("duration:"):
             rendered[-1] = f"duration: {duration_s}"
+        elif (
+            harq_model is not None
+            and line.strip().startswith("harq_model:")
+        ):
+            rendered[-1] = f"harq_model: {harq_model}"
+        elif (
+            max_rtx is not None
+            and line.strip().startswith(("max_rtx_ul:", "max_rtx_dl:"))
+        ):
+            key = line.split(":", 1)[0].strip()
+            rendered[-1] = f"{key}: {max_rtx}"
     if not inserted:
         raise ValueError(f"{source}: [Global] section is missing")
     return "\n".join(rendered) + "\n"
@@ -102,6 +115,16 @@ def main() -> None:
     parser.add_argument("--duration-s", type=int, default=180)
     parser.add_argument("--batch-id")
     parser.add_argument(
+        "--harq-model",
+        choices=("legacy_bler", "disabled"),
+        help="override the profile HARQ model",
+    )
+    parser.add_argument(
+        "--max-rtx",
+        type=int,
+        help="override both UL and DL retry limits",
+    )
+    parser.add_argument(
         "--profiles",
         help="comma-separated profile names; defaults to the five references",
     )
@@ -116,6 +139,8 @@ def main() -> None:
         default=ROOT / "results" / "phy-v2-production-maps",
     )
     args = parser.parse_args()
+    if args.max_rtx is not None and args.max_rtx < 0:
+        raise SystemExit("--max-rtx must be non-negative")
 
     binary = ROOT / "bin" / "fikore"
     if not binary.is_file():
@@ -186,6 +211,8 @@ def main() -> None:
             run_id,
             args.duration_s,
             explicit_map,
+            args.harq_model,
+            args.max_rtx,
         )
         input_path = input_dir / source.name
         input_path.write_text(rendered)
@@ -237,6 +264,8 @@ def main() -> None:
                 "map_file": expected_map,
                 "map_sha256": sha256(selected_map_path),
                 "map_realization_id": realization_id,
+                "harq_model_override": args.harq_model,
+                "max_rtx_override": args.max_rtx,
             }
         )
         print(f"{profile}: {elapsed:.3f} s")

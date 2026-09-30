@@ -148,7 +148,7 @@ static int GET_RBG_INDEX(int size)
 static int SINR_TO_INDEX(float sinr){return std::max(std::min(int(ceil(sinr))+20, MAX_SINR_INDEX-1), 0);}
 
 // MCS-SINR to BLER									
-static double BLER_MCS_SINR[2][5][4][28][MAX_SINR_INDEX] = 	{ 
+static const double LEGACY_BLER_MCS_SINR[2][5][4][28][MAX_SINR_INDEX] = {
 												 { 
 												  { 
 												   { 

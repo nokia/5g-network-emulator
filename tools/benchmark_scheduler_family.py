@@ -151,6 +151,7 @@ mimo_layers: 1
 n_ofdm_syms: 14
 n_re_freq: 12
 numerology: {numerology}
+harq_model: disabled
 mcs_tables: true
 scheduling_mode: {time_mode}
 scheduling_type: {frequency_mode}

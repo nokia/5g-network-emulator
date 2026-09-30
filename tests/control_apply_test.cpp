@@ -36,6 +36,11 @@ void write_config(const std::string &timeline, int metric_type = -1, int n_ues =
     std::string line, text;
     while (std::getline(base, line))
     {
+        if (
+            metric_type >= 0
+            && metric_type != METRIC_PF
+            && line.rfind("pf_alpha:", 0) == 0)
+            continue;
         // Same scenario as the smoke, with the timeline swapped and the duration cut:
         // run_steps drives the loop, so the .ini duration is irrelevant here.
         if (line.rfind("timeline_file:", 0) == 0) line = "timeline_file: " + timeline;

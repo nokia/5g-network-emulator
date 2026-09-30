@@ -87,6 +87,7 @@ void write_config(
         << "n_ofdm_syms: 14\n"
         << "n_re_freq: 12\n"
         << "numerology: 1\n"
+        << "harq_model: disabled\n"
         << "mcs_tables: true\n"
         << "scheduling_mode: 1\n"
         << "scheduling_type: 0\n"

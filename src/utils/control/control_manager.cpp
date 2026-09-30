@@ -574,7 +574,11 @@ void control_manager::apply(const command &c, double sim_t, std::int64_t tti)
         for (size_t t = 0; t < targets.size(); t++)
         {
             const bool done = c.op == command_op::inject
-                ? targets[t]->inject_bits(c.tx_dir, (float)(c.bytes * 8.0), c.tag, c.ecn)
+                ? targets[t]->inject_bits(
+                    c.tx_dir,
+                    static_cast<std::uint64_t>(c.bytes) * 8,
+                    c.tag,
+                    c.ecn)
                 : targets[t]->forget_object(c.tag);
             if (!done)
             {
@@ -661,6 +665,15 @@ nlohmann::json direction_state(ue &u, int tx_dir, bool include_objects = true)
     // the channel it is getting, and how much of the air went on second attempts.
     j["sinr_db"] = u.get_mean_sinr(tx_dir);
     j["retransmitted_bytes_total"] = p.retransmitted_bits_total() / 8.0;
+    j["harq_model"] = q.harq_model;
+    j["harq_queue_blocks"] = q.harq_size;
+    j["harq_queue_high_water_blocks"] = q.harq_high_water_blocks;
+    j["harq_queue_capacity_blocks"] = q.harq_capacity_blocks;
+    j["harq_oldest_retry_ordinal"] =
+        q.harq_oldest_retry_ordinal;
+    j["harq_oldest_age_s"] = q.harq_oldest_age;
+    j["last_charged_grant_bytes"] =
+        q.last_charged_grant_bits / 8.0;
 
     // Per object counters, for as long as the client keeps the tag alive. Terminal
     // states only: what is neither delivered nor lost is still in flight, which the
@@ -673,12 +686,21 @@ nlohmann::json direction_state(ue &u, int tx_dir, bool include_objects = true)
              it != objects.end(); ++it)
         {
             nlohmann::json c;
+            const std::uint64_t terminal_bits =
+                it->second.delivered_bits
+                + it->second.expired_bits
+                + it->second.dropped_bits();
+            const std::int64_t unresolved_bits =
+                static_cast<std::int64_t>(it->second.injected_bits)
+                - static_cast<std::int64_t>(terminal_bits);
+            c["injected_bytes"] = it->second.injected_bits / 8.0;
             c["delivered_bytes"] = it->second.delivered_bits / 8.0;
             c["dropped_bytes"] = it->second.dropped_bits() / 8.0;
             c["expired_bytes"] = it->second.expired_bits / 8.0;
             c["queue_dropped_bytes"] = it->second.queue_dropped_bits / 8.0;
             c["radio_dropped_bytes"] = it->second.radio_dropped_bits / 8.0;
             c["ce_bytes"] = it->second.ce_bits / 8.0;
+            c["unresolved_bytes"] = unresolved_bits / 8.0;
             o[std::to_string(it->first)] = c;
         }
         j["objects"] = o;

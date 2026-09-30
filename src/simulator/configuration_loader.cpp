@@ -475,6 +475,19 @@ void configuration_loader::load(std::string cfg_file)
                                     max_rtx_ul = std::stoi(value);
                                 if (key == "max_rtx_dl")
                                     max_rtx_dl = std::stoi(value);
+                                if (key == "harq_model")
+                                {
+                                    if (value == "legacy_bler")
+                                        harq_model_value =
+                                            harq_model::legacy_bler;
+                                    else if (value == "disabled")
+                                        harq_model_value =
+                                            harq_model::disabled;
+                                    else
+                                        throw std::invalid_argument(
+                                            "harq_model must be legacy_bler "
+                                            "or disabled");
+                                }
                                 if (key == "mcs_tables")
                                 {
                                     if (value == "true" || value == "1")
@@ -743,6 +756,33 @@ void configuration_loader::load(std::string cfg_file)
                     << metric_type << END();
         }
     }
+
+    const auto require_nonnegative_finite =
+        [](const char *name, float value) {
+            if (!std::isfinite(value) || value < 0.0f)
+                throw std::invalid_argument(
+                    std::string(name)
+                    + " must be finite and non-negative seconds");
+        };
+    if (max_rtx_ul < 0 || max_rtx_dl < 0)
+        throw std::invalid_argument("max_rtx_ul and max_rtx_dl must be >= 0");
+    require_nonnegative_finite("backhaul_d", backhaul_d);
+    require_nonnegative_finite("backhaul_d_var", backhaul_d_var);
+    require_nonnegative_finite("air_delay_var_ul", air_delay_var_ul);
+    require_nonnegative_finite("rtx_period_ul", rtx_period_ul);
+    require_nonnegative_finite("rtx_period_var_ul", rtx_period_var_ul);
+    require_nonnegative_finite("rtx_proc_delay_ul", rtx_proc_delay_ul);
+    require_nonnegative_finite(
+        "rtx_proc_delay_var_ul", rtx_proc_delay_var_ul);
+    require_nonnegative_finite("air_delay_var_dl", air_delay_var_dl);
+    require_nonnegative_finite("rtx_period_dl", rtx_period_dl);
+    require_nonnegative_finite("rtx_period_var_dl", rtx_period_var_dl);
+    require_nonnegative_finite("rtx_proc_delay_dl", rtx_proc_delay_dl);
+    require_nonnegative_finite(
+        "rtx_proc_delay_var_dl", rtx_proc_delay_var_dl);
+    if (harq_model_value == harq_model::legacy_bler && !mcs_tables)
+        throw std::invalid_argument(
+            "harq_model: legacy_bler requires mcs_tables: true");
 }
 
 float configuration_loader::get_period()
@@ -782,12 +822,32 @@ phy_enb_config configuration_loader::get_phy_enb_config()
 
 pdcp_config configuration_loader::get_pdcp_config_ul()
 {
-    return pdcp_config(max_rtx_ul, air_delay_var_ul, rtx_period_ul, rtx_period_var_ul, rtx_proc_delay_ul, rtx_proc_delay_ul, backhaul_d, backhaul_d_var, order_pkts);
+    return pdcp_config(
+        max_rtx_ul,
+        air_delay_var_ul,
+        rtx_period_ul,
+        rtx_period_var_ul,
+        rtx_proc_delay_ul,
+        rtx_proc_delay_var_ul,
+        backhaul_d,
+        backhaul_d_var,
+        order_pkts,
+        harq_model_value);
 }
 
 pdcp_config configuration_loader::get_pdcp_config_dl()
 {
-    return pdcp_config(max_rtx_dl, air_delay_var_dl, rtx_period_dl, rtx_period_var_dl, rtx_proc_delay_dl, rtx_proc_delay_dl, backhaul_d, backhaul_d_var, order_pkts);
+    return pdcp_config(
+        max_rtx_dl,
+        air_delay_var_dl,
+        rtx_period_dl,
+        rtx_period_var_dl,
+        rtx_proc_delay_dl,
+        rtx_proc_delay_var_dl,
+        backhaul_d,
+        backhaul_d_var,
+        order_pkts,
+        harq_model_value);
 }
 
 enb_config configuration_loader::get_enb_config()

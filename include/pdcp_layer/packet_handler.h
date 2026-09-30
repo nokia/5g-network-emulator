@@ -7,6 +7,7 @@
 #pragma once
 
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <deque>
 #include <memory>
@@ -55,19 +56,23 @@ enum class bit_fate
 // counters, so that two reads can be diffed.
 struct object_counters
 {
-    float delivered_bits = 0.0f;
-    float expired_bits = 0.0f;
-    float queue_dropped_bits = 0.0f;
-    float radio_dropped_bits = 0.0f;
+    std::uint64_t injected_bits = 0;
+    std::uint64_t delivered_bits = 0;
+    std::uint64_t expired_bits = 0;
+    std::uint64_t queue_dropped_bits = 0;
+    std::uint64_t radio_dropped_bits = 0;
     // Congestion marks, in bits of delivered payload. Per object rather than per UE
     // because a scalable sender needs the marks of its own flow, and a UE can carry
     // more than one.
-    float ce_bits = 0.0f;
+    std::uint64_t ce_bits = 0;
 
     // Both drop causes as one number. The co-simulation spec closes an object with
     // delivered + dropped + expired == injected, so the sum stays available under the
     // name it has there, covering exactly what it used to cover.
-    float dropped_bits() const { return queue_dropped_bits + radio_dropped_bits; }
+    std::uint64_t dropped_bits() const
+    {
+        return queue_dropped_bits + radio_dropped_bits;
+    }
 };
 
 class packet_handler
@@ -107,9 +112,12 @@ public:
     // Client driven injection: the runtime twin of the file driven traffic_generator.
     // The caller decides when and how much; the emulator only packetizes and queues.
     // ecn is what the packets declare, which is what the AQM classifies on.
-    virtual bool inject_bits(float bits, std::uint32_t tag, std::uint8_t ecn = ECN_NOT_ECT)
+    virtual bool inject_bits(
+        std::uint64_t bits,
+        std::uint32_t tag,
+        std::uint8_t ecn = ECN_NOT_ECT)
     { (void)bits; (void)tag; (void)ecn; return false; }
-    virtual float injected_bits_total() const { return 0.0f; }
+    virtual std::uint64_t injected_bits_total() const { return 0; }
 
     // Per object accounting. A source that cannot be injected into has no objects.
     virtual const std::unordered_map<std::uint32_t, object_counters> &objects() const
@@ -129,24 +137,40 @@ public:
 
     // Cumulative, monotonic counters. The client diffs two reads, so a lost read loses
     // nothing and the emulator keeps no "since last time" state.
-    float delivered_bits_total() const { return delivered_bits_total_; }
-    float expired_bits_total() const { return expired_bits_total_; }
-    float queue_dropped_bits_total() const { return queue_dropped_bits_total_; }
-    float radio_dropped_bits_total() const { return radio_dropped_bits_total_; }
-    float dropped_bits_total() const { return queue_dropped_bits_total_ + radio_dropped_bits_total_; }
+    std::uint64_t delivered_bits_total() const
+    {
+        return delivered_bits_total_;
+    }
+    std::uint64_t expired_bits_total() const { return expired_bits_total_; }
+    std::uint64_t queue_dropped_bits_total() const
+    {
+        return queue_dropped_bits_total_;
+    }
+    std::uint64_t radio_dropped_bits_total() const
+    {
+        return radio_dropped_bits_total_;
+    }
+    std::uint64_t dropped_bits_total() const
+    {
+        return queue_dropped_bits_total_ + radio_dropped_bits_total_;
+    }
     int ce_packets_total() const { return ce_packets_total_; }
 
     // The caller states the cause; see bit_fate for why the three are not interchangeable.
     // Never called with delivered.
-    void record_error(float bits, bit_fate fate);
+    void record_error(std::uint64_t bits, bit_fate fate);
 
 protected:
     void push_ingress_pkt(ip_pkt pkt);
-    virtual void verdict(const ip_pkt& pkt, final_packet_verdict verdict);
+    virtual bool verdict(
+        const ip_pkt& pkt,
+        final_packet_verdict verdict);
 
 protected:
     std::deque<ip_pkt> ingress_pkts;
     std::deque<harq_pkt> pkt_list;
+    std::size_t release_high_water_ = 0;
+    static constexpr std::size_t max_release_blocks_ = 65536;
     float current_t = 0;
     float bh_d = 0;
     float bh_d_var = 0;
@@ -157,10 +181,10 @@ protected:
     mean_handler<float> ipl_mean;
     mean_handler<float> g_mean;
     mean_handler<float> e_mean;
-    float delivered_bits_total_ = 0.0f;
-    float expired_bits_total_ = 0.0f;
-    float queue_dropped_bits_total_ = 0.0f;
-    float radio_dropped_bits_total_ = 0.0f;
+    std::uint64_t delivered_bits_total_ = 0;
+    std::uint64_t expired_bits_total_ = 0;
+    std::uint64_t queue_dropped_bits_total_ = 0;
+    std::uint64_t radio_dropped_bits_total_ = 0;
     int ce_packets_total_ = 0;
     int final_accept_packets_interval = 0;
     int final_accept_ce_packets_interval = 0;

@@ -7,6 +7,7 @@
 #include <chrono>
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <stdexcept>
 #include <utility>
 
@@ -152,6 +153,30 @@ void packet_handler::fill_queue_status(pdcp_queue_status& status, float current_
     status.final_drop_packets = final_drop_packets_interval;
 }
 
+std::uint64_t packet_handler::pending_ingress_bits() const
+{
+    std::uint64_t bits = 0;
+    for (const ip_pkt &pkt : ingress_pkts)
+    {
+        if (pkt.size > std::numeric_limits<std::uint64_t>::max() - bits)
+            throw std::overflow_error("pending ingress bit count overflow");
+        bits += pkt.size;
+    }
+    return bits;
+}
+
+std::uint64_t packet_handler::pending_release_bits() const
+{
+    std::uint64_t bits = 0;
+    for (const harq_pkt &pkt : pkt_list)
+    {
+        if (pkt.bits > std::numeric_limits<std::uint64_t>::max() - bits)
+            throw std::overflow_error("pending release bit count overflow");
+        bits += pkt.bits;
+    }
+    return bits;
+}
+
 float packet_handler::get_generated(bool partial)
 {
     if(verbosity <= 0) return -1;
@@ -198,8 +223,18 @@ void packet_handler::record_error(std::uint64_t bits, bit_fate fate)
 
 void packet_handler::push_ingress_pkt(ip_pkt pkt)
 {
+    record_admitted_bits(pkt.size);
     if(verbosity > 0) g_mean.add(pkt.size);
     ingress_pkts.push_back(std::move(pkt));
+}
+
+void packet_handler::record_admitted_bits(std::uint64_t bits)
+{
+    if (bits
+        > std::numeric_limits<std::uint64_t>::max()
+            - admitted_bits_total_)
+        throw std::overflow_error("admitted packet bit count overflow");
+    admitted_bits_total_ += bits;
 }
 
 bool packet_handler::verdict(

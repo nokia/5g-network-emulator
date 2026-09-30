@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <limits>
 #include <stdexcept>
 #include <utility>
 
@@ -138,6 +139,19 @@ const harq_pkt* harq_handler::peek_oldest() const
 {
     if(harq_buffer.empty()) return nullptr;
     return &harq_buffer.front();
+}
+
+std::uint64_t harq_handler::queued_bits() const
+{
+    std::uint64_t bits = 0;
+    for (const harq_pkt &pkt : harq_buffer)
+    {
+        if (pkt.bits
+            > std::numeric_limits<std::uint64_t>::max() - bits)
+            throw std::overflow_error("HARQ queued bit count overflow");
+        bits += pkt.bits;
+    }
+    return bits;
 }
 
 float harq_handler::emulate_ack_delay(float distance)

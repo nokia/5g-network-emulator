@@ -288,6 +288,60 @@ bool pdcp_layer::using_l4s() const
     return _ip_buffer.using_dualpi2();
 }
 
+std::uint64_t pdcp_layer::pending_bits() const
+{
+    const std::uint64_t components[] = {
+        _packet_h->pending_ingress_bits(),
+        _ip_buffer.bits(),
+        _harq_buffer.queued_bits(),
+        _packet_h->pending_release_bits()};
+    std::uint64_t total = 0;
+    for (std::uint64_t component : components)
+    {
+        if (component
+            > std::numeric_limits<std::uint64_t>::max() - total)
+            throw std::overflow_error("PDCP pending bit count overflow");
+        total += component;
+    }
+    return total;
+}
+
+std::int64_t pdcp_layer::conservation_residual_bits() const
+{
+    const std::uint64_t terminal_components[] = {
+        _packet_h->delivered_bits_total(),
+        _packet_h->expired_bits_total(),
+        _packet_h->queue_dropped_bits_total(),
+        _packet_h->radio_dropped_bits_total(),
+        pending_bits()};
+    std::uint64_t accounted = 0;
+    for (std::uint64_t component : terminal_components)
+    {
+        if (component
+            > std::numeric_limits<std::uint64_t>::max() - accounted)
+            throw std::overflow_error("PDCP accounting total overflow");
+        accounted += component;
+    }
+    const std::uint64_t admitted = _packet_h->admitted_bits_total();
+    if (admitted >= accounted)
+    {
+        const std::uint64_t difference = admitted - accounted;
+        if (difference
+            > static_cast<std::uint64_t>(
+                  std::numeric_limits<std::int64_t>::max()))
+            throw std::overflow_error(
+                "PDCP positive conservation residual overflow");
+        return static_cast<std::int64_t>(difference);
+    }
+    const std::uint64_t difference = accounted - admitted;
+    if (difference
+        > static_cast<std::uint64_t>(
+              std::numeric_limits<std::int64_t>::max()))
+        throw std::overflow_error(
+            "PDCP negative conservation residual overflow");
+    return -static_cast<std::int64_t>(difference);
+}
+
 // Emptying the queues of a detached UE. All of it counts as a queue drop: the client
 // asked for the detach and knows it happened, so a cause of its own would only add a
 // counter nobody reads.
@@ -381,6 +435,11 @@ pdcp_queue_status pdcp_layer::get_queue_status() const
         _packet_h->radio_dropped_bits_total();
     status.last_charged_grant_bits =
         last_charged_grant_bits_;
+    status.admitted_bits_total =
+        _packet_h->admitted_bits_total();
+    status.pending_bits_total = pending_bits();
+    status.conservation_residual_bits =
+        conservation_residual_bits();
 
     status.pkt_delay_budget_s = pkt_delay_budget_s;
     dualpi2_stats l4s_stats = _ip_buffer.get_l4s_stats();

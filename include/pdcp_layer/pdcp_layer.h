@@ -96,7 +96,8 @@ public:
         return _packet_h->radio_dropped_bits_total();
     }
     int ce_packets_total() const { return _packet_h->ce_packets_total(); }
-    std::uint64_t pending_bits() const { return _ip_buffer.bits(); }
+    std::uint64_t pending_bits() const;
+    std::int64_t conservation_residual_bits() const;
     std::uint64_t last_charged_grant_bits() const
     {
         return last_charged_grant_bits_;

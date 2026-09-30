@@ -25,6 +25,9 @@ struct pdcp_queue_status
     std::uint64_t retransmitted_bits_total = 0;
     std::uint64_t radio_dropped_bits_total = 0;
     std::uint64_t last_charged_grant_bits = 0;
+    std::uint64_t admitted_bits_total = 0;
+    std::uint64_t pending_bits_total = 0;
+    std::int64_t conservation_residual_bits = 0;
 
     int capture_size = 0;
     int capture_oldest_uid = -1;

@@ -77,6 +77,7 @@ int main()
         assert(layer.release() == 1000.0f);
         assert(layer.delivered_bits_total() == 1000);
         assert(layer.radio_dropped_bits_total() == 0);
+        assert(layer.conservation_residual_bits() == 0);
     }
 
     {
@@ -87,6 +88,7 @@ int main()
         assert(layer.handle_pkt(1000.0f, 27, -20.0f, 0.0f, 1) == 0.0f);
         assert(layer.radio_dropped_bits_total() == 1000);
         assert(layer.retransmitted_bits_total() == 0);
+        assert(layer.conservation_residual_bits() == 0);
     }
 
     {
@@ -99,6 +101,7 @@ int main()
         assert(layer.handle_pkt(1000.0f, 27, -20.0f, 0.0f, 1) == 0.0f);
         assert(layer.radio_dropped_bits_total() == 1000);
         assert(layer.retransmitted_bits_total() == 1000);
+        assert(layer.conservation_residual_bits() == 0);
     }
 
     {
@@ -122,6 +125,7 @@ int main()
         assert(charged == 8);
         assert(effective == 8.0f);
         assert(layer.delivered_bits_total() == 8);
+        assert(layer.conservation_residual_bits() == 0);
     }
 
     return 0;

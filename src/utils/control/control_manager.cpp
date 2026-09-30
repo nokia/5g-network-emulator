@@ -659,6 +659,9 @@ nlohmann::json direction_state(ue &u, int tx_dir, bool include_objects = true)
     j["ce_packets_total"] = p.ce_packets_total();
     j["pending_packets"] = q.ip_buffer_size;
     j["pending_bytes"] = p.pending_bits() / 8.0;
+    j["admitted_bytes_total"] = q.admitted_bits_total / 8.0;
+    j["conservation_residual_bytes"] =
+        q.conservation_residual_bits / 8.0;
     j["oldest_age_s"] = q.ip_oldest_age;
     j["latency_s"] = p.get_latency(false);
     // Radio state, for a client that wants to know why the bytes are going slowly:

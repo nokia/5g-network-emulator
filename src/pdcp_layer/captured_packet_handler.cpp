@@ -51,7 +51,11 @@ void captured_packet_handler::quit()
 
     ingest(TX_DL, current_t);
     while (has_ingress_pkts())
-        drop_ingress_pkt(pop_ingress_pkt());
+    {
+        ip_pkt pkt = pop_ingress_pkt();
+        record_error(pkt.size, bit_fate::queue_dropped);
+        drop_ingress_pkt(std::move(pkt));
+    }
     force_drop_all();
     for (int attempt = 0;
          attempt < 1000 && !completions.empty();
@@ -89,12 +93,14 @@ float captured_packet_handler::ingest(int tx_dir, float current_t)
         bits += pkt.size;
         if (completions.size() >= max_completion_states)
         {
+            record_admitted_bits(pkt.size);
             if (!pkt_cptr->verdict(
                     pkt.uid,
                     packet_capture_action::DROP))
                 throw std::runtime_error(
                     "captured completion queue is full and DROP verdict "
                     "failed");
+            record_error(pkt.size, bit_fate::queue_dropped);
             packet_handler::verdict(
                 pkt,
                 final_packet_verdict::DROP);
@@ -111,7 +117,10 @@ float captured_packet_handler::ingest(int tx_dir, float current_t)
 
 void captured_packet_handler::drop_ingress_pkt(ip_pkt pkt)
 {
-    account_fragment(pkt, true, current_t);
+    account_fragment(
+        pkt,
+        bit_fate::queue_dropped,
+        current_t);
 }
 
 void captured_packet_handler::push(harq_pkt pkt)
@@ -124,7 +133,10 @@ void captured_packet_handler::push(harq_pkt pkt)
     {
         jt->t_out = pkt.t_out;
         jt->ip_t = pkt.ip_t;
-        account_fragment(*jt, false, pkt.t_out);
+        account_fragment(
+            *jt,
+            bit_fate::delivered,
+            pkt.t_out);
     }
 }
 
@@ -135,7 +147,7 @@ void captured_packet_handler::drop(harq_pkt pkt, bit_fate fate)
     {
         jt->t_out = pkt.t_out;
         jt->ip_t = pkt.ip_t;
-        account_fragment(*jt, true, current_t);
+        account_fragment(*jt, fate, current_t);
     }
 }
 
@@ -271,7 +283,7 @@ captured_packet_handler::state_for(const ip_pkt &pkt)
 
 void captured_packet_handler::account_fragment(
     const ip_pkt &pkt,
-    bool failed,
+    bit_fate fate,
     float ready_time)
 {
     completion_state &state = state_for(pkt);
@@ -282,7 +294,13 @@ void captured_packet_handler::account_fragment(
         throw std::logic_error(
             "captured packet fragments exceed original size");
     state.accounted_bits += pkt.size;
-    state.failed = state.failed || failed;
+    if (fate != bit_fate::delivered)
+    {
+        if (!state.failed)
+            state.failure_fate = fate;
+        state.failed = true;
+        state.failed_bits += pkt.size;
+    }
     state.ce_marked = state.ce_marked || pkt.ce_marked;
     state.ready_time = std::max(state.ready_time, ready_time);
 }
@@ -323,7 +341,15 @@ bool captured_packet_handler::release_state(
         return false;
 
     if (final == final_packet_verdict::DROP)
+    {
+        const std::uint64_t additional_drop_bits =
+            state.original_bits - state.failed_bits;
+        if (additional_drop_bits > 0)
+            record_error(
+                additional_drop_bits,
+                state.failure_fate);
         drop_packets++;
+    }
     else
     {
         delivered_bits += static_cast<float>(state.original_bits);
@@ -355,9 +381,28 @@ void captured_packet_handler::force_drop_all()
          ++it)
     {
         it->second.accounted_bits = it->second.original_bits;
+        if (!it->second.failed)
+            it->second.failure_fate = bit_fate::queue_dropped;
         it->second.failed = true;
         it->second.ready_time = current_t;
     }
+}
+
+std::uint64_t captured_packet_handler::pending_release_bits() const
+{
+    std::uint64_t bits = 0;
+    for (const auto &entry : completions)
+    {
+        const completion_state &state = entry.second;
+        const std::uint64_t pending =
+            state.accounted_bits - state.failed_bits;
+        if (pending
+            > std::numeric_limits<std::uint64_t>::max() - bits)
+            throw std::overflow_error(
+                "captured completion bit count overflow");
+        bits += pending;
+    }
+    return bits;
 }
 
 bool captured_packet_handler::verdict(

@@ -31,6 +31,7 @@ public:
     void drop(harq_pkt pkt, bit_fate fate) override;
     void flush_released() override;
     float release() override;
+    std::uint64_t pending_release_bits() const override;
     void fill_queue_status(pdcp_queue_status& status, float current_t) const override;
 
 private:
@@ -45,7 +46,9 @@ private:
         ip_pkt packet;
         std::uint64_t original_bits = 0;
         std::uint64_t accounted_bits = 0;
+        std::uint64_t failed_bits = 0;
         bool failed = false;
+        bit_fate failure_fate = bit_fate::queue_dropped;
         bool ce_marked = false;
         float ready_time = 0.0f;
     };
@@ -54,7 +57,7 @@ private:
     completion_state &state_for(const ip_pkt &pkt);
     void account_fragment(
         const ip_pkt &pkt,
-        bool failed,
+        bit_fate fate,
         float ready_time);
     bool state_is_complete(const completion_state &state) const;
     bool state_is_ready(const completion_state &state) const;

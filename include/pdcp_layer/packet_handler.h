@@ -97,6 +97,8 @@ public:
     virtual void flush_released();
     virtual float release();
     virtual void fill_queue_status(pdcp_queue_status& status, float current_t) const;
+    virtual std::uint64_t pending_release_bits() const;
+    std::uint64_t pending_ingress_bits() const;
 
     float get_generated(bool partial = true);
     float get_error(bool partial = true);
@@ -155,6 +157,10 @@ public:
         return queue_dropped_bits_total_ + radio_dropped_bits_total_;
     }
     int ce_packets_total() const { return ce_packets_total_; }
+    std::uint64_t admitted_bits_total() const
+    {
+        return admitted_bits_total_;
+    }
 
     // The caller states the cause; see bit_fate for why the three are not interchangeable.
     // Never called with delivered.
@@ -162,6 +168,7 @@ public:
 
 protected:
     void push_ingress_pkt(ip_pkt pkt);
+    void record_admitted_bits(std::uint64_t bits);
     virtual bool verdict(
         const ip_pkt& pkt,
         final_packet_verdict verdict);
@@ -185,6 +192,7 @@ protected:
     std::uint64_t expired_bits_total_ = 0;
     std::uint64_t queue_dropped_bits_total_ = 0;
     std::uint64_t radio_dropped_bits_total_ = 0;
+    std::uint64_t admitted_bits_total_ = 0;
     int ce_packets_total_ = 0;
     int final_accept_packets_interval = 0;
     int final_accept_ce_packets_interval = 0;

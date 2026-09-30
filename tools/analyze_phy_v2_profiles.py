@@ -36,6 +36,22 @@ def safe_mean(values: list[float]) -> float:
     return statistics.fmean(values) if values else math.nan
 
 
+def finite_sum(values: list[float]) -> float:
+    finite = [value for value in values if math.isfinite(value)]
+    return sum(finite) if finite else math.nan
+
+
+def cumulative_rate_mbps(
+    samples: list[tuple[float, float]],
+) -> float:
+    if len(samples) < 2:
+        return math.nan
+    elapsed = samples[-1][0] - samples[0][0]
+    if elapsed <= 0.0:
+        return math.nan
+    return (samples[-1][1] - samples[0][1]) / elapsed / 1e6
+
+
 def percentile(values: list[float], probability: float) -> float:
     return (
         float(np.quantile(np.asarray(values, dtype=float), probability))
@@ -138,6 +154,9 @@ def parse_ue(
     quality: dict[str, dict[str, list[float]]] = {
         direction: defaultdict(list) for direction in DIRECTIONS
     }
+    telemetry: dict[str, dict[str, list[tuple[float, float]]]] = {
+        direction: defaultdict(list) for direction in DIRECTIONS
+    }
     maximum_timestamp = 0.0
     with path.open() as handle:
         for line in handle:
@@ -162,6 +181,26 @@ def parse_ue(
                             values.get(f"e{suffix}", 0.0),
                         )
                     )
+                    tokens = {
+                        "admitted_bits": f"admb{suffix}",
+                        "delivered_bits": f"delb{suffix}",
+                        "expired_bits": f"expb{suffix}",
+                        "queue_dropped_bits": f"qdropb{suffix}",
+                        "radio_dropped_bits": f"rdropb{suffix}",
+                        "retransmitted_bits": f"rtxb{suffix}",
+                        "pending_bits": f"pendb{suffix}",
+                        "conservation_residual_bits": f"cresb{suffix}",
+                        "harq_queue_blocks": f"harqq{suffix}",
+                        "harq_high_water_blocks": f"harqhw{suffix}",
+                        "harq_oldest_age_s": f"harqage{suffix}",
+                        "harq_retry_ordinal": f"harqretry{suffix}",
+                    }
+                    for name, token in tokens.items():
+                        value = values.get(token)
+                        if value is not None and math.isfinite(value):
+                            telemetry[direction][name].append(
+                                (timestamp, value)
+                            )
             elif "sinr" in values and "tx" in values:
                 direction = "ul" if int(values["tx"]) == 1 else "dl"
                 for key in ("sinr", "mcs"):
@@ -239,6 +278,54 @@ def parse_ue(
             "service_gap_max_ms": (
                 1000.0 * max(gaps) if gaps else math.nan),
             "_gaps_s": gaps,
+            "admitted_mbps": cumulative_rate_mbps(
+                telemetry[direction]["admitted_bits"]),
+            "delivered_counter_mbps": cumulative_rate_mbps(
+                telemetry[direction]["delivered_bits"]),
+            "expired_mbps": cumulative_rate_mbps(
+                telemetry[direction]["expired_bits"]),
+            "queue_dropped_mbps": cumulative_rate_mbps(
+                telemetry[direction]["queue_dropped_bits"]),
+            "radio_dropped_mbps": cumulative_rate_mbps(
+                telemetry[direction]["radio_dropped_bits"]),
+            "retransmitted_mbps": cumulative_rate_mbps(
+                telemetry[direction]["retransmitted_bits"]),
+            "pending_bits_last": (
+                telemetry[direction]["pending_bits"][-1][1]
+                if telemetry[direction]["pending_bits"]
+                else math.nan
+            ),
+            "harq_queue_blocks_max": (
+                max(value for _, value in telemetry[direction]["harq_queue_blocks"])
+                if telemetry[direction]["harq_queue_blocks"]
+                else math.nan
+            ),
+            "harq_high_water_blocks": (
+                telemetry[direction]["harq_high_water_blocks"][-1][1]
+                if telemetry[direction]["harq_high_water_blocks"]
+                else math.nan
+            ),
+            "harq_oldest_age_ms_max": (
+                1000.0
+                * max(value for _, value in telemetry[direction]["harq_oldest_age_s"])
+                if telemetry[direction]["harq_oldest_age_s"]
+                else math.nan
+            ),
+            "harq_retry_ordinal_max": (
+                max(value for _, value in telemetry[direction]["harq_retry_ordinal"])
+                if telemetry[direction]["harq_retry_ordinal"]
+                else math.nan
+            ),
+            "conservation_residual_abs_max_bits": (
+                max(
+                    abs(value)
+                    for _, value in telemetry[direction][
+                        "conservation_residual_bits"
+                    ]
+                )
+                if telemetry[direction]["conservation_residual_bits"]
+                else math.nan
+            ),
         }
         for window_s in WINDOWS_S:
             zero, total = (
@@ -381,6 +468,61 @@ def summarize(
             "generated_mbps": generated,
             "throughput_mbps": delivered,
             "error_mbps": sum(row["error_mbps"] for row in rows),
+            "admitted_mbps": finite_sum(
+                [row["admitted_mbps"] for row in rows]),
+            "delivered_counter_mbps": finite_sum(
+                [row["delivered_counter_mbps"] for row in rows]),
+            "expired_mbps": finite_sum(
+                [row["expired_mbps"] for row in rows]),
+            "queue_dropped_mbps": finite_sum(
+                [row["queue_dropped_mbps"] for row in rows]),
+            "radio_dropped_mbps": finite_sum(
+                [row["radio_dropped_mbps"] for row in rows]),
+            "retransmitted_mbps": finite_sum(
+                [row["retransmitted_mbps"] for row in rows]),
+            "pending_bits_last": finite_sum(
+                [row["pending_bits_last"] for row in rows]),
+            "harq_queue_blocks_max": max(
+                (
+                    row["harq_queue_blocks_max"]
+                    for row in rows
+                    if math.isfinite(row["harq_queue_blocks_max"])
+                ),
+                default=math.nan,
+            ),
+            "harq_high_water_blocks": max(
+                (
+                    row["harq_high_water_blocks"]
+                    for row in rows
+                    if math.isfinite(row["harq_high_water_blocks"])
+                ),
+                default=math.nan,
+            ),
+            "harq_oldest_age_ms_max": max(
+                (
+                    row["harq_oldest_age_ms_max"]
+                    for row in rows
+                    if math.isfinite(row["harq_oldest_age_ms_max"])
+                ),
+                default=math.nan,
+            ),
+            "harq_retry_ordinal_max": max(
+                (
+                    row["harq_retry_ordinal_max"]
+                    for row in rows
+                    if math.isfinite(row["harq_retry_ordinal_max"])
+                ),
+                default=math.nan,
+            ),
+            "conservation_residual_abs_max_bits": max(
+                (
+                    row["conservation_residual_abs_max_bits"]
+                    for row in rows
+                    if math.isfinite(
+                        row["conservation_residual_abs_max_bits"])
+                ),
+                default=math.nan,
+            ),
             "aggregate_demand_satisfaction": (
                 min(delivered / generated, 1.0)
                 if generated > 0.0
@@ -459,8 +601,10 @@ def report(manifest: dict, summaries: list[dict], warmup_s: float) -> str:
         "Zero-delivery windows (10/100/1000 ms) | "
         "UE max delivery-gap P50/P95/P99/max (ms) | "
         "Grid assigned/effective | "
-        "Payload/grant | Wall time |",
-        "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "Payload/grant | Retx/radio loss | "
+        "HARQ max queue/age | Conservation residual | Wall time |",
+        "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|"
+        "---:|---:|---:|",
     ]
     for row in summaries:
         efficiency = row.get("grant_payload_efficiency", math.nan)
@@ -483,6 +627,24 @@ def report(manifest: dict, summaries: list[dict], warmup_s: float) -> str:
             or not math.isfinite(effective_fill)
             else f"{100.0 * effective_fill:.1f}%"
         )
+        retransmission_text = (
+            "n/a"
+            if not math.isfinite(row["retransmitted_mbps"])
+            else f"{row['retransmitted_mbps']:.2f} / "
+                 f"{row['radio_dropped_mbps']:.2f} Mbit/s"
+        )
+        harq_queue_text = (
+            "n/a"
+            if not math.isfinite(row["harq_queue_blocks_max"])
+            else f"{row['harq_queue_blocks_max']:.0f} / "
+                 f"{row['harq_oldest_age_ms_max']:.1f} ms"
+        )
+        residual_text = (
+            "n/a"
+            if not math.isfinite(
+                row["conservation_residual_abs_max_bits"])
+            else f"{row['conservation_residual_abs_max_bits']:.0f} bit"
+        )
         lines.append(
             f"| {row['profile']} | {row['direction'].upper()} | "
             f"{row['generated_mbps']:.2f} | "
@@ -497,6 +659,9 @@ def report(manifest: dict, summaries: list[dict], warmup_s: float) -> str:
             f"{row['ue_max_service_gap_ms']:.0f} | "
             f"{fill_text} / {effective_fill_text} | "
             f"{efficiency_text} | "
+            f"{retransmission_text} | "
+            f"{harq_queue_text} | "
+            f"{residual_text} | "
             f"{row['wall_seconds']:.2f} s |"
         )
     lines.extend(
@@ -522,6 +687,12 @@ def report(manifest: dict, summaries: list[dict], warmup_s: float) -> str:
             "",
             "Payload/grant efficiency is sampled from logged grid grants and is "
             "the sum of effective payload bits divided by nominal grant bits.",
+            "",
+            "Retx/radio loss reports retransmitted air bits and terminal "
+            "radio-dropped payload as Mbit/s. HARQ queue age is measured from "
+            "the original IP arrival time. The conservation residual is the "
+            "largest absolute difference between admitted bits and delivered, "
+            "expired, queue-dropped, radio-dropped, and pending bits.",
             "",
         ]
     )

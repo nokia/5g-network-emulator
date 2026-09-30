@@ -104,6 +104,20 @@ bool near(float lhs, float rhs)
     return std::fabs(lhs - rhs) < 0.001f;
 }
 
+void assert_handler_conservation(packet_handler &handler)
+{
+    const std::uint64_t terminal =
+        handler.delivered_bits_total()
+        + handler.expired_bits_total()
+        + handler.queue_dropped_bits_total()
+        + handler.radio_dropped_bits_total();
+    assert(
+        handler.admitted_bits_total()
+        == terminal
+            + handler.pending_ingress_bits()
+            + handler.pending_release_bits());
+}
+
 std::vector<uint8_t> make_ipv4_payload(uint8_t ecn)
 {
     std::vector<uint8_t> payload(20, 0);
@@ -317,6 +331,7 @@ void test_captured_packet_handler_release()
     assert(status.final_accept_packets == 1);
     assert(status.final_accept_ce_packets == 0);
     assert(status.final_drop_packets == 0);
+    assert_handler_conservation(handler);
 }
 
 void test_captured_packet_handler_timeout_drop()
@@ -336,6 +351,7 @@ void test_captured_packet_handler_timeout_drop()
     assert(handler.has_ingress_pkts());
     pkt.pkts.push_back(handler.pop_ingress_pkt());
     pkt.bits = pkt.pkts.front().size;
+    handler.record_error(pkt.bits, bit_fate::queue_dropped);
     handler.drop(std::move(pkt), bit_fate::queue_dropped);
     handler.step(0.01f);
     handler.release();
@@ -345,6 +361,7 @@ void test_captured_packet_handler_timeout_drop()
     pdcp_queue_status status;
     handler.fill_queue_status(status, 0.01f);
     assert(status.final_drop_packets == 1);
+    assert_handler_conservation(handler);
 }
 
 void test_simulated_packet_handler_final_verdicts()
@@ -543,6 +560,9 @@ void test_captured_completion_order_retry_and_shutdown()
         0.0f,
         0.0f);
     predecessor_drop.pkts.push_back(first);
+    handler.record_error(
+        predecessor_drop.bits,
+        bit_fate::radio_dropped);
     handler.drop(
         std::move(predecessor_drop),
         bit_fate::radio_dropped);
@@ -557,6 +577,7 @@ void test_captured_completion_order_retry_and_shutdown()
     assert(
         fake_ptr->verdicts[1].second
         == packet_capture_action::ACCEPT);
+    assert_handler_conservation(handler);
 
     fake_ptr->capture(100, 102);
     handler.ingest(TX_DL, 0.0f);
@@ -576,6 +597,7 @@ void test_captured_completion_order_retry_and_shutdown()
     assert(near(handler.release(), 0.0f));
     assert(near(handler.release(), 800.0f));
     assert(fake_ptr->verdicts.back().first == 102);
+    assert_handler_conservation(handler);
 
     fake_ptr->capture(100, 103);
     handler.ingest(TX_DL, 0.0f);
@@ -584,6 +606,7 @@ void test_captured_completion_order_retry_and_shutdown()
     assert(
         fake_ptr->verdicts.back().second
         == packet_capture_action::DROP);
+    assert_handler_conservation(handler);
 }
 }
 

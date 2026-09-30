@@ -85,6 +85,7 @@ public:
     harq_model configured_model() const { return model; }
     std::size_t high_water_mark() const { return high_water_blocks; }
     std::size_t queue_capacity() const { return max_queue_blocks; }
+    std::uint64_t queued_bits() const;
     void set_scripted_outcomes(const std::vector<double> &outcomes);
 
     static double legacy_failure_probability(

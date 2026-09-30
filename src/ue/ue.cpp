@@ -422,6 +422,26 @@ void ue::update_pdcp()
         ue_log.log_partial("plul:{} pldl:{} pcul:{} pcdl:{} pclul:{} pcldl:{} ", l4s_ul.p_l, l4s_dl.p_l, l4s_ul.p_c, l4s_dl.p_c, l4s_ul.p_cl, l4s_dl.p_cl);
         pdcp_queue_status ul_status = pdcp_ul.get_queue_status();
         pdcp_queue_status dl_status = pdcp_dl.get_queue_status();
+        ue_log.log_partial(
+            "admbul:{} admbdl:{} delbul:{} delbdl:{} expbul:{} expbdl:{} "
+            "qdropbul:{} qdropbdl:{} rdropbul:{} rdropbdl:{} "
+            "rtxbul:{} rtxbdl:{} pendbul:{} pendbdl:{} cresbul:{} cresbdl:{} ",
+            ul_status.admitted_bits_total, dl_status.admitted_bits_total,
+            pdcp_ul.delivered_bits_total(), pdcp_dl.delivered_bits_total(),
+            pdcp_ul.expired_bits_total(), pdcp_dl.expired_bits_total(),
+            pdcp_ul.queue_dropped_bits_total(), pdcp_dl.queue_dropped_bits_total(),
+            pdcp_ul.radio_dropped_bits_total(), pdcp_dl.radio_dropped_bits_total(),
+            pdcp_ul.retransmitted_bits_total(), pdcp_dl.retransmitted_bits_total(),
+            ul_status.pending_bits_total, dl_status.pending_bits_total,
+            ul_status.conservation_residual_bits, dl_status.conservation_residual_bits);
+        ue_log.log_partial(
+            "harqqul:{} harqqdl:{} harqhwul:{} harqhwddl:{} "
+            "harqageul:{} harqagedl:{} harqretryul:{} harqretrydl:{} ",
+            ul_status.harq_size, dl_status.harq_size,
+            ul_status.harq_high_water_blocks, dl_status.harq_high_water_blocks,
+            ul_status.harq_oldest_age, dl_status.harq_oldest_age,
+            ul_status.harq_oldest_retry_ordinal,
+            dl_status.harq_oldest_retry_ordinal);
         if(ul_status.nfqueue_queue_num >= 0 || dl_status.nfqueue_queue_num >= 0)
         {
             ue_log.log_partial(
@@ -579,6 +599,9 @@ void ue::emit_queue_monitoring()
         point.fields["retransmitted_bits_total_last"] = make_metric_field(static_cast<double>(status.retransmitted_bits_total), field_aggregation::last);
         point.fields["radio_dropped_bits_total_last"] = make_metric_field(static_cast<double>(status.radio_dropped_bits_total), field_aggregation::last);
         point.fields["charged_grant_bits_last"] = make_metric_field(static_cast<double>(status.last_charged_grant_bits), field_aggregation::last);
+        point.fields["admitted_bits_total_last"] = make_metric_field(static_cast<double>(status.admitted_bits_total), field_aggregation::last);
+        point.fields["pending_bits_total_last"] = make_metric_field(static_cast<double>(status.pending_bits_total), field_aggregation::last);
+        point.fields["conservation_residual_bits_last"] = make_metric_field(status.conservation_residual_bits, field_aggregation::last);
         point.fields["nfqueue_queue_num_last"] = make_metric_field(status.nfqueue_queue_num, field_aggregation::last);
         point.fields["nfqueue_ce_rewrite_packets_last"] = make_metric_field(status.nfqueue_ce_rewrite_packets, field_aggregation::last);
         point.fields["nfqueue_drop_packets_last"] = make_metric_field(status.nfqueue_drop_packets, field_aggregation::last);

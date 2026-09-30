@@ -60,6 +60,13 @@ class Runner:
         """
         self.flows.pop(flow_id, None)
 
+    def close(self) -> None:
+        for flow in self.flows.values():
+            flow.sender.app_cancel()
+        self.flows.clear()
+        self._ack_registry.clear()
+        self.sched.clear()
+
     def run_until(self, last_tti: int) -> None:
         while self.clock.tti <= last_tti:
             self.tick()

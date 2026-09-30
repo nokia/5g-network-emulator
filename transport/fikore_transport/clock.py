@@ -87,3 +87,6 @@ class Scheduler:
             ev = heapq.heappop(self._heap)
             if not ev.cancelled:
                 ev.callback()
+
+    def clear(self) -> None:
+        self._heap.clear()

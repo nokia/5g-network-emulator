@@ -92,9 +92,19 @@ class _Request:
     request_id: str
     bytes_total: int
     flow: Flow
+    stream_start: int = 0
     reported_bytes: int = 0
     cancelled: bool = False
     closed: bool = False
+
+
+@dataclass
+class _Connection:
+    ue_id: int
+    flow: Flow
+    reusable: bool
+    active_request: tuple[int, str] | None = None
+    cancelled: bool = False
 
 
 @dataclass
@@ -107,9 +117,11 @@ class BackendConfig:
     rwnd: int = 256 * 1024
     ack_over_link: bool = False
     telemetry_every_windows: int = 1
-    # One connection per object is what a player using a fresh request per segment
-    # gets. Sharing one connection across an object queue is the other arrangement
-    # worth studying, and it is a parameter rather than a design decision.
+    # Persistent mode models an HTTP/1.1-style pool per UE: an idle connection is
+    # reused and a concurrent request opens another one. Fresh mode preserves the
+    # old one-connection-per-object baseline. Ideal transport is always per object.
+    tcp_connection_mode: str = "persistent"
+    max_idle_tcp_connections_per_ue: int = 6
     cc_factory: type[CongestionControl] = Cubic
     # "tcp" is the transport model; "ideal" is bare injection, a fixed
     # window per UE and instant recovery of whatever the network reports as lost.
@@ -132,7 +144,9 @@ class TransportBackend:
         self.requests: dict[tuple[int, str], _Request] = {}
         self._seen_requests: set[tuple[int, str]] = set()
         self._active_requests: set[tuple[int, str]] = set()
-        self._retiring_flows: dict[int, _Request] = {}
+        self._connections: dict[int, _Connection] = {}
+        self._idle_connections: dict[int, list[int]] = {}
+        self._retiring_flows: dict[int, _Connection] = {}
         self._known_ues: set[int] = set()
         self._retired_retransmitted: dict[int, int] = {}
         self._next_flow = 1
@@ -152,6 +166,30 @@ class TransportBackend:
             raise ValueError(f"request {request_id} is already live on ue {ue_id}")
         if self.cfg.transport not in ("tcp", "ideal"):
             raise ValueError(f"unsupported transport: {self.cfg.transport}")
+        if self.cfg.tcp_connection_mode not in ("persistent", "fresh"):
+            raise ValueError(
+                f"unsupported TCP connection mode: {self.cfg.tcp_connection_mode}")
+        if self.cfg.max_idle_tcp_connections_per_ue < 0:
+            raise ValueError("max idle TCP connections per UE must be non-negative")
+
+        reusable = (self.cfg.transport == "tcp"
+                    and self.cfg.tcp_connection_mode == "persistent")
+        connection = self._acquire_connection(ue_id) if reusable else None
+        if connection is None:
+            connection = self._new_connection(ue_id, reusable)
+        flow = connection.flow
+        sender = flow.sender
+        stream_start = getattr(sender, "snd_high", 0)
+        request = _Request(ue_id, request_id, bytes_total, flow,
+                           stream_start=stream_start)
+        connection.active_request = key
+        sender.app_write(bytes_total)
+        self.requests[key] = request
+        self._seen_requests.add(key)
+        self._active_requests.add(key)
+        self._known_ues.add(ue_id)
+
+    def _new_connection(self, ue_id: int, reusable: bool) -> _Connection:
         flow_id = self._next_flow
         self._next_flow += 1
         register = getattr(self.link, "register_flow", None)
@@ -172,18 +210,27 @@ class TransportBackend:
             receiver = TcpReceiver(flow_id, self.cfg.mss)
         flow = Flow(sender, receiver, ack_over_link=self.cfg.ack_over_link)
         self.runner.add_flow(flow)
-        sender.app_write(bytes_total)
-        request = _Request(ue_id, request_id, bytes_total, flow)
-        self.requests[key] = request
-        self._seen_requests.add(key)
-        self._active_requests.add(key)
-        self._known_ues.add(ue_id)
+        connection = _Connection(ue_id, flow, reusable)
+        self._connections[flow_id] = connection
+        return connection
+
+    def _acquire_connection(self, ue_id: int) -> _Connection | None:
+        idle = self._idle_connections.get(ue_id, [])
+        while idle:
+            connection = self._connections.get(idle.pop())
+            if (connection is not None and connection.reusable
+                    and connection.active_request is None):
+                return connection
+        return None
 
     def cancel_request(self, ue_id: int, request_id: str) -> None:
         request = self.requests.get((ue_id, request_id))
         if request is None or request.closed or request.cancelled:
             return
         request.cancelled = True
+        connection = self._connections[request.flow.sender.flow]
+        connection.reusable = False
+        connection.cancelled = True
         request.flow.sender.app_cancel()
 
     def advance(self) -> NetworkStep:
@@ -220,6 +267,17 @@ class TransportBackend:
         if self._closed:
             return
         self._closed = True
+        unregister = getattr(self.link, "unregister_flow", None)
+        for flow_id in list(self._connections):
+            if unregister is not None:
+                unregister(flow_id)
+        self.runner.close()
+        self._connections.clear()
+        self._idle_connections.clear()
+        self._retiring_flows.clear()
+        self._active_requests.clear()
+        if not self.cfg.retain_request_history:
+            self.requests.clear()
         self.link.close()
 
     def set_ue_control(self, ue_id: int, control: UeControl) -> None:
@@ -239,7 +297,10 @@ class TransportBackend:
     def _request_events(self, now_s: float) -> Iterable[NetworkEvent]:
         for key in list(self._active_requests):
             request = self.requests[key]
-            delivered = request.flow.receiver.rcv_nxt
+            delivered = min(
+                max(request.flow.receiver.rcv_nxt - request.stream_start, 0),
+                request.bytes_total,
+            )
             if delivered != request.reported_bytes:
                 request.reported_bytes = delivered
                 yield DownloadProgress(request.ue_id, request.request_id, delivered,
@@ -251,33 +312,44 @@ class TransportBackend:
                     request.closed = True
                     yield DownloadCancelled(request.ue_id, request.request_id,
                                             delivered, now_s)
-                    self._retire(key, request)
+                    self._retire_request(key, request)
             elif delivered >= request.bytes_total:
                 request.closed = True
                 yield DownloadCompleted(request.ue_id, request.request_id, now_s)
-                self._retire(key, request)
+                self._retire_request(key, request)
 
-    def _retire(self, key: tuple[int, str], request: _Request) -> None:
+    def _retire_request(self, key: tuple[int, str], request: _Request) -> None:
         self._active_requests.discard(key)
         flow_id = request.flow.sender.flow
-        self._retiring_flows[flow_id] = request
+        connection = self._connections[flow_id]
+        connection.active_request = None
+        if connection.reusable and not request.cancelled:
+            idle = self._idle_connections.setdefault(request.ue_id, [])
+            if len(idle) < self.cfg.max_idle_tcp_connections_per_ue:
+                idle.append(flow_id)
+            else:
+                connection.reusable = False
+        if not connection.reusable or request.cancelled:
+            self._retiring_flows[flow_id] = connection
         if not self.cfg.retain_request_history:
             self.requests.pop(key, None)
 
     def _cleanup_retiring_flows(self) -> None:
-        for flow_id, request in list(self._retiring_flows.items()):
-            flow = request.flow
+        for flow_id, connection in list(self._retiring_flows.items()):
+            flow = connection.flow
             if flow.in_network != 0 or flow.acks_in_network != 0:
                 continue
-            if not request.cancelled and not flow.sender.complete():
+            if not connection.cancelled and not flow.sender.complete():
                 continue
             self.runner.remove_flow(flow_id)
             unregister = getattr(self.link, "unregister_flow", None)
             if unregister is not None:
                 unregister(flow_id)
             retransmitted = flow.sender.stats.retransmits * self.cfg.mss
-            self._retired_retransmitted[request.ue_id] = (
-                self._retired_retransmitted.get(request.ue_id, 0) + retransmitted)
+            self._retired_retransmitted[connection.ue_id] = (
+                self._retired_retransmitted.get(connection.ue_id, 0)
+                + retransmitted)
+            self._connections.pop(flow_id, None)
             del self._retiring_flows[flow_id]
 
     def _telemetry_events(self, now_s: float) -> Iterable[NetworkEvent]:
@@ -288,12 +360,14 @@ class TransportBackend:
 
     def _telemetry_for(self, ue_id: int, state: dict | None,
                        now_s: float) -> NetworkTelemetry:
-        live = [self.requests[key] for key in self._active_requests
-                if key[0] == ue_id]
-        srtts = [r.flow.sender.srtt_us for r in live if r.flow.sender.srtt_us]
+        connections = [connection for connection in self._connections.values()
+                       if connection.ue_id == ue_id]
+        srtts = [connection.flow.sender.srtt_us for connection in connections
+                 if connection.flow.sender.srtt_us]
         rtt_ms = sum(srtts) / len(srtts) / 1000.0 if srtts else None
         retransmitted = self._retired_retransmitted.get(ue_id, 0) + sum(
-            r.flow.sender.stats.retransmits * self.cfg.mss for r in live)
+            connection.flow.sender.stats.retransmits * self.cfg.mss
+            for connection in connections)
         if state is None:
             return NetworkTelemetry(rtt_ms=rtt_ms, retransmitted_bytes=retransmitted)
 

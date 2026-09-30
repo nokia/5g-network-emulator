@@ -27,6 +27,8 @@ comparison does not establish equivalence to a complete Linux network stack.
 | Loopback transport, ACK and retransmission behaviour | `transport/tests/test_loopback_transfer.py` |
 | FikoreLink replay, overflow, loss and conservation | `transport/tests/test_fikore_link.py` |
 | NetworkBackend request/cancel mapping | `transport/tests/test_backend.py` |
+| Persistent/fresh TCP modes, pool reuse and cancellation isolation | `transport/tests/test_backend.py` |
+| Persistent TCP reuse over the real emulator | `transport/tests/test_fikore_link.py` |
 | Ideal and Runner-level UDP | `transport/tests/test_transports.py` |
 | Prague binding behaviour | `transport/tests/test_prague.py` |
 | Reno/CUBIC/Prague controller references | `transport/benchmarks/validate_tcp_references.py` |

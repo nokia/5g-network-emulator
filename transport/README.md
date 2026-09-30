@@ -21,6 +21,7 @@ Implemented:
 - deterministic `LoopbackLink`;
 - `FikoreLink` over retained `fikore-control-1` events;
 - generic `TransportBackend` request, cancellation and `NetworkStep` interface;
+- persistent TCP connection pools with an explicit fresh-connection baseline;
 - numeric and textual FikoRE UE addressing;
 - validated integration with the external SFV v0.7.2 example.
 
@@ -84,7 +85,7 @@ is not modified or vendored.
 | Ideal diagnostic transport | yes | yes | loopback transport tests | sees terminal outcomes directly |
 | UDP offered load | Runner only | yes | Runner tests/scenarios | not in `TransportBackend` |
 | FikoRE event Link | yes | yes | `test_fikore_link.py`, C++ control tests | fixed polling boundaries |
-| Object requests/cancellation | yes | yes | `test_backend.py` | one fresh TCP flow per object |
+| Object requests/cancellation | yes | yes | `test_backend.py`, `test_fikore_link.py` | HTTP/1.1-style pool; no HTTP/2 multiplexing |
 | Multi-UE NetworkBackend | yes | yes | scale and SFV runs | validated subset, not all harness scenarios |
 | SFV v0.7.2 bridge | yes | yes, external | `validate_sfv.py`, `sfv-pilot.json` | one external version/example |
 | iperf-like CLI | no | no | roadmap only | not an available interface |

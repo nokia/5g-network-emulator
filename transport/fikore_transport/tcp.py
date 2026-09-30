@@ -108,6 +108,8 @@ class TcpSender:
     # -- application side ---------------------------------------------------------
 
     def app_write(self, nbytes: int) -> None:
+        if nbytes > 0:
+            self.finished_at_tti = None
         self.app_available += nbytes
 
     def set_unlimited(self) -> None:

@@ -61,29 +61,29 @@ for UDP objects; no implied reliability or congestion control.
 `06-application-patterns.md`, `07-network-backend-and-sfv.md`, and
 `LIMITATIONS.md`.
 
-## Persistent TCP connection across objects
+## Multiplexed objects on one TCP connection
 
-**Motivation:** represent HTTP keep-alive/multiplexed object sequences without
-resetting congestion state for every object.
+**Motivation:** extend the implemented HTTP/1.1-style persistent pool with
+HTTP/2-like concurrent object scheduling on one connection.
 
-**Scope:** explicit connection identity, queued object attribution, optional
-serial or multiplexed scheduling, per-object cancellation and conserved shared
-connection accounting.
+**Scope:** explicit connection identity, frame/byte attribution for interleaved
+objects, scheduling policy, per-object cancellation without retiring the
+connection, and conserved shared-connection accounting.
 
 **Acceptance criteria:**
 
-- callers can choose fresh or reused connection semantics;
-- object IDs remain independently attributable;
-- cancellation of one object does not corrupt another;
-- connection cwnd/RTT continuity is tested across object boundaries;
-- old one-flow-per-object behaviour remains available.
+- multiple active object IDs share one sender and congestion window;
+- scheduling and completion are not forced into submission order;
+- cancellation of one object does not corrupt or stop another;
+- stream-wide ACK/SACK recovery preserves per-object accounting;
+- persistent-pool and fresh modes remain available.
 
-**Required evidence:** deterministic loopback tests, cancellation tests and an
-SFV comparison scenario using both modes.
+**Required evidence:** deterministic multiplexing and cancellation tests plus an
+SFV comparison against the persistent pool.
 
 **Documentation on promotion:** `04-transport-model.md`,
-`06-application-patterns.md`, `07-network-backend-and-sfv.md`, and
-`LIMITATIONS.md`.
+`06-application-patterns.md`, `07-network-backend-and-sfv.md`, `LIMITATIONS.md`
+and the protocol-specific scope statement.
 
 ## Generic interval recorder and export
 

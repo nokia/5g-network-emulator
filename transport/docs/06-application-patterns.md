@@ -71,6 +71,7 @@ The harness-facing interface is `TransportBackend`:
 backend = TransportBackend(link, BackendConfig(
     window_ttis=10,
     horizon_ttis=5_000,
+    tcp_connection_mode="persistent",
 ))
 backend.submit_request(ue_id=0, request_id="video-3-segment-7",
                        bytes_total=512_000)
@@ -80,9 +81,12 @@ step = backend.advance()  # advances one configured window
 backend.cancel_request(ue_id=0, request_id="video-3-segment-7")
 ```
 
-Direction, ECN, receive window and controller are backend configuration fields.
-An accepted object receives its own transport flow. The backend maps flow
-progress to:
+Direction, ECN, receive window, controller and TCP connection mode are backend
+configuration fields. Persistent mode is the default: an object reuses an idle
+connection for its UE, or opens another when concurrent objects occupy every
+pooled connection. The idle pool retains at most
+`max_idle_tcp_connections_per_ue` flows. `tcp_connection_mode="fresh"` gives
+every object new TCP state. The backend maps connection byte ranges to:
 
 - `DownloadProgress`;
 - `DownloadCompleted`;
@@ -97,7 +101,8 @@ Neither is inferred from the other.
 Cancellation stops new application data. Segments already submitted to the Link
 remain attributed to the request and form its cancellation tail. The backend
 emits `DownloadCancelled` after `flow.in_network` reaches zero, then retires the
-flow after any Link-carried ACK tail also drains.
+cancelled connection after any Link-carried ACK tail also drains. It is not
+reused, so cancellation cannot corrupt a later object.
 
 This distinction is required for SFV wastage accounting: cancellation does not
 erase bytes that already consumed network resources.
@@ -117,6 +122,7 @@ indices or textual configured targets.
 | Finite TCP stream write | `TcpSender.app_write()` |
 | Open-loop UDP | `udp_flow()` |
 | Ideal object baseline | `BackendConfig(transport="ideal")` |
+| Fresh TCP object baseline | `BackendConfig(tcp_connection_mode="fresh")` |
 | Finite downloadable object | `TransportBackend.submit_request()` |
 | Cancel downloadable object | `TransportBackend.cancel_request()` |
 | SFV integration | `benchmarks/validate_sfv.py` |

@@ -62,12 +62,16 @@ Open-loop UDP exists only as a Runner-level scenario primitive. It is not
 available through `TransportBackend`, has no NetworkBackend request lifecycle
 and has no transport recovery or congestion controller.
 
-## Object-to-connection mapping
+## Persistent connection scope
 
-Each `TransportBackend.submit_request()` creates one transport flow with fresh
-connection state. Objects do not reuse a persistent TCP connection or share one
-connection-level congestion window. This can overstate startup effects compared
-with HTTP keep-alive, HTTP/2 or HTTP/3 use.
+The default `TransportBackend` TCP mode is an HTTP/1.1-style pool: sequential
+objects reuse an idle connection and concurrent objects open separate
+connections. It does not multiplex multiple active objects over one connection
+as HTTP/2 or HTTP/3 would.
+
+Cancelling an object retires its connection after the network tail drains rather
+than reusing it. This isolates object accounting but does not model an HTTP/2
+stream reset that leaves the underlying connection healthy.
 
 ## Fixed-step execution
 

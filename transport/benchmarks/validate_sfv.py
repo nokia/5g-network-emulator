@@ -42,6 +42,8 @@ def main() -> int:
     parser.add_argument("--config", type=Path)
     parser.add_argument("--duration", type=float)
     parser.add_argument("--rmax-mbps", type=float)
+    parser.add_argument("--tcp-connection-mode", choices=("persistent", "fresh"),
+                        default="persistent")
     parser.add_argument(
         "--output", type=Path,
         default=FIKORE_ROOT / "transport" / "benchmarks" / "results" / "sfv-fikore")
@@ -92,13 +94,15 @@ def main() -> int:
             log_path=str(Path(tmp) / "emulator.log"),
         ))
         link = FikoreLink(emulator, flow_to_ue={}, ue_id_map=ue_id_map)
-        backend = TransportBackend(link, BackendConfig(
+        backend_config = BackendConfig(
             window_ttis=10,
             horizon_ttis=int(float(config["duration_s"]) * 1000),
             rwnd=128 * 1024,
             cc_factory=Cubic,
             telemetry_every_windows=10,
-        ))
+            tcp_connection_mode=args.tcp_connection_mode,
+        )
+        backend = TransportBackend(link, backend_config)
         if args.rmax_mbps is not None:
             if args.rmax_mbps < 0:
                 raise ValueError("rmax-mbps must be non-negative")
@@ -141,11 +145,14 @@ def main() -> int:
             "PYTHONPATH=transport python3 "
             "transport/benchmarks/validate_sfv.py "
             "--sfv-vqeg-root <SFV_VQEG_CHECKOUT> "
-            "--sfv-core-root <SFV_CORE_CHECKOUT>"),
+            "--sfv-core-root <SFV_CORE_CHECKOUT> "
+            f"--tcp-connection-mode {args.tcp_connection_mode}"),
         "status": "completed",
         "config": str(config_path),
         "duration_s": config["duration_s"],
         "rmax_mbps": args.rmax_mbps,
+        "transport": backend_config.transport,
+        "tcp_connection_mode": backend_config.tcp_connection_mode,
         "wall_s": wall_s,
         "network_steps": len(trace),
         "fikore_revision": revision(FIKORE_ROOT),

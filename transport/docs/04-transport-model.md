@@ -41,6 +41,20 @@ flow and sequence range.
 `app_write()` queues finite application bytes. `set_unlimited()` keeps a
 saturated sender supplied.
 
+## Connection reuse
+
+`TransportBackend` uses an HTTP/1.1-style persistent TCP pool by default. Each
+UE reuses an idle flow for a later object, preserving sequence space, congestion
+window, RTT estimates and controller state. If all of a UE's flows are busy, a
+concurrent object opens another flow. Once a peak of concurrent work subsides,
+at most `max_idle_tcp_connections_per_ue` connections are retained (six by
+default); excess idle flows close administratively.
+
+Objects remain independently attributable through absolute byte ranges in the
+shared connection sequence space. `BackendConfig.tcp_connection_mode="fresh"`
+selects the former one-flow-per-object baseline. The ideal diagnostic transport
+always uses one flow per object.
+
 ## Receiver and acknowledgements
 
 The receiver tracks cumulative in-order delivery and out-of-order SACK blocks.
@@ -115,9 +129,11 @@ diagnostic baseline.
 
 Application cancellation prevents new object data from entering the sender.
 Already submitted or transport-buffered bytes retain object attribution while
-they drain. A flow closes after its accounting tail reaches a terminal state.
+they drain. A cancelled connection is not returned to the pool; it closes after
+its accounting and ACK tails reach a terminal state. This keeps cancellation
+isolated from concurrent objects on other pooled connections.
 
-There is no modelled SYN/SYN-ACK handshake or FIN exchange. Object flows begin
+There is no modelled SYN/SYN-ACK handshake or FIN exchange. Connections begin
 with initialized transport state and close administratively.
 
 ## Conservation

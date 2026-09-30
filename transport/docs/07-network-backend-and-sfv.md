@@ -17,9 +17,9 @@ set_ue_control(ue_id, UeControl(...))
 ```
 
 `BackendConfig` sets direction, ECN, congestion controller, receive window,
-window duration and optional final horizon. The SFV bridge translates between
-the external repository's generic operations and this backend; it does not
-forward `fikore-control-1` messages to Node.js.
+TCP connection mode, window duration and optional final horizon. The SFV bridge
+translates between the external repository's generic operations and this
+backend; it does not forward `fikore-control-1` messages to Node.js.
 
 ```text
 SFV player
@@ -42,15 +42,20 @@ FikoRE emulator
 `TransportBackend.submit_request()`:
 
 1. rejects a reused `(ue_id, request_id)`;
-2. registers a new flow-to-UE mapping with the Link;
-3. creates one TCP or ideal sender/receiver pair;
-4. queues the requested byte count;
-5. adds the flow to the shared Runner.
+2. reuses an idle TCP connection for the UE when persistent mode is selected;
+3. otherwise registers a new flow-to-UE mapping and sender/receiver pair;
+4. assigns the object's byte range in that connection's sequence space;
+5. queues the byte count and adds new flows to the shared Runner.
 
-During `advance()`, cumulative receiver progress becomes
-`DownloadProgress`. Delivery of all requested bytes becomes
+Persistent mode is the default and behaves as an HTTP/1.1-style pool. Concurrent
+objects use separate connections when no idle connection is available. Fresh
+mode preserves one initialized TCP flow per object; ideal transport remains
+per-object.
+
+During `advance()`, connection-wide receiver progress is translated through the
+object's byte range into `DownloadProgress`. Delivery of the full range becomes
 `DownloadCompleted`. Cancellation becomes `DownloadCancelled` only after the
-already-submitted data tail drains.
+already-submitted data tail drains, and the cancelled connection is not reused.
 
 Application request IDs are opaque. Link segment tags are generated
 independently and are not visible to the SFV process.
@@ -87,7 +92,8 @@ substitutes `TransportBackend` for its deterministic mock:
 - B1 and B2 preserve their existing JavaScript behaviour;
 - swipes exercise cancellation and transport-tail accounting;
 - output includes run result, NetworkStep transcript, manifest and per-UE
-  session records.
+  session records;
+- the manifest records the effective transport and TCP connection mode.
 
 Run from the repository root:
 

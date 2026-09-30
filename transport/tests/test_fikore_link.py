@@ -99,6 +99,50 @@ def test_a_real_transfer_completes_and_conserves_bytes():
         teardown(link, backend)
 
 
+def test_two_objects_reuse_one_real_fikore_flow_and_conserve_bytes():
+    first_size = 150 * 1024
+    second_size = 90 * 1024
+    link = build_link(duration_s=8.0)
+    backend = TransportBackend(link, BackendConfig(
+        window_ttis=10, rwnd=256 * 1024, cc_factory=Cubic,
+        retain_request_history=True, retain_arrivals=True))
+    try:
+        backend.submit_request(0, "first", first_size)
+        first_done = False
+        for _ in range(400):
+            events = backend.advance().events
+            if any(isinstance(event, DownloadCompleted)
+                   and event.request_id == "first" for event in events):
+                first_done = True
+                break
+        assert first_done, "the first object never completed"
+
+        first = backend.requests[(0, "first")]
+        flow_id = first.flow.sender.flow
+        cwnd = first.flow.sender.cc.cwnd
+        srtt = first.flow.sender.srtt_us
+        backend.submit_request(0, "second", second_size)
+        second = backend.requests[(0, "second")]
+        assert second.flow is first.flow
+        assert second.stream_start == first_size
+        assert second.flow.sender.cc.cwnd == cwnd
+        assert second.flow.sender.srtt_us == srtt
+
+        second_done = False
+        for _ in range(400):
+            events = backend.advance().events
+            if any(isinstance(event, DownloadCompleted)
+                   and event.request_id == "second" for event in events):
+                second_done = True
+                break
+        assert second_done, "the second object never completed"
+        assert second.flow.receiver.rcv_nxt == first_size + second_size
+        assert set(link.flow_to_ue) == {flow_id}
+        assert accounted(link) == link.submitted_bytes
+    finally:
+        teardown(link, backend)
+
+
 def test_the_emulator_and_the_link_agree_on_the_bytes():
     """The link's account is its own bookkeeping; this is the emulator's."""
     link = build_link()

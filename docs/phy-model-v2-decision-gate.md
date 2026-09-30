@@ -157,11 +157,11 @@ Under `[MACLayer]`:
 
 ```ini
 pf_alpha: 1.0
-pf_time_window_ms: 100.0
-pf_intra_tti_update: none
+throughput_time_window_ms: 100.0
+throughput_intra_tti_update: none
 ```
 
-`pf_intra_tti_update` remains experimental until the benchmark decision.
+`throughput_intra_tti_update` remains experimental until the benchmark decision.
 
 ### 4.2 Proposed EWMA behavior
 
@@ -196,7 +196,7 @@ short-term boost.
 - Update all canonical configs and documentation in the same commit.
 
 **Decision:** Approved as proposed, including `pf_alpha=1`,
-`pf_time_window_ms=100`, standalone-rate cold start, idle-state freeze,
+`throughput_time_window_ms=100`, standalone-rate cold start, idle-state freeze,
 zero-throughput updates for active unscheduled UEs, and reset on detach.
 
 ## 5. Decision D — approval scope

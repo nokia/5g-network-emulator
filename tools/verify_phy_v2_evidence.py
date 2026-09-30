@@ -108,6 +108,41 @@ def main() -> None:
                     )
                 checked += 1
 
+    harq_evidence = manifest.get("harq_evidence")
+    if harq_evidence is not None:
+        check(harq_evidence["path"], harq_evidence["sha256"])
+        checked += 1
+        harq_manifest = json.loads(
+            (ROOT / harq_evidence["path"]).read_text()
+        )
+        for artifact in harq_manifest["artifacts"]:
+            check(artifact["path"], artifact["sha256"])
+            checked += 1
+        for campaign in harq_manifest["campaigns"]:
+            check(campaign["manifest"], campaign["manifest_sha256"])
+            checked += 1
+            campaign_manifest = json.loads(
+                (ROOT / campaign["manifest"]).read_text()
+            )
+            if (
+                campaign_manifest["source_sha"]
+                != campaign["source_sha"]
+            ):
+                raise ValueError(
+                    f"HARQ run source mismatch for {campaign['label']}"
+                )
+            for run in campaign_manifest["runs"]:
+                check(
+                    run["rendered_config"],
+                    run["rendered_config_sha256"],
+                )
+                checked += 1
+                check(
+                    f"include/maps_scenarios/{run['map_file']}",
+                    run["map_sha256"],
+                )
+                checked += 1
+
     analysis_metadata = json.loads(
         (
             ROOT

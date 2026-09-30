@@ -13,9 +13,12 @@
 | Allocation bandwidth | `phy_power_model_test` | Integrated signal/noise SINR invariant for 1/2/4/8/16-PRB grouping |
 | UL total power | `phy_power_model_test`; `ul_power_finalization_test` | Per-PRB reconstruction conserved total power for 1–275 PRBs; 23 dBm cap respected |
 | MIMO table indexing | `phy_mimo_index_test` | One-based layer/rank state mapped safely to zero-based 1–4-layer tables |
-| PF metric and state | `pf_metric_test`; `pf_state_test`; `pf_scheduler_test` | Common alpha, 1 ms EWMA aging, CQI-cadence invariance, fair homogeneous service passed |
-| PF migration | `pf_config_migration_test` | Legacy per-UE PF beta rejected |
-| Reranking/granularity | repeated runtime/fairness envelope | Grouped reranking materially reduced service gaps; detailed trade-off recorded |
+| Throughput scheduler family | `pf_metric_test`; `pf_state_test`; `pf_scheduler_test` | MT, BET, and PF recipes; policy-driven history; CQI-cadence invariance; tie rotation; priority; RR independence passed |
+| Scheduler migration | `pf_config_migration_test` | Removed PF-specific history keys rejected; `beta_metric` rejected for PF/BET; alias-specific options enforced |
+| Reranking/granularity | scheduler-family runtime/fairness matrix | Grouped PF/BET reranking materially reduced service gaps; MT and RR remained outside provisional history |
+| Legacy BLER contract | `harq_contract_test`; table hash analysis | All table axes bounded; historical law characterized; 67,200-value table hash and monotonicity fixed |
+| HARQ packet path | `harq_pdcp_test`; `pdcp_flow_test`; `harq_soak_test`; ASan/UBSan/TSan | Exact integer conservation, bounded retries, independent deadlines/RNGs, grant conservation, concurrent captured verdict retry/shutdown, and one-million-decision replay passed |
+| HARQ profile comparison | Six 180 s profiles in disabled, no-retry, and production modes plus two extra seeds | All modes completed; active retries expose expected throughput/resource trade-offs without closure residuals |
 | TDD resource accounting | `tdd_resource_metrics_test`; per-TTI grid summaries | Directionally unavailable units excluded before empty/fill metrics |
 | Building/vehicle loss | `penetration_model_test`; `phy_shared_environment_test`; controlled n258 high-loss profile | Formula, shared DL/UL realization, independent keyed streams, and paired behavior passed |
 | Canonical end-to-end profiles | Five 180 s runs, seed `20260927`, 20 s warm-up analysis | All completed; summaries and exact inputs committed |
@@ -31,6 +34,7 @@
 python3 -m pip install -r tools/requirements-phy-v2.txt
 make -j4 test
 make -j4 smoke
+FIKORE_RUN_PRIVILEGED_NFQUEUE=1 make test-nfqueue
 python3 tools/maps/build_manifest.py --check
 python3 tools/maps/validate_maps.py
 python3 tools/maps/validate_v2_statistics.py \
@@ -60,20 +64,28 @@ python3 tools/run_phy_v2_profiles.py \
   --seed 20260927 \
   --duration-s 180 \
   --output results/phy-v2-o2i-high-loss
-python3 tools/benchmark_pf_granularity.py \
+python3 tools/benchmark_scheduler_family.py \
+  --schedulers bet,max_throughput,round_robin,pf \
   --ue-counts 1,16,64,256 \
   --envelope-modes \
   --warmup-steps 20 \
   --steps 100 \
   --repeats 10 \
   --output results/pf-runtime-per-tti
-python3 tools/benchmark_pf_granularity.py \
+python3 tools/benchmark_scheduler_family.py \
+  --schedulers bet,pf \
   --ue-counts 64 \
   --envelope-modes \
   --warmup-steps 500 \
   --steps 2000 \
   --repeats 1 \
   --output results/pf-functional-long
+python3 tools/run_harq_campaign.py \
+  --seed 20260927 \
+  --duration-s 180 \
+  --output results/harq-campaign
+python3 tools/analyze_legacy_bler_table.py \
+  --expect-sha256 d61acbe2a5cea399570c53b40f0374261ca28ac80ccefed0aee85728ea9bda70
 ```
 
 ## Interpretation boundaries

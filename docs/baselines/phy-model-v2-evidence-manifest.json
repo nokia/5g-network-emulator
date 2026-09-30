@@ -5,31 +5,31 @@
       "id": "umi-n40-npn",
       "path": "config/offline_umi_n40_npn.ini",
       "protocol_baseline_sha256": "f15f1d959e356be4c5403e1628df061cb0554117b881a951e24ac700f66bd6ac",
-      "validated_sha256": "f7f103374e1447cb4f8f1f201fd9d58bd0aaa3df330764a2e9a7b81e6e121710"
+      "validated_sha256": "0fded2316e89d489ed3317063ff923c08c9ff3d44037f885640ffb9333e388cf"
     },
     {
       "id": "uma-n78-pedestrian",
       "path": "config/offline_uma_n78_pedestrian.ini",
       "protocol_baseline_sha256": "9d9d83e1a46bc5626b69fd3f625be359675725daf33169a1ef9216c638c403a4",
-      "validated_sha256": "88c1193d33878a17abdd72effc95b7de68b8d4078b43acab8afb8cf5cab8668d"
+      "validated_sha256": "32ba1dab14c732bdd607bccdbcd4fc731cef666e18c7c0c9854de8003215aa11"
     },
     {
       "id": "rma-n78-vehicular",
       "path": "config/offline_rural_n78_vehicular.ini",
       "protocol_baseline_sha256": "d3669745449ca60dd117b590003bac255f8c425c234f70ba34aadcefcfdaa260",
-      "validated_sha256": "9a65853cadb47f8ba021004b6f38f01c4ebf3c063c6c19b4576a257b78bf3706"
+      "validated_sha256": "521ba5b66f9dc6a953a3362e403037c3c7266827f3ed5dabc0d63befba40ef60"
     },
     {
       "id": "indoor-n78-pedestrian",
       "path": "config/offline_indoor_hotspot_n78_pedestrian.ini",
       "protocol_baseline_sha256": "a9ee97ceb1ffe3d98d68afc2f589911877d39820d5a4e2e9860b69c83a83ce1e",
-      "validated_sha256": "3d55adb27ef73e94339dc600d8e284c6da7cffd9361a4b24331bcab0ecef0116"
+      "validated_sha256": "d4a1b901d7519284833047072e3292aed599546360215c14f0a30b6cfd1a0d13"
     },
     {
       "id": "umi-n258-fwa",
       "path": "config/offline_umi_n258_fwa.ini",
       "protocol_baseline_sha256": "3f791536bf7a04e61e199ea4b09e9dfe646a00a37580e68b2c8bca91d97c609b",
-      "validated_sha256": "30c5096f5f5a9bd5c4bdf8eec809dadcdc2c42eae85584bf93f87f53ed0c2998"
+      "validated_sha256": "80b20fd80292e0cc400b8497573244d6c1f8a40685baa4ebae491b2666585695"
     }
   ],
   "committed_evidence": [
@@ -146,12 +146,12 @@
     {
       "id": "validation-matrix",
       "path": "docs/baselines/phy-v2-validation-matrix.md",
-      "sha256": "f5f050f5b480dcd21bc51f2bb4df8c4b7f9a271ee36cac87fe1a49ff1ef28b01"
+      "sha256": "b882ca2c90239b821d08fa9ebbad4dfdbb09e1ed5b63a7958324d37968540444"
     },
     {
       "id": "evidence-protocol",
       "path": "docs/phy-model-v2-evidence-protocol.md",
-      "sha256": "f4de113b56b0d0338be0361673235f229b388c40bd2eab5508c8dfb5f79f07a8"
+      "sha256": "0d5290f8b4bb8af5d8a131268dc8a2591d391bdada0c02bc0cb1e07ffbae6e18"
     },
     {
       "id": "literature-set",
@@ -161,7 +161,27 @@
     {
       "id": "manuscript",
       "path": "docs/phy-model-evolution-external-review.md",
-      "sha256": "6c8b4cf43d6013495fc36ca0246162e83fc1f90bd3fcdf1f5d3ce45e1fd93769"
+      "sha256": "c28230f3adbdee6e5e92d0e2c94e27f7475877bb24d58f924b693a7709504fd3"
+    },
+    {
+      "id": "throughput-scheduler-guide",
+      "path": "docs/throughput-schedulers.md",
+      "sha256": "031d251cd9057360c53f791dd992a135ee5766c67a34f09111ba3ef30155ddc8"
+    },
+    {
+      "id": "harq-design-guide",
+      "path": "docs/harq-legacy-bler.md",
+      "sha256": "6cc19a77b3952f3f5321cd1ed6633f82f752097c8a323359952733021fd3c0fd"
+    },
+    {
+      "id": "legacy-bler-table-characterization",
+      "path": "docs/baselines/legacy-bler-table.json",
+      "sha256": "d3339e05628b30b00a39c3a5ee9ea0e609589da4e34544ee1d536c7b2e4d750c"
+    },
+    {
+      "id": "harq-campaign-report",
+      "path": "docs/baselines/harq-v2/report.md",
+      "sha256": "2c090e52636335177703b65e4fbaacf66269f6c0b5d16554ddf883f90cb9bcac"
     },
     {
       "id": "python-dependency-lock",
@@ -204,6 +224,10 @@
     "node": "24.5.0",
     "numpy": "2.2.6",
     "python": "3.10.4"
+  },
+  "harq_evidence": {
+    "path": "docs/baselines/harq-v2/evidence.json",
+    "sha256": "b1930986900ca5bbfd53d63e3164a2c308796318c62ecc1d25b2457480e17fbb"
   },
   "map_generation": {
     "catalog_size": 21,
@@ -272,10 +296,11 @@
     "branch": "feature/phy-model-v2",
     "dev_baseline_sha": "e995563fd3e8fa300f4b0accca3b494f7177101c",
     "feature_baseline_sha": "648aa7bedab82e55faed769ba16234c94f4d749d",
-    "implementation_source_sha": "1b55ca191e27a368936476fff33fc622833d8d13",
+    "harq_analyzer_source_sha": "4e4ec5fdd26a74ad9c0b838313f39de4d0c9b021",
+    "implementation_source_sha": "69da774ea288694055be59759cdd74b652faaaf0",
     "map_catalog_source_sha": "8e1b3680d76b21daf76fd43596a9918972368fb7",
     "map_statistics_source_sha": "1b55ca191e27a368936476fff33fc622833d8d13",
-    "packet_profile_source_sha": "1b55ca191e27a368936476fff33fc622833d8d13",
+    "packet_profile_source_sha": "4e4ec5fdd26a74ad9c0b838313f39de4d0c9b021",
     "runtime_benchmark_source_sha": "1b55ca191e27a368936476fff33fc622833d8d13"
   },
   "study": "FikoRE PHY Model V2"

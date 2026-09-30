@@ -3,7 +3,7 @@
 ## Purpose
 
 This benchmark evaluates the experimental
-`pf_intra_tti_update: allocation_unit` mode against `none` across the two time
+`throughput_intra_tti_update: allocation_unit` mode against `none` across the two time
 aggregation modes and the two frequency aggregation modes.
 
 The PF EWMA is committed once per 1 ms TTI in both modes. Allocation-unit mode

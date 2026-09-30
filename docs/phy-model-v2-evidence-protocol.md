@@ -19,10 +19,12 @@ The protocol baseline is commit
 |---|---|---|---|
 | C1 | Signal, noise, and interference use one per-PRB reference independent of scheduling grouping for a deterministic channel. | Equation audit, power-model unit tests, and a runtime grouped/per-PRB SINR experiment with the same physical carrier PRBs and fading disabled. | Equivalent physical carrier power, noise, and deterministic channel produce a grouping-dependent per-PRB SINR. Incomplete final RBG capacity and scheduling-unit fading resolution are reported separately rather than claimed invariant. |
 | C2 | Two-stage UL scheduling respects the UE total-power cap while exposing a deterministic nominal rate to the scheduler. | Unit tests for nominal and finalized powers plus a power-conservation sweep. | Final grants exceed the configured UE power or the same deterministic inputs produce different allocations. |
-| C3 | PF service history is updated once per active TTI and is independent of CQI report cadence. | State and scheduler tests plus a CQI-period invariance test. | The EWMA state differs solely because static-channel CQI cadence changes. |
-| C4 | Allocation-unit reranking improves short-horizon MAC effective-service continuity in grouped full-backlog grids at measured cost. | Paired PF benchmark with `none` and `allocation_unit`, Jain fairness, maximum effective-service gap, and repeated per-TTI runtime samples. | No short-horizon continuity benefit is observed or measured cost exceeds the stated operating envelope. |
+| C3 | PF and BET service history is updated once per active TTI and is independent of CQI report cadence, while MT and RR never enter the history lifecycle. | State and scheduler tests plus CQI-period invariance and alias-capability tests. | EWMA state differs solely because static-channel CQI cadence changes, or MT/RR acquires history or provisional penalties. |
+| C4 | Allocation-unit reranking improves short-horizon MAC effective-service continuity in grouped full-backlog PF/BET grids at measured cost. | Scheduler-family benchmark with `none` and `allocation_unit`, Jain fairness, maximum effective-service gap, and repeated per-TTI runtime samples. | No short-horizon continuity benefit is observed or measured cost exceeds the stated operating envelope. |
 | C5 | V2 maps are byte-deterministic and origin-consistent. | Independent regeneration, schema/runtime origin tests, and 30-realization diagnostics. | Equal inputs produce different bytes or runtime origin differs from generator origin. LOS, covariance, seam, and link-gain statistics are descriptive diagnostics, not a formal model-validity acceptance test. |
 | C6 | Activating V2 maps changes only propagation inputs and produces explainable deltas in the five canonical profiles. | Common-seed, one-factor-at-a-time legacy/V2 comparisons. | Non-map configuration differs, candidate and promoted bytes differ, or output deltas cannot be traced to changed link gain. |
+| C7 | Active legacy HARQ is bounded, deterministic, and conserves integer bits and charged grants exactly. | Probability and table-axis tests, retry-limit sweeps, packet properties, one-million-decision replay, queue soak, and zero residual telemetry. | Unsupported table access, unbounded queue growth, zero-progress processing, effective bits above charged bits, or nonzero closure residual. |
+| C8 | Captured traffic receives exactly one terminal verdict per UID and cannot deadlock behind a dropped predecessor. | Fake-capture ordering, verdict-failure retry, detach/shutdown, ECN, and queue-progress tests; privileged NFQUEUE runs where available. | Duplicate or missing final verdict, userspace state erased after send failure, unresolved shutdown state, or watchdog stall. |
 
 Passing these checks establishes internal consistency and reproducibility. It
 does not establish deployment-wide predictive validity.
@@ -51,7 +53,7 @@ The canonical profiles are:
 4. `offline_indoor_hotspot_n78_pedestrian.ini`;
 5. `offline_umi_n258_fwa.ini`.
 
-Each production-map run uses seed `20260927` and 180 simulated seconds. Summary
+The HARQ stress extension adds `offline_umi_n258_fwa_high_loss.ini`. Each production-map run uses seed `20260927` and 180 simulated seconds. Summary
 statistics exclude the first 20 seconds when the timestamped source metric
 supports warm-up filtering; metrics that cannot be filtered are explicitly
 labelled as whole-run values. The report includes, by direction:
@@ -65,11 +67,12 @@ labelled as whole-run values. The report includes, by direction:
 - delivery-gap P50/P95/P99 and maximum inside contiguous positive-offer
   segments for non-outage UEs;
 - wall-clock runtime.
+- retransmitted and radio-dropped bits;
+- HARQ queue occupancy, high-water mark, oldest age, and retry ordinal;
+- exact admitted-versus-terminal-plus-pending conservation residual.
 
 An outage UE is one whose logged MCS is below zero in at least 99% of radio
-samples. Queue backlog is not present in the current log schema, so delivery
-gaps must not be labelled scheduler starvation. Starvation is never inferred
-from a single TTI.
+samples. Queue and HARQ occupancy are logged, but delivery gaps combine traffic, eligibility, scheduling, retries, expiry, and release timing and therefore must not be labelled scheduler starvation without additional conditioning. Starvation is never inferred from a single TTI.
 
 ## Map ensemble protocol
 

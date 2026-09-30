@@ -2,6 +2,8 @@
 #include <cmath>
 #include <cstdint>
 #include <memory>
+#include <mutex>
+#include <thread>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -30,6 +32,7 @@ public:
         uint32_t pkt_id,
         packet_capture_action action) override
     {
+        std::lock_guard<std::mutex> lock(fake_mutex);
         if (verdict_failures_remaining > 0)
         {
             verdict_failures_remaining--;
@@ -61,6 +64,7 @@ public:
     }
     packet_capture_stats stats() const override
     {
+        std::lock_guard<std::mutex> lock(fake_mutex);
         packet_capture_stats out;
         out.queue_num = pkt_capture::queue_num();
         out.total_recv = capture_count;
@@ -70,6 +74,7 @@ public:
 
     void capture(uint64_t size_bytes, uint32_t id, uint8_t ecn = ECN_NOT_ECT, std::vector<uint8_t> payload = std::vector<uint8_t>())
     {
+        std::lock_guard<std::mutex> lock(fake_mutex);
         captured_packet_info info;
         info.bytes = size_bytes;
         info.pkt_id = id;
@@ -87,6 +92,7 @@ public:
     int verdict_failures_remaining = 0;
 
 private:
+    mutable std::mutex fake_mutex;
     std::uint64_t capture_count = 0;
     std::unordered_map<uint32_t, std::vector<uint8_t>> payloads;
     std::unordered_map<uint32_t, uint8_t> original_ecns;
@@ -608,6 +614,65 @@ void test_captured_completion_order_retry_and_shutdown()
         == packet_capture_action::DROP);
     assert_handler_conservation(handler);
 }
+
+void test_concurrent_capture_and_shutdown()
+{
+    pdcp_config config(
+        4,
+        0.0f,
+        0.0f,
+        0.0f,
+        0.0f,
+        0.0f,
+        0.0f,
+        0.0f,
+        true,
+        harq_model::disabled);
+    std::unique_ptr<fake_packet_capture> fake(
+        new fake_packet_capture(81));
+    fake_packet_capture *fake_ptr = fake.get();
+    std::unique_ptr<pkt_capture> capture(std::move(fake));
+    captured_packet_handler handler(
+        std::move(capture),
+        nullptr,
+        config,
+        1);
+    handler.init();
+    handler.step(0.0f);
+
+    constexpr int packet_count = 512;
+    std::thread producer([&] {
+        for (int index = 0; index < packet_count; index++)
+            fake_ptr->capture(
+                100,
+                static_cast<std::uint32_t>(1000 + index));
+    });
+    while (producer.joinable())
+    {
+        handler.ingest(TX_DL, 0.0f);
+        if (fake_ptr->captured_queue_size() == 0)
+        {
+            producer.join();
+            break;
+        }
+        std::this_thread::yield();
+    }
+    handler.ingest(TX_DL, 0.0f);
+    while (handler.has_ingress_pkts())
+    {
+        ip_pkt pkt = handler.pop_ingress_pkt();
+        handler.record_error(
+            pkt.size,
+            bit_fate::queue_dropped);
+        handler.drop_ingress_pkt(std::move(pkt));
+    }
+    handler.flush_released();
+    assert(
+        fake_ptr->verdicts.size()
+        == static_cast<std::size_t>(packet_count));
+    assert_handler_conservation(handler);
+    handler.quit();
+}
 }
 
 int main()
@@ -625,5 +690,6 @@ int main()
     test_dualpi2_classic_drop_notification();
     test_captured_packet_handler_rewrites_ecn_payload();
     test_captured_completion_order_retry_and_shutdown();
+    test_concurrent_capture_and_shutdown();
     return 0;
 }

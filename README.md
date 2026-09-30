@@ -124,8 +124,8 @@ A scenario can also be scripted with no network at all, through `timeline_file` 
 `[Control]` section, and any session can be journaled and replayed exactly.
 
 > Beware: under Round Robin (`metric_type: 5`) the scheduler ignores priority, so that
-> particular knob will appear to do nothing. Use `metric_type: 6` for priority
-> experiments.
+> particular knob will appear to do nothing. Use MT (`4`), BET (`1`), or PF (`6`) for
+> weighted-priority experiments.
 
 ### Exit status
 
@@ -135,8 +135,12 @@ runtime/software, 74 lost control peer, 75 credit timeout, 76 control-protocol
 integrity failure (including event backlog), and 78 invalid configuration.
 SIGINT and SIGTERM retain their native signal status.
 
-PF configuration and migration from the legacy per-UE beta parameter are
-documented in [docs/pf-scheduler-v2.md](docs/pf-scheduler-v2.md).
+MT, BET, PF, and RR configuration, shared metric semantics, and migration from
+the legacy per-UE beta parameter are documented in
+[docs/throughput-schedulers.md](docs/throughput-schedulers.md). The active
+table-driven packet-error and retry model, its historical provenance, exact
+accounting contract, and calibration limitations are documented in
+[docs/harq-legacy-bler.md](docs/harq-legacy-bler.md).
 
 Macroscopic-map provenance, schema evolution, and deterministic legacy
 generation are documented in

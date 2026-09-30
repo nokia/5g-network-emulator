@@ -35,8 +35,26 @@ pdcp_layer::pdcp_layer(packet_handler_config handler_cfg, int _verbosity)
     bh_d_var = handler_cfg.pdcp_c.bh_d_var;
 }
 
+pdcp_layer::~pdcp_layer()
+{
+    if (!_packet_h)
+        return;
+    try
+    {
+        exit();
+    }
+    catch (const std::exception &error)
+    {
+        LOG_ERROR_I("pdcp_layer::~pdcp_layer")
+            << error.what() << END();
+    }
+}
+
 void pdcp_layer::exit()
 {
+    if (!_packet_h)
+        return;
+    drop_all();
     _packet_h->quit();
 }
 

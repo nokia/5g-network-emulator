@@ -50,6 +50,7 @@ netfilter_interface_t *netfilter_interface_open(int queue_num, add_pkt_callback_
 int netfilter_interface_release_pkt(netfilter_interface_t *nfiface, uint32_t pkt_id, int accept);
 int netfilter_interface_release_pkt_payload(netfilter_interface_t *nfiface, uint32_t pkt_id, int accept, const uint8_t *payload, uint32_t payload_len);
 
+void netfilter_interface_stop(netfilter_interface_t *nfiface);
 void netfilter_interface_close(netfilter_interface_t *nfiface);
 
 }

@@ -22,6 +22,11 @@ class pdcp_layer
 {
 public: 
     pdcp_layer(packet_handler_config handler_cfg, int _verbosity = 0);
+    ~pdcp_layer();
+    pdcp_layer(pdcp_layer &&) noexcept = default;
+    pdcp_layer &operator=(pdcp_layer &&) = delete;
+    pdcp_layer(const pdcp_layer &) = delete;
+    pdcp_layer &operator=(const pdcp_layer &) = delete;
 public: 
     void exit();
     void init(int _mod_i, int _layers, int _logic_units);

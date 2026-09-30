@@ -60,12 +60,21 @@ public:
     }
 
 public:
+    virtual void stop()
+    {
+        if (is_running && nfiface != nullptr)
+            netfilter_interface_stop(nfiface);
+        is_running = false;
+    }
+
     virtual void close()
     {
-        if (is_running && !is_closed && nfiface != nullptr)
+        if (!is_closed && nfiface != nullptr)
+        {
+            stop();
             netfilter_interface_close(nfiface);
+        }
         nfiface = nullptr;
-        is_running = false;
         is_closed = true;
     }
 
@@ -151,10 +160,37 @@ public:
         return true;
     }
 
+    virtual bool retry_pending_drops()
+    {
+        std::lock_guard<std::mutex> lock(mtx);
+        if (nfiface == nullptr)
+            return pending_drop_ids.empty();
+        for (std::deque<uint32_t>::iterator it =
+                 pending_drop_ids.begin();
+             it != pending_drop_ids.end();)
+        {
+            if (netfilter_interface_release_pkt(
+                    nfiface,
+                    *it,
+                    0) == 0)
+                it = pending_drop_ids.erase(it);
+            else
+                ++it;
+        }
+        return pending_drop_ids.empty();
+    }
+
+    std::size_t pending_drop_count() const
+    {
+        std::lock_guard<std::mutex> lock(mtx);
+        return pending_drop_ids.size();
+    }
+
     int captured_queue_size() const
     {
         std::lock_guard<std::mutex> lock(mtx);
-        return (int)captured_packets.size();
+        return static_cast<int>(
+            captured_packets.size() + pending_drop_ids.size());
     }
 
     bool peek_oldest_captured(captured_packet_info& out) const
@@ -225,11 +261,24 @@ protected:
         std::lock_guard<std::mutex> lock(mtx);
         if (captured_packets.size() >= max_captured_packets)
         {
-            if (nfiface != nullptr)
-                netfilter_interface_release_pkt(
-                    nfiface,
-                    info.pkt_id,
-                    0);
+            if (
+                nfiface != nullptr
+                && netfilter_interface_release_pkt(
+                       nfiface,
+                       info.pkt_id,
+                       0) != 0)
+            {
+                if (pending_drop_ids.size() >= max_pending_drops)
+                {
+                    LOG_ERROR_I("pkt_capture::enqueue_captured_packet")
+                        << "Pending overflow-verdict queue is full"
+                        << END();
+                }
+                else
+                {
+                    pending_drop_ids.push_back(info.pkt_id);
+                }
+            }
             return;
         }
         payloads[info.pkt_id] = stored_payload(std::move(payload), original_ecn);
@@ -256,9 +305,11 @@ private:
 private:
     std::unordered_map<uint32_t, stored_payload> payloads;
     std::deque<captured_packet_info> captured_packets;
+    std::deque<uint32_t> pending_drop_ids;
 
 private:
     bool is_running = false;
     bool is_closed = true;
     static constexpr std::size_t max_captured_packets = 65536;
+    static constexpr std::size_t max_pending_drops = 65536;
 };

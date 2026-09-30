@@ -81,6 +81,37 @@ int main()
     }
 
     {
+        packet_handler_config saturated_config =
+            config(4, harq_model::legacy_bler);
+        saturated_config.pdcp_c.rtx_period = 1.0f;
+        pdcp_layer layer(saturated_config, 1);
+        layer.init(0, 1, 1);
+        constexpr std::uint64_t block_count = 4097;
+        assert(layer.inject_bits(block_count * 1000, 2));
+        layer.step(0.0f);
+        layer.set_harq_scripted_outcomes(
+            std::vector<double>(block_count, 0.0));
+        for (std::uint64_t index = 0;
+             index < block_count;
+             index++)
+            assert(
+                layer.handle_pkt(
+                    1000.0f,
+                    27,
+                    -20.0f,
+                    0.0f,
+                    1)
+                == 0.0f);
+        const pdcp_queue_status status =
+            layer.get_queue_status();
+        assert(status.harq_size == 4096);
+        assert(status.harq_high_water_blocks == 4096);
+        assert(status.harq_capacity_blocks == 4096);
+        assert(layer.radio_dropped_bits_total() == 1000);
+        assert(layer.conservation_residual_bits() == 0);
+    }
+
+    {
         pdcp_layer layer = layer_with_packet(
             0,
             harq_model::legacy_bler);

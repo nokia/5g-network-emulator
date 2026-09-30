@@ -49,6 +49,17 @@ void captured_packet_handler::quit()
     if (!pkt_cptr)
         return;
 
+    // Stop and join the receive thread first. The NFQUEUE socket remains open
+    // so every packet already copied to userspace can still receive a verdict.
+    pkt_cptr->stop();
+    for (int attempt = 0;
+         attempt < 1000 && !pkt_cptr->retry_pending_drops();
+         attempt++)
+        std::this_thread::sleep_for(
+            std::chrono::milliseconds(1));
+    if (pkt_cptr->pending_drop_count() != 0)
+        throw std::runtime_error(
+            "captured packet shutdown could not retry overflow drops");
     ingest(TX_DL, current_t);
     while (has_ingress_pkts())
     {
@@ -78,6 +89,7 @@ float captured_packet_handler::ingest(int tx_dir, float current_t)
     (void)current_t;
     if(!pkt_cptr) return 0.0f;
 
+    (void)pkt_cptr->retry_pending_drops();
     std::uint64_t bits = 0;
     captured_packet_info info;
     while(pkt_cptr->pop_captured_packet(info))
@@ -154,13 +166,9 @@ void captured_packet_handler::drop(harq_pkt pkt, bit_fate fate)
 void captured_packet_handler::flush_released()
 {
     force_drop_all();
-    for (int attempt = 0;
-         attempt < 1000 && !completions.empty();
-         attempt++)
-        release();
-    if (!completions.empty())
-        throw std::runtime_error(
-            "captured packet flush could not issue every final verdict");
+    // Detach is not shutdown: retain any failed verdict state and retry it on
+    // subsequent disabled-UE steps rather than aborting the simulation.
+    release();
 }
 
 float captured_packet_handler::release()

@@ -280,11 +280,13 @@ static int queue_cb(const struct nlmsghdr *nlh, void *data)
 	ph = (nfqnl_msg_packet_hdr*)mnl_attr_get_payload(attr[NFQA_PACKET_HDR]);
 	id = ntohl(ph->packet_id);
 
+	uint16_t plen;
+	plen = attr[NFQA_PAYLOAD] ? mnl_attr_get_payload_len(attr[NFQA_PAYLOAD]) : 0;
 	if (attr[NFQA_CAP_LEN]) {
 		orig_len = ntohl(mnl_attr_get_u32(attr[NFQA_CAP_LEN]));
 	}
 	else{
-		orig_len = nlh->nlmsg_len;
+		orig_len = plen;
 	}
 
 	if(attr[NFQA_TIMESTAMP]) {
@@ -303,9 +305,7 @@ static int queue_cb(const struct nlmsghdr *nlh, void *data)
 	nfiface->bytes_recv += orig_len;
 
 	uint32_t skbinfo;
-	uint16_t plen;
 
-	plen = attr[NFQA_PAYLOAD] ? mnl_attr_get_payload_len(attr[NFQA_PAYLOAD]) : 0;
 	if (orig_len != plen)
 			PRINTF("truncated ");
 	void *payload = attr[NFQA_PAYLOAD] ? mnl_attr_get_payload(attr[NFQA_PAYLOAD]) : NULL;
@@ -501,7 +501,7 @@ netfilter_interface_t *netfilter_interface_open(int queue_num, add_pkt_callback_
 
 
 int netfilter_interface_release_pkt(netfilter_interface_t *nfiface, uint32_t pkt_id, int accept) {
-	if(nfiface == NULL || !nfiface->running.load())
+	if(nfiface == NULL || nfiface->nl == NULL)
 		return -1;
 	char buf[MNL_SOCKET_BUFFER_SIZE];
 	struct nlmsghdr *nlh;
@@ -524,7 +524,7 @@ int netfilter_interface_release_pkt(netfilter_interface_t *nfiface, uint32_t pkt
 }
 
 int netfilter_interface_release_pkt_payload(netfilter_interface_t *nfiface, uint32_t pkt_id, int accept, const uint8_t *payload, uint32_t payload_len) {
-	if(nfiface == NULL || !nfiface->running.load())
+	if(nfiface == NULL || nfiface->nl == NULL)
 		return -1;
 	char buf[0xffff + MNL_SOCKET_BUFFER_SIZE];
 	struct nlmsghdr *nlh;
@@ -549,7 +549,7 @@ int netfilter_interface_release_pkt_payload(netfilter_interface_t *nfiface, uint
 	return 0;
 }
 
-void netfilter_interface_close(netfilter_interface_t *nfiface) {
+void netfilter_interface_stop(netfilter_interface_t *nfiface) {
 	if(nfiface == NULL)
 		return;
 	nfiface->running.store(false);
@@ -557,6 +557,12 @@ void netfilter_interface_close(netfilter_interface_t *nfiface) {
 		pthread_join(nfiface->tid, NULL);
 		nfiface->thread_started = false;
 	}
+}
+
+void netfilter_interface_close(netfilter_interface_t *nfiface) {
+	if(nfiface == NULL)
+		return;
+	netfilter_interface_stop(nfiface);
 	netfilter_interface_free(nfiface);
 
 }

@@ -1,4 +1,6 @@
 #include <cassert>
+#include <atomic>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <memory>
@@ -103,6 +105,77 @@ class fake_packet_handler : public packet_handler
 public:
     fake_packet_handler(pdcp_config config, int verbosity) : packet_handler(config, verbosity) {}
     float ingest(int, float) override { return 0.0f; }
+};
+
+class active_fake_capture : public pkt_capture
+{
+public:
+    active_fake_capture() : pkt_capture(82) {}
+
+    ~active_fake_capture() override { stop(); }
+
+    void start() override
+    {
+        stop_requested.store(false);
+        worker = std::thread([this] {
+            for (std::uint32_t index = 0;
+                 index < 512 && !stop_requested.load();
+                 index++)
+            {
+                captured_packet_info info;
+                info.bytes = 100;
+                info.pkt_id = 2000 + index;
+                enqueue_captured_packet(
+                    info,
+                    std::vector<std::uint8_t>(),
+                    ECN_NOT_ECT);
+                captured.fetch_add(1);
+                std::this_thread::yield();
+            }
+        });
+    }
+
+    void stop() override
+    {
+        stop_requested.store(true);
+        if (worker.joinable())
+            worker.join();
+    }
+
+    void close() override { stop(); }
+
+    bool verdict(
+        std::uint32_t,
+        packet_capture_action) override
+    {
+        released.fetch_add(1);
+        return true;
+    }
+
+    packet_capture_stats stats() const override
+    {
+        packet_capture_stats result;
+        result.queue_num = queue_num();
+        result.total_recv = captured.load();
+        result.total_rlsd = released.load();
+        return result;
+    }
+
+    std::uint64_t captured_count() const
+    {
+        return captured.load();
+    }
+
+    std::uint64_t released_count() const
+    {
+        return released.load();
+    }
+
+private:
+    std::atomic<bool> stop_requested{false};
+    std::atomic<std::uint64_t> captured{0};
+    std::atomic<std::uint64_t> released{0};
+    std::thread worker;
 };
 
 bool near(float lhs, float rhs)
@@ -673,6 +746,39 @@ void test_concurrent_capture_and_shutdown()
     assert_handler_conservation(handler);
     handler.quit();
 }
+
+void test_shutdown_stops_live_capture_before_drain()
+{
+    pdcp_config config(
+        4,
+        0.0f,
+        0.0f,
+        0.0f,
+        0.0f,
+        0.0f,
+        0.0f,
+        0.0f,
+        true,
+        harq_model::disabled);
+    std::unique_ptr<active_fake_capture> fake(
+        new active_fake_capture());
+    active_fake_capture *fake_ptr = fake.get();
+    std::unique_ptr<pkt_capture> capture(std::move(fake));
+    captured_packet_handler handler(
+        std::move(capture),
+        nullptr,
+        config,
+        1);
+    handler.init();
+    std::this_thread::sleep_for(
+        std::chrono::milliseconds(1));
+    handler.quit();
+    assert(fake_ptr->captured_count() > 0);
+    assert(
+        fake_ptr->captured_count()
+        == fake_ptr->released_count());
+    assert_handler_conservation(handler);
+}
 }
 
 int main()
@@ -691,5 +797,6 @@ int main()
     test_captured_packet_handler_rewrites_ecn_payload();
     test_captured_completion_order_retry_and_shutdown();
     test_concurrent_capture_and_shutdown();
+    test_shutdown_stops_live_capture_before_drain();
     return 0;
 }

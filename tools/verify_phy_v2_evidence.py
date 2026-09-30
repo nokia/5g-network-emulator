@@ -143,6 +143,29 @@ def main() -> None:
                 )
                 checked += 1
 
+    scheduler_evidence = manifest.get("scheduler_evidence")
+    if scheduler_evidence is not None:
+        check(
+            scheduler_evidence["path"],
+            scheduler_evidence["sha256"],
+        )
+        checked += 1
+        scheduler_manifest = json.loads(
+            (ROOT / scheduler_evidence["path"]).read_text()
+        )
+        subprocess.check_call(
+            [
+                "git",
+                "cat-file",
+                "-e",
+                f"{scheduler_manifest['source_sha']}^{{commit}}",
+            ],
+            cwd=ROOT,
+        )
+        for artifact in scheduler_manifest["artifacts"]:
+            check(artifact["path"], artifact["sha256"])
+            checked += 1
+
     analysis_metadata = json.loads(
         (
             ROOT

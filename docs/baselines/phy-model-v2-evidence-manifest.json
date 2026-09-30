@@ -291,6 +291,10 @@
     }
   ],
   "schema_version": 2,
+  "scheduler_evidence": {
+    "path": "docs/baselines/scheduler-family-v2/evidence.json",
+    "sha256": "de954a10ad29f9c17696480704256fec6147232c998a69629043d5f4a5123b38"
+  },
   "source": {
     "analyzer_source_sha": "1b55ca191e27a368936476fff33fc622833d8d13",
     "branch": "feature/phy-model-v2",

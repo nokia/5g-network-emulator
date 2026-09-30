@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <chrono>
+#include <exception>
 #include <functional>
 #include <limits>
 #include <stdexcept>
@@ -32,6 +33,7 @@ captured_packet_handler::~captured_packet_handler()
     {
         LOG_ERROR_I("captured_packet_handler::~captured_packet_handler")
             << error.what() << END();
+        std::terminate();
     }
 }
 

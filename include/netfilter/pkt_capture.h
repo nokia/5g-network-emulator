@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <deque>
+#include <exception>
 #include <iostream>
 #include <functional>
 #include <mutex>
@@ -273,6 +274,7 @@ protected:
                     LOG_ERROR_I("pkt_capture::enqueue_captured_packet")
                         << "Pending overflow-verdict queue is full"
                         << END();
+                    std::terminate();
                 }
                 else
                 {

@@ -288,6 +288,14 @@ static int queue_cb(const struct nlmsghdr *nlh, void *data)
 	else{
 		orig_len = plen;
 	}
+	if(orig_len == 0) {
+		nfiface->last_recv_id = id;
+		nfiface->total_recv++;
+		return netfilter_interface_release_pkt(
+			nfiface, id, 0) == 0
+			? MNL_CB_OK
+			: MNL_CB_ERROR;
+	}
 
 	if(attr[NFQA_TIMESTAMP]) {
 		pts = (nfqnl_msg_packet_timestamp*)mnl_attr_get_payload(attr[NFQA_TIMESTAMP]);
@@ -372,10 +380,12 @@ static void *run(void *arg) {
 	int ret = 1;
 	//mnl_socket_setsockopt(nl, NETLINK_NO_ENOBUFS, &ret, sizeof(int));
 
-	while (nfiface->running.load()) {
+	for (;;) {
 		ret = mnl_socket_recvfrom(nfiface->nl, nfiface->buf, nfiface->sizeof_buf);
 		if (ret == -1) {
 			if(errno == EAGAIN || errno == EWOULDBLOCK) {
+				if(!nfiface->running.load())
+					break;
 				usleep(1000);
 				continue;
 			}

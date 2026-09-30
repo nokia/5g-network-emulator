@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <exception>
 #include <limits>
 #include <stdexcept>
 #include <utility>
@@ -47,6 +48,7 @@ pdcp_layer::~pdcp_layer()
     {
         LOG_ERROR_I("pdcp_layer::~pdcp_layer")
             << error.what() << END();
+        std::terminate();
     }
 }
 
@@ -159,38 +161,40 @@ float pdcp_layer::handle_pkt(
     if(_harq_buffer.is_pkt_ready())
     {
         const harq_pkt *ready = _harq_buffer.peek_oldest();
-        if (ready == nullptr || ready->bits > grant_bits)
-            return 0.0f;
-
-        harq_pkt pkt = _harq_buffer.get_pkt();
-        if (is_expired(pkt))
+        if (ready != nullptr && ready->bits <= grant_bits)
         {
-            drop_harq_pkt(std::move(pkt), bit_fate::expired);
-            return 0.0f;
+            harq_pkt pkt = _harq_buffer.get_pkt();
+            if (is_expired(pkt))
+            {
+                drop_harq_pkt(std::move(pkt), bit_fate::expired);
+                return 0.0f;
+            }
+            last_charged_grant_bits_ = pkt.bits;
+            rtx_bits_total_ += pkt.bits;
+            const int attempt = pkt.attempt_ordinal;
+            if(_harq_buffer.get_rtx(
+                   pkt.mcs_i,
+                   sinr,
+                   attempt,
+                   pkt.layers))
+            {
+                if (!_harq_buffer.retry_available_after(attempt)
+                    || !_harq_buffer.enqueue_retry(
+                        pkt,
+                        distance,
+                        attempt + 1))
+                    drop_harq_pkt(
+                        std::move(pkt),
+                        bit_fate::radio_dropped);
+                return 0.0f;
+            }
+            const float effective_bits =
+                static_cast<float>(pkt.bits);
+            release_pkts(std::move(pkt));
+            return effective_bits;
         }
-        last_charged_grant_bits_ = pkt.bits;
-        rtx_bits_total_ += pkt.bits;
-        const int attempt = pkt.attempt_ordinal;
-        if(_harq_buffer.get_rtx(
-               pkt.mcs_i,
-               sinr,
-               attempt,
-               pkt.layers))
-        {
-            if (!_harq_buffer.retry_available_after(attempt)
-                || !_harq_buffer.enqueue_retry(
-                    pkt,
-                    distance,
-                    attempt + 1))
-                drop_harq_pkt(
-                    std::move(pkt),
-                    bit_fate::radio_dropped);
-            return 0.0f;
-        }
-        const float effective_bits =
-            static_cast<float>(pkt.bits);
-        release_pkts(std::move(pkt));
-        return effective_bits;
+        // A different HARQ process may use an undersized grant for fresh
+        // data while the ready front block waits for a grant that can carry it.
     }
 
     if(!_ip_buffer.has_pkts())

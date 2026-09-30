@@ -123,6 +123,44 @@ int main()
     }
 
     {
+        pdcp_layer layer(config(4, harq_model::legacy_bler), 1);
+        layer.init(0, 1, 1);
+        assert(layer.inject_bits(1500, 3));
+        layer.step(0.0f);
+        layer.set_harq_scripted_outcomes({0.0, 1.0, 1.0});
+        assert(
+            layer.handle_pkt(
+                1000.0f,
+                27,
+                -20.0f,
+                0.0f,
+                1)
+            == 0.0f);
+        layer.step(0.001f);
+        assert(
+            layer.handle_pkt(
+                500.0f,
+                27,
+                40.0f,
+                0.0f,
+                1)
+            == 500.0f);
+        assert(layer.last_charged_grant_bits() == 500);
+        assert(layer.release() == 500.0f);
+        assert(
+            layer.handle_pkt(
+                1000.0f,
+                27,
+                40.0f,
+                0.0f,
+                1)
+            == 1000.0f);
+        assert(layer.retransmitted_bits_total() == 1000);
+        assert(layer.release() == 1000.0f);
+        assert(layer.conservation_residual_bits() == 0);
+    }
+
+    {
         pdcp_layer layer = layer_with_packet(
             1,
             harq_model::legacy_bler);

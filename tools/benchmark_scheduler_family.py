@@ -83,7 +83,7 @@ pos_x: {distance_m}
 pos_y: 0
 random_init: false
 speed: 0
-max_distance: 1000
+max_distance: {max(5000, distance_m)}
 priority: 1
 pkt_delay_budget: 10
 ue_height: 1.5
@@ -116,7 +116,7 @@ def config_text(
         ue_sections = (
             ue_section("benchmarkNear", near_count, 50, target_mbps)
             + "\n"
-            + ue_section("benchmarkFar", far_count, 500, target_mbps)
+            + ue_section("benchmarkFar", far_count, 2000, target_mbps)
         )
 
     pf_alpha = "pf_alpha: 1\n" if scheduler == "pf" else ""
@@ -511,7 +511,7 @@ def main() -> None:
         "1 Mbit/s per UE and direction.",
         "",
         "Homogeneous cases place every UE at 200 m. Near/far cases split "
-        "UEs equally between 50 m and 500 m.",
+        "UEs equally between 50 m and 2,000 m.",
         "",
         markdown_table(rows),
         "",

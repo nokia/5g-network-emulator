@@ -12,6 +12,9 @@ license = { text = "BSD-3-Clause-Clear" }
 authors = [{ name = "Nokia" }]
 dependencies = []
 
+[project.scripts]
+fikore-iperf3 = "fikore_transport.iperf_cli:main"
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["fikore_transport*"]

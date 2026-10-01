@@ -62,6 +62,23 @@ Open-loop UDP exists only as a Runner-level scenario primitive. It is not
 available through `TransportBackend`, has no NetworkBackend request lifecycle
 and has no transport recovery or congestion controller.
 
+It is available to `fikore-iperf3`, which reports terminal loss, one-way delay
+and RFC 3550 jitter after draining network outcomes. UDP does not produce an RTT
+measurement.
+
+## iperf3 compatibility scope
+
+`fikore-iperf3` follows familiar bulk-session options and text/JSON shapes; it
+is not the upstream iperf3 program and does not open client/server sockets.
+Server mode, real ports/interfaces, authentication, SCTP, zerocopy, kernel
+socket options and host scheduling are not modelled.
+
+TCP RTT, congestion window and retransmissions are values from the research
+transport model. UDP loss is a FikoRE terminal outcome. These results must not
+be described as measurements of a host kernel stack. The JSON carries a
+FikoRE-specific metadata block and is not guaranteed to be byte-for-byte
+compatible with every third-party iperf3 parser.
+
 ## Persistent connection scope
 
 The default `TransportBackend` TCP mode is an HTTP/1.1-style pool: sequential

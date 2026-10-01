@@ -36,8 +36,10 @@ TOOLS_OBJECTS := $(patsubst tools/%.cpp,$(TOOLS_OBJ_DIR)/%.o,$(TOOLS_SOURCES))
 TOOLS_DEPS := $(TOOLS_OBJECTS:.o=.d)
 TRANSPORT_TESTS := \
 	transport/tests/test_backend.py \
+	transport/tests/test_iperf.py \
 	transport/tests/test_loopback_transfer.py \
 	transport/tests/test_prague.py \
+	transport/tests/test_scenario.py \
 	transport/tests/test_transports.py
 
 .PHONY: all tools run test test-api test-transport test-transport-integration test-nfqueue smoke clean print-objects
@@ -110,6 +112,8 @@ test-transport:
 test-transport-integration: all
 	@echo "[TEST] transport/tests/test_fikore_link.py"
 	@PYTHONPATH=transport $(PYTHON) transport/tests/test_fikore_link.py
+	@echo "[TEST] transport/tests/test_iperf_fikore.py"
+	@PYTHONPATH=transport $(PYTHON) transport/tests/test_iperf_fikore.py
 
 test-nfqueue: all
 	@echo "[TEST] tests/nfqueue_namespace_test.py"

@@ -16,30 +16,6 @@ An item leaves this file only when:
 
 Design prose alone is not sufficient.
 
-## TCP/UDP iperf-like CLI
-
-**Motivation:** provide a small self-contained load-generator interface for
-interactive experiments without writing a Runner scenario.
-
-**Scope:** a command with explicit duration/bytes, direction, parallel streams,
-packet/write size, reporting interval, controller and Link configuration.
-TCP uses `TcpSender`/`Runner`; UDP uses the existing open-loop primitive.
-
-**Acceptance criteria:**
-
-- command exits non-zero on invalid or aborted runs;
-- finite-duration and finite-byte TCP runs terminate deterministically;
-- parallel streams and reverse direction work;
-- UDP offered bytes match configured rate within one packet;
-- machine-readable output includes configuration and conservation totals.
-
-**Required evidence:** CLI unit tests plus one LoopbackLink and one FikoreLink
-reproducible run for TCP and UDP.
-
-**Documentation on promotion:** `06-application-patterns.md`,
-`08-validation-evidence.md`, `transport/README.md`, and UDP/CLI entries in
-`LIMITATIONS.md`.
-
 ## UDP in TransportBackend
 
 **Motivation:** let a generic NetworkBackend experiment select open-loop UDP

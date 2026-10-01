@@ -115,6 +115,14 @@ class TcpSender:
     def set_unlimited(self) -> None:
         self.app_unlimited = True
 
+    def finish_writes(self) -> None:
+        """Stop an unlimited application without cancelling TCP recovery.
+
+        The bytes already emitted remain a finite stream tail: ACK processing,
+        retransmission timers and loss recovery continue until ``complete()``.
+        """
+        self.app_unlimited = False
+
     def app_cancel(self) -> int:
         """Stop offering data. Returns the bytes that will now never be sent.
 

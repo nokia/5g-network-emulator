@@ -7,7 +7,6 @@
 `test_backend.py`, `test_fikore_link.py`
 
 This document names only application patterns that exist in the current code.
-There is no standalone `iperf3`-like command-line tool.
 
 ## Stream writes
 
@@ -31,7 +30,42 @@ retransmission and acknowledgement processing. This does not open a real socket
 or read a host file.
 
 For a saturated bulk stream, `TcpSender.set_unlimited()` keeps application data
-available until the caller stops the run.
+available until the caller stops the run. `finish_writes()` stops adding new
+bytes while preserving ACK, RTO and retransmission processing during drain.
+
+## Offline iperf-like sessions
+
+The installed `fikore-iperf3` command creates TCP or UDP flows directly on one
+`Runner`; it does not route sessions through the object-oriented
+`TransportBackend`.
+
+```bash
+fikore-iperf3 -c config/control_demo.ini --ue controlDemo_0 \
+  -t 10 -P 2 -C cubic -i 1
+
+fikore-iperf3 -c config/control_demo.ini --ue controlDemo_1 \
+  -u -b 20M -l 1200 -R -t 10 -J
+```
+
+Supported iperf-shaped options include duration (`-t`), finite TCP bytes (`-n`),
+parallel streams (`-P`), reverse/UL (`-R`), UDP (`-u`), offered bitrate (`-b`),
+datagram size (`-l`), interval (`-i`), MSS (`-M`), receive window (`-w`) and
+controller (`-C`). Server, socket binding, authentication, zerocopy and SCTP
+options have no offline-model equivalent and are rejected.
+
+Duration runs stop offering data at `-t`, then emit a final drain interval so
+late delivery, retransmission and UDP loss are not hidden. Finite TCP `-n` runs
+ignore the duration default and use `--timeout` only as an abort guard.
+
+Runs can instead be described by a schema-versioned JSON file passed with
+`--config`. Command-line values override JSON values. `--set
+SECTION.KEY=VALUE` and `--set-ue UE_ID.KEY=VALUE` apply reviewed scenario
+overrides before the mandatory barrier/offline overlay.
+
+Selected `ue_type: 0` blocks are converted only in the generated effective INI;
+the source scenario is not modified. A selected block with `n_ues > 1` expands
+to its textual targets (`name_0`, `name_1`, ...). Unselected background UE
+blocks keep their configured traffic.
 
 ## UDP offered load
 
@@ -121,13 +155,11 @@ indices or textual configured targets.
 | Saturated TCP flow | `TcpSender.set_unlimited()` |
 | Finite TCP stream write | `TcpSender.app_write()` |
 | Open-loop UDP | `udp_flow()` |
+| Offline TCP/UDP session | `fikore-iperf3` |
 | Ideal object baseline | `BackendConfig(transport="ideal")` |
 | Fresh TCP object baseline | `BackendConfig(tcp_connection_mode="fresh")` |
 | Finite downloadable object | `TransportBackend.submit_request()` |
 | Cancel downloadable object | `TransportBackend.cancel_request()` |
 | SFV integration | `benchmarks/validate_sfv.py` |
 
-Options such as `iperf3 -t`, `-P`, `-l`, `-R` and `-i` are not implemented
-interfaces in this repository. Planned application tooling belongs in
-[`FUTURE-ROADMAP.md`](FUTURE-ROADMAP.md); current behavioural constraints belong
-in [`LIMITATIONS.md`](LIMITATIONS.md).
+Current behavioural constraints belong in [`LIMITATIONS.md`](LIMITATIONS.md).

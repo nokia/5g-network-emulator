@@ -23,6 +23,7 @@ Implemented:
 - generic `TransportBackend` request, cancellation and `NetworkStep` interface;
 - persistent TCP connection pools with an explicit fresh-connection baseline;
 - numeric and textual FikoRE UE addressing;
+- `fikore-iperf3` TCP/UDP offline sessions with interval text/JSON reporting;
 - validated integration with the external SFV v0.7.2 example.
 
 This is a research model, not a full Linux TCP stack. Read
@@ -63,6 +64,25 @@ The first target uses deterministic links. The second drives the built emulator;
 if `bin/fikore` is absent, its Python test reports a skip and exits successfully.
 Check test output rather than inferring integration coverage from status zero.
 
+The editable install exposes `fikore-iperf3`, an offline session validator:
+
+```bash
+# TCP/CUBIC, one stream on one member of the controlDemo UE group
+fikore-iperf3 -c config/control_demo.ini --ue controlDemo_0 -t 10 -i 1
+
+# UDP at 20 Mbit/s, reverse direction, two streams per selected UE
+fikore-iperf3 -c config/control_demo.ini --ue controlDemo \
+  -u -b 20M -l 1200 -R -P 2 -t 10 -J
+
+# Validate and print the temporary offline configuration without starting FikoRE
+fikore-iperf3 --config transport/examples/iperf-tcp.json --dry-run
+```
+
+`--ue` accepts a configured UE block (`controlDemo`, expanded to
+`controlDemo_0`, `controlDemo_1`) or one concrete textual target. The source INI
+is never changed. Selected live UE blocks are converted to simulated injection;
+unselected background blocks retain their original traffic.
+
 Prague additionally needs its external source/binding:
 
 ```bash
@@ -88,7 +108,7 @@ is not modified or vendored.
 | Object requests/cancellation | yes | yes | `test_backend.py`, `test_fikore_link.py` | HTTP/1.1-style pool; no HTTP/2 multiplexing |
 | Multi-UE NetworkBackend | yes | yes | scale and SFV runs | validated subset, not all harness scenarios |
 | SFV v0.7.2 bridge | yes | yes, external | `validate_sfv.py`, `sfv-pilot.json` | one external version/example |
-| iperf-like CLI | no | no | roadmap only | not an available interface |
+| iperf-like CLI | yes | yes | `test_iperf.py`, `test_iperf_fikore.py`, `iperf-smoke.json` | offline model, not a kernel iperf3 endpoint |
 
 ## Reproducible runners
 
@@ -111,6 +131,9 @@ python3 transport/benchmarks/validate_tcp_references.py --help
 
 # External SFV v0.7.2 integration
 python3 transport/benchmarks/validate_sfv.py --help
+
+# Offline interactive/session validation
+fikore-iperf3 --help
 ```
 
 Checked summaries live in `benchmarks/results/`. Generated files record their
@@ -130,9 +153,11 @@ fikore_transport/
   ideal.py         fixed-window diagnostic transport
   udp.py           Runner-level open-loop datagrams
   runner.py        lockstep transport runner
+  scenario.py      section-aware rendering of repeated-UE INI files
   emulator.py      FikoRE process/configuration wrapper
   fikore_link.py   fikore-control-1 Link
   backend.py       generic object-oriented NetworkBackend
+  iperf_*.py       offline session configuration, execution and reporting
 prague/            C ABI shim for the external Prague controller
 tests/             deterministic and emulator-backed tests
 benchmarks/        examples, campaigns and checked results

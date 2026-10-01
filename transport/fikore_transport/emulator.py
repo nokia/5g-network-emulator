@@ -9,11 +9,12 @@ Nothing here knows about transport or congestion control.
 from __future__ import annotations
 
 import os
-import re
 import socket
 import subprocess
 import time
 from dataclasses import dataclass, field
+
+from .scenario import Override, ScenarioDocument
 
 PROTO = "fikore-control-1"
 
@@ -25,45 +26,80 @@ class EmulatorConfig:
     socket_path: str
     duration_s: float
     work_dir: str | None = None       # fading maps are resolved next to the binary
-    n_ues: int = 1
+    n_ues: int | None = 1
     pkt_size_bits: int = 12000        # the MSS the transport model must match
     delay_budget_s: float = 30.0      # see docs/03: the budget is not the experiment
     log_path: str | None = None
     max_object_events: int = 65536
+    study_ues: list[str] | None = None
+    section_overrides: dict[tuple[str, str], str] = field(default_factory=dict)
+    ue_overrides: dict[str, dict[str, str]] = field(default_factory=dict)
     extra: dict[str, str] = field(default_factory=dict)
+    last_overrides: list[Override] = field(default_factory=list, init=False)
 
     def render(self, path: str) -> str:
-        src = open(self.base_ini).read()
-        subs = {
+        doc = ScenarioDocument.read(self.base_ini)
+        targets = list(self.study_ues) if self.study_ues is not None else doc.ue_ids()
+        if not targets:
+            raise ValueError("the scenario has no UE selected for co-simulation")
+        for ue_id in targets:
+            doc.get_ue(ue_id, "ue_id")  # validate before changing anything
+
+        global_values = {
             "duration": f"{self.duration_s}",
-            "period": "-1",                     # fast mode; the barrier needs it
-            "n_ues": f"{self.n_ues}",
-            "dl_target": "0.0",                 # every byte comes from the client
-            "ul_target": "0.0",
-            "pkt_size": f"{self.pkt_size_bits}",
-            "pkt_delay_budget": f"{self.delay_budget_s}",
-            "random_v": "false",
-            "sync_mode": "barrier",
+            "period": "-1",             # fast mode; the barrier requires it
+            "progress_log_period_s": "0",
+        }
+        control_values = {
+            "enabled": "true",
+            "transport": "unix",
             "address": self.socket_path,
+            "sync_mode": "barrier",
             "on_timeout": "abort",
             "max_object_events": f"{self.max_object_events}",
-            "progress_log_period_s": "0",
-            **self.extra,
         }
-        out = src
-        for key, value in subs.items():
-            pattern = rf"^{re.escape(key)}: .*$"
-            if re.search(pattern, out, flags=re.M):
-                out = re.sub(pattern, f"{key}: {value}", out, flags=re.M)
+        for ue_id in targets:
+            values = {
+                "pkt_delay_budget": f"{self.delay_budget_s}",
+                "random_v": "false",
+            }
+            if self.n_ues is not None:
+                values["n_ues"] = f"{self.n_ues}"
+            for key, value in values.items():
+                doc.set_ue(ue_id, key, value, source="cosim")
+
+        for (section, key), value in self.section_overrides.items():
+            doc.set(section, key, value, source="configuration", create=False)
+        for ue_id, values in self.ue_overrides.items():
+            for key, value in values.items():
+                doc.set_ue(ue_id, key, value, source="configuration")
+        # Safety invariants win over user overrides.  Their before/after records make
+        # conversion of a live scenario visible in the manifest.
+        for key, value in global_values.items():
+            doc.set("Global", key, value, source="forced-cosim")
+        for key, value in control_values.items():
+            doc.set("Control", key, value, source="forced-cosim")
+        doc.set("Monitoring", "enabled", "false", source="forced-cosim")
+        for ue_id in targets:
+            for key, value in {
+                    "ue_type": "1", "dl_target": "0.0", "ul_target": "0.0",
+                    "pkt_size": f"{self.pkt_size_bits}"}.items():
+                doc.set_ue(ue_id, key, value, source="forced-cosim")
+
+        # Compatibility for callers that predate section-aware overrides.  The old
+        # flat regex allowed these two control keys to override normal co-sim mode;
+        # integration tests use that escape hatch to exercise async overflow.
+        legacy_sections = {"period": "Global", "sync_mode": "Control"}
+        for key, value in self.extra.items():
+            section = legacy_sections.get(key)
+            if section is not None:
+                doc.set(section, key, value, source="legacy-extra")
             else:
-                # A key the template does not carry is added to the UE section, which
-                # is where every knob worth setting from here lives. Silently dropping
-                # it would turn a typo into an experiment that ran the wrong scenario.
-                out = re.sub(r"^\[UE\]$", f"[UE]\n{key}: {value}", out, count=1,
-                             flags=re.M)
-        out = out.replace("[Monitoring]\nenabled: true", "[Monitoring]\nenabled: false")
-        open(path, "w").write(out)
-        return path
+                for ue_id in targets:
+                    doc.set_ue(ue_id, key, value, source="legacy-extra")
+
+        self.last_overrides = list(doc.overrides)
+        return doc.write(path)
 
 
 class Emulator:

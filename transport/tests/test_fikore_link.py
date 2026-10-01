@@ -80,6 +80,68 @@ def accounted(link):
     return sum(link.terminal_bytes.values()) + link.in_flight_bytes
 
 
+def command_only_link():
+    """A wire-free link for deterministic command-queue unit tests."""
+    link = object.__new__(FikoreLink)
+    link._last_tti = -1
+    link._scheduled_sets = {}
+    link._queued_sets = []
+    link._pending = {}
+    link.flow_to_ue = {}
+    link.flow_to_target = {}
+    link._next_tag = 1
+    link._outstanding = {}
+    link.submitted_bytes = 0
+    link._to_forget = []
+    link.use_events = False
+    return link
+
+
+def test_scheduled_sets_are_exact_and_fifo_before_immediate_commands():
+    link = command_only_link()
+    link.schedule_set(3, "ue/study_0", {"priority": 2.0})
+    link.schedule_set(3, "ue/study_0", {"dl.sinr_offset_db": -6.0})
+    link.schedule_set(5, "ue/study_0", {"priority": 1.0})
+    link._queued_sets.append(
+        {"target": "ue/study_0", "set": {"dl.rmax_mbps": 25.0}}
+    )
+
+    before = link._commands_for(2)
+    assert before[0]["set"] == {"dl.rmax_mbps": 25.0}
+    assert before[-1] == {"op": "get", "target": "ue/*"}
+
+    due = link._commands_for(3)
+    assert [command["set"] for command in due[:-1]] == [
+        {"priority": 2.0},
+        {"dl.sinr_offset_db": -6.0},
+    ]
+    assert 5 in link._scheduled_sets
+
+
+def test_scheduled_sets_reject_invalid_late_and_skipped_ttis():
+    link = command_only_link()
+    for bad_tti in (-1, 1.5, True):
+        try:
+            link.schedule_set(bad_tti, "ue/0", {"priority": 1.0})
+            assert False, f"invalid TTI {bad_tti!r} was accepted"
+        except ValueError:
+            pass
+    link._last_tti = 4
+    try:
+        link.schedule_set(4, "ue/0", {"priority": 1.0})
+        assert False, "late scheduled set was accepted"
+    except ValueError:
+        pass
+
+    link._last_tti = -1
+    link.schedule_set(2, "ue/0", {"priority": 1.0})
+    try:
+        link._commands_for(3)
+        assert False, "a skipped scheduled set was silently applied late"
+    except RuntimeError as exc:
+        assert "TTI 2 was skipped" in str(exc)
+
+
 def test_a_real_transfer_completes_and_conserves_bytes():
     size = 400 * 1024
     link = build_link()
@@ -186,6 +248,22 @@ def test_arrivals_come_back_on_the_slots_that_injected():
             f"only {slots_with_arrivals} of {slots} slots reported an arrival "
             f"while injecting on every one of them")
         assert link.terminal_bytes["delivered"] > 100 * 1500
+    finally:
+        teardown(link)
+
+
+def test_scheduled_sets_use_the_normal_acknowledged_control_path():
+    link = build_link(duration_s=0.02)
+    try:
+        link.schedule_set(2, "ue/0", {"priority": 2.0})
+        link.schedule_set(4, "ue/0", {"not.a.real.parameter": 1.0})
+        for tti in range(4):
+            link.step(tti)
+        try:
+            link.step(4)
+            assert False, "a rejected scheduled set did not fail the run"
+        except RuntimeError as exc:
+            assert "not.a.real.parameter" in str(exc)
     finally:
         teardown(link)
 

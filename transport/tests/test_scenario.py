@@ -24,6 +24,8 @@ ue_type: 0
 n_ues: 1
 dl_target: 5
 ul_target: 5
+random_v: true
+pkt_delay_budget: 0.3
 
 [UE]
 ue_id: background
@@ -31,6 +33,8 @@ ue_type: 1
 n_ues: 10
 dl_target: 20
 ul_target: 0
+random_v: true
+pkt_delay_budget: 0.3
 
 [Control]
 enabled: false
@@ -90,6 +94,25 @@ def test_emulator_config_converts_only_selected_ue_and_preserves_source():
         assert effective.get_ue("background", "dl_target") == "20"
         assert effective.get("MACLayer", "metric_type") == "6"
         assert cfg.last_overrides
+
+
+def test_emulator_config_can_preserve_selected_ue_runtime_settings():
+    with tempfile.TemporaryDirectory() as tmp:
+        source = os.path.join(tmp, "source.ini")
+        output = os.path.join(tmp, "effective.ini")
+        Path(source).write_text(SAMPLE)
+        cfg = EmulatorConfig(
+            binary="/bin/false", base_ini=source,
+            socket_path=os.path.join(tmp, "control.sock"),
+            duration_s=10, n_ues=None, study_ues=["live"],
+            delay_budget_s=None, random_v=None,
+        )
+        cfg.render(output)
+        effective = ScenarioDocument.read(output)
+        assert effective.get_ue("live", "random_v") == "true"
+        assert effective.get_ue("live", "pkt_delay_budget") == "0.3"
+        assert effective.get_ue("background", "random_v") == "true"
+        assert effective.get_ue("background", "pkt_delay_budget") == "0.3"
 
 
 if __name__ == "__main__":

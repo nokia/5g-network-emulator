@@ -101,6 +101,7 @@ class FikoreLink:
         self._pending: dict[int, list[Transmit]] = {}
         self._to_forget: list[tuple[str, int]] = []   # (control target, tag)
         self._queued_sets: list[dict] = []
+        self._scheduled_sets: dict[int, list[dict]] = {}
         self._event_cursor = 0
         self._event_counters: dict[int, dict[str, float]] = {}
         self.state_every_ttis = state_every_ttis
@@ -140,6 +141,30 @@ class FikoreLink:
         physical = self.ue_id_map.get(ue, ue)
         target = self.ue_target_map.get(ue, str(physical))
         self._queued_sets.append({"target": f"ue/{target}", "set": dict(params)})
+
+    def schedule_set(self, at_tti: int, target: str,
+                     params: dict[str, object]) -> None:
+        """Queue one control ``set`` for an exact future quiescent point.
+
+        The command is kept client-side until its TTI. Sending it to FikoRE early
+        would deadlock a barrier run: FikoRE acknowledges scheduled commands only
+        when they become due, while the client cannot grant that TTI until the
+        outstanding acknowledgement has arrived.
+        """
+        if isinstance(at_tti, bool) or not isinstance(at_tti, int) or at_tti < 0:
+            raise ValueError("scheduled set TTI must be a non-negative integer")
+        if at_tti <= self._last_tti:
+            raise ValueError(
+                f"cannot schedule set for TTI {at_tti}, "
+                f"already past {self._last_tti}"
+            )
+        if not isinstance(target, str) or not target:
+            raise ValueError("scheduled set target must be a non-empty string")
+        if not params:
+            raise ValueError("scheduled set parameters must not be empty")
+        self._scheduled_sets.setdefault(at_tti, []).append(
+            {"target": target, "set": dict(params)}
+        )
 
     def request_state_next_step(self) -> None:
         self._force_state = True
@@ -201,7 +226,14 @@ class FikoreLink:
     # -- commands -----------------------------------------------------------------
 
     def _commands_for(self, tti: int) -> list[dict]:
-        cmds: list[dict] = list(self._queued_sets)
+        missed = [scheduled_tti for scheduled_tti in self._scheduled_sets
+                  if scheduled_tti < tti]
+        if missed:
+            raise RuntimeError(
+                f"scheduled control TTI {min(missed)} was skipped before {tti}"
+            )
+        cmds: list[dict] = self._scheduled_sets.pop(tti, [])
+        cmds.extend(self._queued_sets)
         self._queued_sets.clear()
         for t in self._pending.pop(tti, []):
             ue = self.flow_to_ue[t.flow]

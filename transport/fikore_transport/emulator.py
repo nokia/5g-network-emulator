@@ -28,7 +28,8 @@ class EmulatorConfig:
     work_dir: str | None = None       # fading maps are resolved next to the binary
     n_ues: int | None = 1
     pkt_size_bits: int = 12000        # the MSS the transport model must match
-    delay_budget_s: float = 30.0      # see docs/03: the budget is not the experiment
+    delay_budget_s: float | None = 30.0  # None preserves the scenario value
+    random_v: bool | None = False        # None preserves the scenario value
     log_path: str | None = None
     max_object_events: int = 65536
     study_ues: list[str] | None = None
@@ -59,10 +60,11 @@ class EmulatorConfig:
             "max_object_events": f"{self.max_object_events}",
         }
         for ue_id in targets:
-            values = {
-                "pkt_delay_budget": f"{self.delay_budget_s}",
-                "random_v": "false",
-            }
+            values = {}
+            if self.delay_budget_s is not None:
+                values["pkt_delay_budget"] = f"{self.delay_budget_s}"
+            if self.random_v is not None:
+                values["random_v"] = "true" if self.random_v else "false"
             if self.n_ues is not None:
                 values["n_ues"] = f"{self.n_ues}"
             for key, value in values.items():

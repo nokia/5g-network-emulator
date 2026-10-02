@@ -4,6 +4,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y --no-ins
   build-essential \
   ca-certificates \
   iperf3 \
+  iproute2 \
   iptables \
   libmnl-dev \
   libnetfilter-queue-dev \

@@ -241,6 +241,27 @@ def main() -> None:
                 stderr=subprocess.STDOUT,
             )
             time.sleep(0.25)
+            try:
+                duplicate = subprocess.run(
+                    [
+                        "ip", "netns", "exec", namespace,
+                        str(ROOT / "bin/fikore"), str(config),
+                    ],
+                    cwd=ROOT,
+                    text=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    timeout=3,
+                )
+            except subprocess.TimeoutExpired as error:
+                raise AssertionError(
+                    "duplicate NFQUEUE bind did not fail fast"
+                ) from error
+            if duplicate.returncode == 0:
+                raise AssertionError(
+                    "duplicate NFQUEUE bind unexpectedly succeeded\n"
+                    + duplicate.stdout[-4000:]
+                )
             client_traffic(namespace)
             stdout, _ = process.communicate(timeout=10)
             if process.returncode != 0:

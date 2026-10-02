@@ -5,8 +5,10 @@
 #include <string.h>
 #include <time.h>
 #include <arpa/inet.h>
+#include <poll.h>
 #include <pthread.h>
 
+#include <atomic>
 #include <exception>
 
 #define _BSD_SOURCE             /* See feature_test_macros(7) */
@@ -421,6 +423,55 @@ static void netfilter_interface_free(netfilter_interface_t *iface) {
 	}
 }
 
+static int send_config_and_wait_ack(
+	netfilter_interface_t *nfiface,
+	struct nlmsghdr *nlh)
+{
+	static std::atomic<uint32_t> next_sequence(1);
+	const uint32_t sequence = next_sequence.fetch_add(1);
+	nlh->nlmsg_flags |= NLM_F_ACK;
+	nlh->nlmsg_seq = sequence;
+	if (mnl_socket_sendto(nfiface->nl, nlh, nlh->nlmsg_len) < 0) {
+		PERROR("mnl_socket_send");
+		return -1;
+	}
+
+	struct pollfd descriptor;
+	descriptor.fd = mnl_socket_get_fd(nfiface->nl);
+	descriptor.events = POLLIN;
+	descriptor.revents = 0;
+	int ready;
+	do {
+		ready = poll(&descriptor, 1, 2000);
+	} while (ready < 0 && errno == EINTR);
+	if (ready <= 0) {
+		if (ready == 0)
+			errno = ETIMEDOUT;
+		PERROR("netfilter config acknowledgement");
+		return -1;
+	}
+
+	const int received = mnl_socket_recvfrom(
+		nfiface->nl,
+		nfiface->buf,
+		nfiface->sizeof_buf);
+	if (received < 0) {
+		PERROR("mnl_socket_recvfrom");
+		return -1;
+	}
+	if (mnl_cb_run(
+			nfiface->buf,
+			received,
+			sequence,
+			nfiface->portid,
+			NULL,
+			NULL) < 0) {
+		PERROR("netfilter config rejected");
+		return -1;
+	}
+	return 0;
+}
+
 void cb(void* handler, netfilter_interface_t *nfiface, const nfq_packet_metadata& meta)
                {   
                    netfilter_interface_release_pkt(nfiface, meta.pkt_id, 1);
@@ -477,8 +528,7 @@ netfilter_interface_t *netfilter_interface_open(int queue_num, add_pkt_callback_
 	nlh = nfq_nlmsg_put(nfiface->buf, NFQNL_MSG_CONFIG, nfiface->queue_num);
 	nfq_nlmsg_cfg_put_cmd(nlh, AF_INET, NFQNL_CFG_CMD_BIND);
 
-	if (mnl_socket_sendto(nfiface->nl, nlh, nlh->nlmsg_len) < 0) {
-		PERROR("mnl_socket_send");
+	if (send_config_and_wait_ack(nfiface, nlh) < 0) {
 		netfilter_interface_free(nfiface);
 		return NULL;
 	}	
@@ -491,8 +541,7 @@ netfilter_interface_t *netfilter_interface_open(int queue_num, add_pkt_callback_
 	 * between payload replacement and skb offload metadata.
 	 */
 
-	if (mnl_socket_sendto(nfiface->nl, nlh, nlh->nlmsg_len) < 0) {
-		PERROR("mnl_socket_send");
+	if (send_config_and_wait_ack(nfiface, nlh) < 0) {
 		netfilter_interface_free(nfiface);
 		return NULL;
 	}

@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <iostream>
 #include <libgen.h>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <unistd.h>
@@ -720,6 +721,31 @@ void configuration_loader::load(std::string cfg_file)
     // where it appears in it.
     for (ue_full_config &ue_c : ue_c_list)
         ue_c.ue_c.log_id = get_unique_id();
+
+    std::set<int> captured_queues;
+    for (const ue_full_config &ue : ue_c_list)
+    {
+        if (ue.ue_type != REAL_UE)
+            continue;
+        const int ul_queue = ue.ue_c.ul_queue_n;
+        const int dl_queue = ue.ue_c.dl_queue_n;
+        const std::string label = ue.id.empty() ? "<unnamed>" : ue.id;
+        if (ul_queue < 0 || dl_queue < 0)
+            throw std::invalid_argument(
+                "captured UE " + label + " has a negative NFQUEUE id");
+        if (ul_queue == dl_queue)
+            throw std::invalid_argument(
+                "captured UE " + label
+                + " must use different UL and DL NFQUEUE ids");
+        if (!captured_queues.insert(ul_queue).second)
+            throw std::invalid_argument(
+                "captured UE " + label + " reuses NFQUEUE "
+                + std::to_string(ul_queue));
+        if (!captured_queues.insert(dl_queue).second)
+            throw std::invalid_argument(
+                "captured UE " + label + " reuses NFQUEUE "
+                + std::to_string(dl_queue));
+    }
 
     const bool uses_throughput_history =
         metric_type == METRIC_PF || metric_type == METRIC_BET;

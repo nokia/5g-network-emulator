@@ -107,6 +107,17 @@ public:
     float ingest(int, float) override { return 0.0f; }
 };
 
+class failing_packet_capture : public pkt_capture
+{
+public:
+    failing_packet_capture() : pkt_capture(99) {}
+    void start() override
+    {
+        throw std::runtime_error("simulated NFQUEUE open failure");
+    }
+    void close() override {}
+};
+
 class active_fake_capture : public pkt_capture
 {
 public:
@@ -779,6 +790,27 @@ void test_shutdown_stops_live_capture_before_drain()
         == fake_ptr->released_count());
     assert_handler_conservation(handler);
 }
+
+void test_captured_packet_handler_propagates_open_failure()
+{
+    pdcp_config config;
+    std::unique_ptr<pkt_capture> capture(new failing_packet_capture());
+    captured_packet_handler handler(
+        std::move(capture),
+        nullptr,
+        config,
+        1);
+    bool failed = false;
+    try
+    {
+        handler.init();
+    }
+    catch (const std::runtime_error &)
+    {
+        failed = true;
+    }
+    assert(failed);
+}
 }
 
 int main()
@@ -798,5 +830,6 @@ int main()
     test_captured_completion_order_retry_and_shutdown();
     test_concurrent_capture_and_shutdown();
     test_shutdown_stops_live_capture_before_drain();
+    test_captured_packet_handler_propagates_open_failure();
     return 0;
 }

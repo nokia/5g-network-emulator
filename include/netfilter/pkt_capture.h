@@ -8,6 +8,8 @@
 #include <iostream>
 #include <functional>
 #include <mutex>
+#include <stdexcept>
+#include <string>
 #include <unordered_map>
 #include <vector>
 #include <netfilter/netfilter_interface.h>
@@ -89,6 +91,10 @@ public:
         nfiface = netfilter_interface_open(queue_num_v, cb, this);
         is_running = nfiface != nullptr;
         is_closed = nfiface == nullptr;
+        if (nfiface == nullptr)
+            throw std::runtime_error(
+                "failed to open NFQUEUE "
+                + std::to_string(queue_num_v));
     }
 
     void check_pkt_order(int id)

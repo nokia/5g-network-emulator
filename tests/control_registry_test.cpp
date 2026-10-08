@@ -23,7 +23,7 @@ ue make_ue(int id)
     // ue_model / phy_enb_config have plain uninitialized members: outside of
     // configuration_loader every field the PHY reads has to be set by hand, or the MCS
     // table lookup indexes with garbage.
-    ue_model model(1 /*n_antennas*/, -60.0f /*nominal_pusch_p0*/, true /*set_ul_pow*/,
+    ue_model model(1 /*n_antennas*/, -60.0f /*nominal_pusch_p0*/, ul_power_mode::fixed,
                    23.0f /*tx_power_ul*/, 0.8f /*alpha_ul*/, 1 /*scaling_factor*/,
                    5 /*cqi_period*/, 5 /*ri_period*/, 1.5f /*ue_h*/, 10 /*o2i*/);
 

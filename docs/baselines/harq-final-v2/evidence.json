@@ -10,7 +10,7 @@
     },
     {
       "path": "docs/baselines/harq-final-v2/disabled-manifest.json",
-      "sha256": "c425579c2075d4f1a51f1ed882966f6ef14be43ac6883ae0000bcc51bcae381b"
+      "sha256": "f8ce7b9095fc98a46f9eeae83c880856100fdd2b92f21e558916df0664409ea2"
     },
     {
       "path": "docs/baselines/harq-final-v2/disabled-profile-summary.csv",
@@ -30,7 +30,7 @@
     },
     {
       "path": "docs/baselines/harq-final-v2/legacy-no-retry-manifest.json",
-      "sha256": "6254e6bd53c02a366f7a5a82be04ad0896bde0517b6c8c51b76f97eabad5aff7"
+      "sha256": "73658ae6d1a0b432a1abf17776271e9569ae1ba6a5eb2bc2061382889e763a9e"
     },
     {
       "path": "docs/baselines/harq-final-v2/legacy-no-retry-profile-summary.csv",
@@ -50,7 +50,7 @@
     },
     {
       "path": "docs/baselines/harq-final-v2/legacy-production-manifest.json",
-      "sha256": "36d11b3f2b5cbfd4becabe37f130c7631609211f880a25e98f3366e1a691c580"
+      "sha256": "21d1a5999b59b13d5da8f86ec382d32003a476084c42e1445fc5ec6d37a58a96"
     },
     {
       "path": "docs/baselines/harq-final-v2/legacy-production-profile-summary.csv",
@@ -66,7 +66,7 @@
     },
     {
       "path": "docs/baselines/harq-final-v2/legacy-production-seed-20260928-manifest.json",
-      "sha256": "1ef8a2103acad2055ed1547ef636ca6f955c7b42f3d5aa8679dafe4ca0a89a21"
+      "sha256": "714842fd5f5bdc43957ce01dd4fdc11c0344fd136612ec9c21d759861864d6b4"
     },
     {
       "path": "docs/baselines/harq-final-v2/legacy-production-seed-20260928-profile-summary.csv",
@@ -86,7 +86,7 @@
     },
     {
       "path": "docs/baselines/harq-final-v2/legacy-production-seed-20260929-manifest.json",
-      "sha256": "cac7c0278c4c7bd9c9a04afbd22651babc57e381208fea68c16c98260410fd64"
+      "sha256": "9412477c527332bf3942242f8c09c9efb505202c22221ccab27ed3422e4f7004"
     },
     {
       "path": "docs/baselines/harq-final-v2/legacy-production-seed-20260929-profile-summary.csv",
@@ -118,7 +118,7 @@
       "duration_s": 180,
       "label": "disabled",
       "manifest": "docs/baselines/harq-final-v2/disabled-manifest.json",
-      "manifest_sha256": "c425579c2075d4f1a51f1ed882966f6ef14be43ac6883ae0000bcc51bcae381b",
+      "manifest_sha256": "f8ce7b9095fc98a46f9eeae83c880856100fdd2b92f21e558916df0664409ea2",
       "seed": 20260927,
       "source_sha": "6770c645709517af5da8edf6ca9441f14c670374"
     },
@@ -126,7 +126,7 @@
       "duration_s": 180,
       "label": "legacy-no-retry",
       "manifest": "docs/baselines/harq-final-v2/legacy-no-retry-manifest.json",
-      "manifest_sha256": "6254e6bd53c02a366f7a5a82be04ad0896bde0517b6c8c51b76f97eabad5aff7",
+      "manifest_sha256": "73658ae6d1a0b432a1abf17776271e9569ae1ba6a5eb2bc2061382889e763a9e",
       "seed": 20260927,
       "source_sha": "6770c645709517af5da8edf6ca9441f14c670374"
     },
@@ -134,7 +134,7 @@
       "duration_s": 180,
       "label": "legacy-production",
       "manifest": "docs/baselines/harq-final-v2/legacy-production-manifest.json",
-      "manifest_sha256": "36d11b3f2b5cbfd4becabe37f130c7631609211f880a25e98f3366e1a691c580",
+      "manifest_sha256": "21d1a5999b59b13d5da8f86ec382d32003a476084c42e1445fc5ec6d37a58a96",
       "seed": 20260927,
       "source_sha": "6770c645709517af5da8edf6ca9441f14c670374"
     },
@@ -142,7 +142,7 @@
       "duration_s": 30,
       "label": "legacy-production-seed-20260928",
       "manifest": "docs/baselines/harq-final-v2/legacy-production-seed-20260928-manifest.json",
-      "manifest_sha256": "1ef8a2103acad2055ed1547ef636ca6f955c7b42f3d5aa8679dafe4ca0a89a21",
+      "manifest_sha256": "714842fd5f5bdc43957ce01dd4fdc11c0344fd136612ec9c21d759861864d6b4",
       "seed": 20260928,
       "source_sha": "6770c645709517af5da8edf6ca9441f14c670374"
     },
@@ -150,7 +150,7 @@
       "duration_s": 30,
       "label": "legacy-production-seed-20260929",
       "manifest": "docs/baselines/harq-final-v2/legacy-production-seed-20260929-manifest.json",
-      "manifest_sha256": "cac7c0278c4c7bd9c9a04afbd22651babc57e381208fea68c16c98260410fd64",
+      "manifest_sha256": "9412477c527332bf3942242f8c09c9efb505202c22221ccab27ed3422e4f7004",
       "seed": 20260929,
       "source_sha": "6770c645709517af5da8edf6ca9441f14c670374"
     }

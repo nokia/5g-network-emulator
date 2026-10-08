@@ -11,6 +11,7 @@
 #include <string>
 #include <map/map_handler.h>
 #include <phy_layer/phy_l_definitions.h>
+#include <phy_layer/power_model.h>
 
 //--------------------------------------------------------------------------------------------------
 // scenario_config(): modeled scenario configuration struct.
@@ -141,7 +142,7 @@ struct phy_enb_config
 struct phy_ue_config
 {
     phy_ue_config() {}
-    phy_ue_config(float _alpha_ul, float _nominal_pusch_p0, bool _set_ul_pow, float _tx_power_ul, int _cqi_period,
+    phy_ue_config(float _alpha_ul, float _nominal_pusch_p0, ul_power_mode _ul_power_mode, float _tx_power_ul, int _cqi_period,
                   int _ri_period, int _n_antennas, float _ue_h, float _priority,
                   float _delay_t, float _delta, float _beta, float _max_speed, float _scaling_factor,
                   int _penetration_profile = PENETRATION_LEGACY_AUTO,
@@ -151,7 +152,7 @@ struct phy_ue_config
         cqi_period = _cqi_period;
         alpha_ul = _alpha_ul;
         nominal_pusch_p0 = _nominal_pusch_p0;
-        set_ul_pow=_set_ul_pow;
+        power_mode=_ul_power_mode;
         tx_power_ul=_tx_power_ul;
         // RI estimation
         ri_period = _ri_period;
@@ -172,7 +173,7 @@ struct phy_ue_config
 
     float nominal_pusch_p0;
     float alpha_ul;
-    bool set_ul_pow;
+    ul_power_mode power_mode = ul_power_mode::fixed;
     float tx_power_ul;
     int cqi_period;
     int ri_period;

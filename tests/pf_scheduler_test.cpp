@@ -31,7 +31,7 @@ void write_config(
             << "ue_type: 1\n"
             << "n_ues: " << count << "\n"
             << "n_antennas: 1\n"
-            << "set_ul_pow: true\n"
+            << "ul_power_mode: fixed\n"
             << "tx_power_ul: 23\n"
             << "cqi_period: " << cqi_period << "\n"
             << "ri_period: 5\n"

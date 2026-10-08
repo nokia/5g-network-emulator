@@ -47,13 +47,13 @@ void phy_layer::init_scenario(int _type, float _eNB_h, float _w, float _antenna_
     check_boundaries();
 }
 
-void phy_layer::init_phy(float _freq, float _ue_speed, float _target_ber, float _ue_h, int _tx, float _scaling_factor, int _mimo_l, int _numerology, int _n_sc_rbg, bool _mcs_tables, float _gain_tx, float _gain_rx, float _tx_power, float _alpha_ul, float _nominal_pusch_p0, bool _set_ul_pow, float _tx_power_ul, float _power_boost, float _thermal_noise_density, float _NF_UT, float _NF_eNB, int _num_interf_ues, int _num_interf_eNBs, float _d_interference, float _interfered_ratio)
+void phy_layer::init_phy(float _freq, float _ue_speed, float _target_ber, float _ue_h, int _tx, float _scaling_factor, int _mimo_l, int _numerology, int _n_sc_rbg, bool _mcs_tables, float _gain_tx, float _gain_rx, float _tx_power, float _alpha_ul, float _nominal_pusch_p0, ul_power_mode _ul_power_mode, float _tx_power_ul, float _power_boost, float _thermal_noise_density, float _NF_UT, float _NF_eNB, int _num_interf_ues, int _num_interf_eNBs, float _d_interference, float _interfered_ratio)
 {
     freq = _freq;
     tx_power_eNb = _tx_power;
     alpha_ul = _alpha_ul;
     nominal_pusch_p0 = _nominal_pusch_p0;
-    set_ul_pow = _set_ul_pow;
+    power_mode = _ul_power_mode;
     tx_power_ul = _tx_power_ul;
     doppler_f = freq * _ue_speed / LIGHTSPEED;
     freq_ghz = freq / GHZ2HZ;
@@ -147,7 +147,7 @@ phy_layer::phy_layer(int _tx, int _id, scenario_config _scenario_config, phy_ue_
     // Phy configuration
     init_phy(_phy_enb_config.frequency, max_speed, _phy_enb_config.target_ber, ue_h,
              tx, _phy_ue_config.scaling_factor, _phy_enb_config.mimo_l, _phy_enb_config.numerology,
-             _phy_enb_config.n_sc_rbg, _scenario_config.mcs_tables, tx == TX_DL ? _phy_enb_config.eNB_gain : _phy_enb_config.UT_gain, tx == TX_DL ? _phy_enb_config.UT_gain : _phy_enb_config.eNB_gain, _phy_enb_config.tx_power, _phy_ue_config.alpha_ul, _phy_ue_config.nominal_pusch_p0, _phy_ue_config.set_ul_pow, _phy_ue_config.tx_power_ul, _phy_enb_config.power_boost, _phy_enb_config.thermal_noise, _phy_enb_config.figure_noise_ut, _phy_enb_config.figure_noise_enb, _phy_enb_config.n_int_ues, _phy_enb_config.n_int_eNBs, _phy_enb_config.d_interference, _phy_enb_config.interfered_ratio);
+             _phy_enb_config.n_sc_rbg, _scenario_config.mcs_tables, tx == TX_DL ? _phy_enb_config.eNB_gain : _phy_enb_config.UT_gain, tx == TX_DL ? _phy_enb_config.UT_gain : _phy_enb_config.eNB_gain, _phy_enb_config.tx_power, _phy_ue_config.alpha_ul, _phy_ue_config.nominal_pusch_p0, _phy_ue_config.power_mode, _phy_ue_config.tx_power_ul, _phy_enb_config.power_boost, _phy_enb_config.thermal_noise, _phy_enb_config.figure_noise_ut, _phy_enb_config.figure_noise_enb, _phy_enb_config.n_int_ues, _phy_enb_config.n_int_eNBs, _phy_enb_config.d_interference, _phy_enb_config.interfered_ratio);
 
     // AMC
     init_amc(_phy_enb_config.modulation_m, _phy_enb_config.cqi_mode, _phy_ue_config.cqi_period);
@@ -756,7 +756,7 @@ float phy_layer::ul_power_per_prb_dbm(float distance, int allocated_prbs)
     const float nominal_power_per_prb =
         nominal_pusch_p0 + alpha_ul * compute_pathloss_ABG(distance, true);
     return calculate_ul_power_allocation(
-               set_ul_pow,
+               power_mode,
                tx_power_ul,
                nominal_power_per_prb,
                allocated_prbs)

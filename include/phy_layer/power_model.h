@@ -3,6 +3,12 @@
 #include <algorithm>
 #include <cmath>
 
+enum class ul_power_mode
+{
+    fixed = 0,
+    fractional = 1
+};
+
 struct ul_power_allocation
 {
     float total_dbm = 0.0f;
@@ -43,19 +49,16 @@ inline float rayleigh_power_gain_db(float in_phase, float quadrature)
 }
 
 inline ul_power_allocation calculate_ul_power_allocation(
-    bool use_fixed_total_power,
-    float fixed_total_power_dbm,
+    ul_power_mode mode,
+    float tx_power_ul_dbm,
     float nominal_power_per_prb_dbm,
-    int allocated_prbs,
-    float minimum_total_power_dbm = 10.0f,
-    float maximum_total_power_dbm = 23.0f)
+    int allocated_prbs)
 {
     const int prbs = normalized_prb_count(allocated_prbs);
     const float requested_total_dbm =
-        use_fixed_total_power
-            ? fixed_total_power_dbm
+        mode == ul_power_mode::fixed
+            ? tx_power_ul_dbm
             : nominal_power_per_prb_dbm + 10.0f * std::log10(static_cast<float>(prbs));
-    const float total_dbm =
-        std::max(minimum_total_power_dbm, std::min(requested_total_dbm, maximum_total_power_dbm));
+    const float total_dbm = std::min(requested_total_dbm, tx_power_ul_dbm);
     return {total_dbm, power_per_prb_dbm(total_dbm, prbs)};
 }

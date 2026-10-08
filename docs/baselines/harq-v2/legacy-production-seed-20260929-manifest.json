@@ -19,7 +19,7 @@
       "profile": "offline_umi_n40_npn",
       "raw_logs_committed": false,
       "rendered_config": "docs/baselines/harq-v2/inputs/legacy-production-seed-20260929/offline_umi_n40_npn.ini",
-      "rendered_config_sha256": "ea0080817c2b0f22ed481f50f0da9ce2fb5fa4395f0e4b003794636bb3bffbfc",
+      "rendered_config_sha256": "9562fba8abe0a36553ae04a69b9d6e3e2ef75d4176d54b73dd5c02f67df3fa3d",
       "return_code": 0,
       "run_id": "harq-production-sweep-seed20260929-offline_umi_n40_npn",
       "source_config": "config/offline_umi_n40_npn.ini"
@@ -34,7 +34,7 @@
       "profile": "offline_uma_n78_pedestrian",
       "raw_logs_committed": false,
       "rendered_config": "docs/baselines/harq-v2/inputs/legacy-production-seed-20260929/offline_uma_n78_pedestrian.ini",
-      "rendered_config_sha256": "31982fd3eba7dbad2bf6f681494738665aa4b331f4d73b635b4888813bcb43ed",
+      "rendered_config_sha256": "25a37d081b28d8a2275beca1b611195181c102ed3b0ddd796656b6f1cf00b7be",
       "return_code": 0,
       "run_id": "harq-production-sweep-seed20260929-offline_uma_n78_pedestrian",
       "source_config": "config/offline_uma_n78_pedestrian.ini"
@@ -49,7 +49,7 @@
       "profile": "offline_rural_n78_vehicular",
       "raw_logs_committed": false,
       "rendered_config": "docs/baselines/harq-v2/inputs/legacy-production-seed-20260929/offline_rural_n78_vehicular.ini",
-      "rendered_config_sha256": "ceb1e24a43ecb7e25467a112a9f8e65073ddf8106088d2708c6cee68aaf98ac2",
+      "rendered_config_sha256": "f590af2fe8104c75ba3b02341781935816c6208c8933e78f021b8b9e92b4a507",
       "return_code": 0,
       "run_id": "harq-production-sweep-seed20260929-offline_rural_n78_vehicular",
       "source_config": "config/offline_rural_n78_vehicular.ini"
@@ -64,7 +64,7 @@
       "profile": "offline_indoor_hotspot_n78_pedestrian",
       "raw_logs_committed": false,
       "rendered_config": "docs/baselines/harq-v2/inputs/legacy-production-seed-20260929/offline_indoor_hotspot_n78_pedestrian.ini",
-      "rendered_config_sha256": "62b4f2252587b54e57279d2d836841c378d40507e6398dcb60c178bcf0ec3694",
+      "rendered_config_sha256": "c7a4ba268c5eced14223e2fca922147dcb91e0fa374c549b67e4f3fdd3b6f288",
       "return_code": 0,
       "run_id": "harq-production-sweep-seed20260929-offline_indoor_hotspot_n78_pedestrian",
       "source_config": "config/offline_indoor_hotspot_n78_pedestrian.ini"
@@ -79,7 +79,7 @@
       "profile": "offline_umi_n258_fwa",
       "raw_logs_committed": false,
       "rendered_config": "docs/baselines/harq-v2/inputs/legacy-production-seed-20260929/offline_umi_n258_fwa.ini",
-      "rendered_config_sha256": "b1b0ed30a40806ef2c12d1748b89e016d8130c47f0c8abc6c0f44ded097119e3",
+      "rendered_config_sha256": "1614877ce479bdae254399905b4d41b4ad72f6fde64370952eaccba83acccc22",
       "return_code": 0,
       "run_id": "harq-production-sweep-seed20260929-offline_umi_n258_fwa",
       "source_config": "config/offline_umi_n258_fwa.ini"
@@ -94,7 +94,7 @@
       "profile": "offline_umi_n258_fwa_high_loss",
       "raw_logs_committed": false,
       "rendered_config": "docs/baselines/harq-v2/inputs/legacy-production-seed-20260929/offline_umi_n258_fwa_high_loss.ini",
-      "rendered_config_sha256": "7c06cfb3b4c14af624305d76bd9bdf14de3ab76b8b84e9904b634473c2613de8",
+      "rendered_config_sha256": "2d31f36879e20bcef7ae8820a8affc98b17df2628fcee205b696f04cbbe9d15b",
       "return_code": 0,
       "run_id": "harq-production-sweep-seed20260929-offline_umi_n258_fwa_high_loss",
       "source_config": "config/offline_umi_n258_fwa_high_loss.ini"

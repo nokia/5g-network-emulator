@@ -20,7 +20,7 @@
       "profile": "offline_umi_n40_npn",
       "raw_logs_committed": false,
       "rendered_config": "docs/baselines/phy-v2-legacy-paired-inputs/offline_umi_n40_npn.ini",
-      "rendered_config_sha256": "05d4f6d9cb6ccdd06172066c1686ced11340bebcaae27b25a8d0aa65f3450de6",
+      "rendered_config_sha256": "1ceae7cde3878daa8642930d8fc947246b53e76c369e2d5d41d7ae0bcd8f8fe4",
       "return_code": 0,
       "run_id": "phy-v2-legacy-rebased-1b55ca1-seed20260927-offline_umi_n40_npn",
       "source_config": "config/offline_umi_n40_npn.ini"
@@ -36,7 +36,7 @@
       "profile": "offline_uma_n78_pedestrian",
       "raw_logs_committed": false,
       "rendered_config": "docs/baselines/phy-v2-legacy-paired-inputs/offline_uma_n78_pedestrian.ini",
-      "rendered_config_sha256": "a83392d0eee16853e856fd5763f2510a0e9fce9755959077abce79649afab112",
+      "rendered_config_sha256": "e3a9d0a3d9e1460c32cf6d5072ce93e4a0286f7e2b8638794b4cd1946e6ae6c8",
       "return_code": 0,
       "run_id": "phy-v2-legacy-rebased-1b55ca1-seed20260927-offline_uma_n78_pedestrian",
       "source_config": "config/offline_uma_n78_pedestrian.ini"
@@ -52,7 +52,7 @@
       "profile": "offline_rural_n78_vehicular",
       "raw_logs_committed": false,
       "rendered_config": "docs/baselines/phy-v2-legacy-paired-inputs/offline_rural_n78_vehicular.ini",
-      "rendered_config_sha256": "fe5007d60a1e77b1bbac7d0601bccdc41c7533748cc87cdf0276183f035f6214",
+      "rendered_config_sha256": "a94508ffc2156e774f19fe317d8a665736a20ad7e0e5d479a7095ce2ea184732",
       "return_code": 0,
       "run_id": "phy-v2-legacy-rebased-1b55ca1-seed20260927-offline_rural_n78_vehicular",
       "source_config": "config/offline_rural_n78_vehicular.ini"
@@ -68,7 +68,7 @@
       "profile": "offline_indoor_hotspot_n78_pedestrian",
       "raw_logs_committed": false,
       "rendered_config": "docs/baselines/phy-v2-legacy-paired-inputs/offline_indoor_hotspot_n78_pedestrian.ini",
-      "rendered_config_sha256": "19b2c2b75596530aed29e70ce1db7bdbd33446b4f8b82d7287e937f77f2e3386",
+      "rendered_config_sha256": "dd4c62d394b84aea7d840a40a415779a3d030684ac96bea995ce5b83d413112f",
       "return_code": 0,
       "run_id": "phy-v2-legacy-rebased-1b55ca1-seed20260927-offline_indoor_hotspot_n78_pedestrian",
       "source_config": "config/offline_indoor_hotspot_n78_pedestrian.ini"
@@ -84,7 +84,7 @@
       "profile": "offline_umi_n258_fwa",
       "raw_logs_committed": false,
       "rendered_config": "docs/baselines/phy-v2-legacy-paired-inputs/offline_umi_n258_fwa.ini",
-      "rendered_config_sha256": "6de9c9daa60f3134a9b54173c4a87320f4002e3c39853f988b786d45f654be50",
+      "rendered_config_sha256": "c2e9ce4a117b35e795b049b442c1152504e6f60b1cb8c5d6db439bac713d3f9c",
       "return_code": 0,
       "run_id": "phy-v2-legacy-rebased-1b55ca1-seed20260927-offline_umi_n258_fwa",
       "source_config": "config/offline_umi_n258_fwa.ini"

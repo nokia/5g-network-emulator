@@ -149,7 +149,6 @@ std::string getBaseMapPath();
 //
 #define ALPHA_UL_DEFAULT 0.7
 #define NOMINAL_PUSCH_P0_DEFAULT -60
-#define SET_UL_POW_DEFAULT false
 #define TX_POWER_UL_DEFAULT 23
 #define N_UES_DEFAULT 10
 #define SIM_UE 1
@@ -235,7 +234,6 @@ private:
     float tx_power = ENB_TX_POWER_DEFAULT;
     float alpha_ul = ALPHA_UL_DEFAULT;
     float nominal_pusch_p0 = NOMINAL_PUSCH_P0_DEFAULT;
-    bool set_ul_pow = SET_UL_POW_DEFAULT;
     float tx_power_ul = TX_POWER_UL_DEFAULT;
     int modulation_m = MODULATION_DEFAULT;
     float target_ber = TARGET_BER_DEFAULT;

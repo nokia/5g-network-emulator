@@ -75,7 +75,7 @@ ue_id: {name}
 ue_type: 1
 n_ues: {ue_count}
 n_antennas: 1
-set_ul_pow: true
+ul_power_mode: fixed
 tx_power_ul: 23
 cqi_period: 5
 ri_period: 5

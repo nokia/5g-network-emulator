@@ -10,7 +10,7 @@
     },
     {
       "path": "docs/baselines/harq-v2/disabled-manifest.json",
-      "sha256": "b591d92a37935d2cf54687a92ef3e41a3bb11470eaee6914688a61eb21477d22"
+      "sha256": "9715bbe7b423126a54124301d6a239fb50f5e84a25cb0e82005a062586f37248"
     },
     {
       "path": "docs/baselines/harq-v2/disabled-profile-summary.csv",
@@ -30,7 +30,7 @@
     },
     {
       "path": "docs/baselines/harq-v2/legacy-no-retry-manifest.json",
-      "sha256": "891dee70736d2480990ab0ae3033cd7e73c36285dc731cd360dbe93943b8bd6b"
+      "sha256": "6c0b3442ba46e5d9d6e716f46b2c0d5367cc7f71306a75e52ab4fae47a3e2b95"
     },
     {
       "path": "docs/baselines/harq-v2/legacy-no-retry-profile-summary.csv",
@@ -50,7 +50,7 @@
     },
     {
       "path": "docs/baselines/harq-v2/legacy-production-observable-manifest.json",
-      "sha256": "0271806cfaee34be620efc32a7801933a3adc580abed9a1d2454de410d806283"
+      "sha256": "926c3a1ae0265e31a6687340ec8aeb523728d12cf49a33613e47b5bc2ed44656"
     },
     {
       "path": "docs/baselines/harq-v2/legacy-production-observable-profile-summary.csv",
@@ -70,7 +70,7 @@
     },
     {
       "path": "docs/baselines/harq-v2/legacy-production-paired-manifest.json",
-      "sha256": "d93647ca481e007a1d2d1ccc74ab7bc61e52ac0456d922d05f9758485d534122"
+      "sha256": "5a3f2f260d329ce6e72eff196e0bec487141aac114c67188fde9cf8af097b837"
     },
     {
       "path": "docs/baselines/harq-v2/legacy-production-paired-profile-summary.csv",
@@ -90,7 +90,7 @@
     },
     {
       "path": "docs/baselines/harq-v2/legacy-production-seed-20260928-manifest.json",
-      "sha256": "35c281a780a03eaae0997a14dedd89586d82c90f8c0488c63eed0baa80ededbc"
+      "sha256": "93666bb24a8e0a88aa05d44319229d4b16bec5e82c88bc7a8f3303813aac96f9"
     },
     {
       "path": "docs/baselines/harq-v2/legacy-production-seed-20260928-profile-summary.csv",
@@ -110,7 +110,7 @@
     },
     {
       "path": "docs/baselines/harq-v2/legacy-production-seed-20260929-manifest.json",
-      "sha256": "7216687f7fc4e6cd8d5607bab59caa72ea2af0ddc476ea572ba99060fbc268e5"
+      "sha256": "eb35127bccbdb7e811c0807ad9be27e32fc6fac11b4cab264a977cb1e6e99b87"
     },
     {
       "path": "docs/baselines/harq-v2/legacy-production-seed-20260929-profile-summary.csv",
@@ -134,7 +134,7 @@
       "duration_s": 180,
       "label": "disabled",
       "manifest": "docs/baselines/harq-v2/disabled-manifest.json",
-      "manifest_sha256": "b591d92a37935d2cf54687a92ef3e41a3bb11470eaee6914688a61eb21477d22",
+      "manifest_sha256": "9715bbe7b423126a54124301d6a239fb50f5e84a25cb0e82005a062586f37248",
       "seed": 20260927,
       "source_sha": "7a0c8d773e18fec3531e40892a8156bda4350c12"
     },
@@ -142,7 +142,7 @@
       "duration_s": 180,
       "label": "legacy-no-retry",
       "manifest": "docs/baselines/harq-v2/legacy-no-retry-manifest.json",
-      "manifest_sha256": "891dee70736d2480990ab0ae3033cd7e73c36285dc731cd360dbe93943b8bd6b",
+      "manifest_sha256": "6c0b3442ba46e5d9d6e716f46b2c0d5367cc7f71306a75e52ab4fae47a3e2b95",
       "seed": 20260927,
       "source_sha": "7a0c8d773e18fec3531e40892a8156bda4350c12"
     },
@@ -150,7 +150,7 @@
       "duration_s": 180,
       "label": "legacy-production-paired",
       "manifest": "docs/baselines/harq-v2/legacy-production-paired-manifest.json",
-      "manifest_sha256": "d93647ca481e007a1d2d1ccc74ab7bc61e52ac0456d922d05f9758485d534122",
+      "manifest_sha256": "5a3f2f260d329ce6e72eff196e0bec487141aac114c67188fde9cf8af097b837",
       "seed": 20260927,
       "source_sha": "7a0c8d773e18fec3531e40892a8156bda4350c12"
     },
@@ -158,7 +158,7 @@
       "duration_s": 180,
       "label": "legacy-production-observable",
       "manifest": "docs/baselines/harq-v2/legacy-production-observable-manifest.json",
-      "manifest_sha256": "0271806cfaee34be620efc32a7801933a3adc580abed9a1d2454de410d806283",
+      "manifest_sha256": "926c3a1ae0265e31a6687340ec8aeb523728d12cf49a33613e47b5bc2ed44656",
       "seed": 20260927,
       "source_sha": "4e4ec5fdd26a74ad9c0b838313f39de4d0c9b021"
     },
@@ -166,7 +166,7 @@
       "duration_s": 30,
       "label": "legacy-production-seed-20260928",
       "manifest": "docs/baselines/harq-v2/legacy-production-seed-20260928-manifest.json",
-      "manifest_sha256": "35c281a780a03eaae0997a14dedd89586d82c90f8c0488c63eed0baa80ededbc",
+      "manifest_sha256": "93666bb24a8e0a88aa05d44319229d4b16bec5e82c88bc7a8f3303813aac96f9",
       "seed": 20260928,
       "source_sha": "4e4ec5fdd26a74ad9c0b838313f39de4d0c9b021"
     },
@@ -174,7 +174,7 @@
       "duration_s": 30,
       "label": "legacy-production-seed-20260929",
       "manifest": "docs/baselines/harq-v2/legacy-production-seed-20260929-manifest.json",
-      "manifest_sha256": "7216687f7fc4e6cd8d5607bab59caa72ea2af0ddc476ea572ba99060fbc268e5",
+      "manifest_sha256": "eb35127bccbdb7e811c0807ad9be27e32fc6fac11b4cab264a977cb1e6e99b87",
       "seed": 20260929,
       "source_sha": "4e4ec5fdd26a74ad9c0b838313f39de4d0c9b021"
     }

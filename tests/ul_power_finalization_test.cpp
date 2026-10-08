@@ -13,12 +13,12 @@ bool near(float actual, float expected, float tolerance = 1e-2f)
     return std::fabs(actual - expected) <= tolerance;
 }
 
-ue make_test_ue(bool fixed_total_power = true)
+ue make_test_ue(ul_power_mode mode = ul_power_mode::fixed)
 {
     ue_model model(
         1,
         -60.0f,
-        fixed_total_power,
+        mode,
         23.0f,
         0.8f,
         1,
@@ -109,7 +109,7 @@ int main()
     assert(terminal.get_ul_scheduling_prbs() == 1);
     assert(near(terminal.get_ul_tx_power_per_prb_dbm(), 23.0f));
 
-    ue fractional = make_test_ue(false);
+    ue fractional = make_test_ue(ul_power_mode::fractional);
     fractional.init();
     fractional.add_current_t(0.0);
     fractional.step();

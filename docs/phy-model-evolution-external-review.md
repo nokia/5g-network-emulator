@@ -222,16 +222,16 @@ where \(P_0\) is a configured nominal target, \(\alpha\) is the fractional path-
 
 \[
 \begin{aligned}
-P_{i,\mathrm{tot}}&=\operatorname{clip}\!\left(P_{\mathrm{nom,PRB}}+10\log_{10}M_i,\ P_{\min},P_{\max}\right),\\
+P_{i,\mathrm{tot}}&=\min\!\left(P_{\mathrm{nom,PRB}}+10\log_{10}M_i,\ P_{\mathrm{UE}}\right),\\
 P_{i,\mathrm{PRB}}&=P_{i,\mathrm{tot}}-10\log_{10}M_i.
 \end{aligned}
 \]
 
-The implementation currently uses \(P_{\min}=10\ \mathrm{dBm}\) and \(P_{\max}=23\ \mathrm{dBm}\). This is a reduced form of NR PUSCH power control [3]; it omits closed-loop commands, transport-format compensation, several numerology-dependent reference details, and simultaneous-carrier power sharing.
+\(P_{\mathrm{UE}}\) is the configured `tx_power_ul`. Fixed mode transmits that total. Fractional mode uses it only as a ceiling: a request below it is left unchanged, and there is no floor that raises total power. This is a reduced form of NR PUSCH power control [3]; it omits closed-loop commands, transport-format compensation, several numerology-dependent reference details, and simultaneous-carrier power sharing.
 
 Uplink scheduling is two-stage. Candidate grants are first evaluated with the most recently finalized per-PRB power. After all assignments in one time group are known, the UE total power is redistributed over the current PRBs and SINR, MCS, and nominal bits are recomputed. The scheduler does not perform a second allocation pass after that correction, so the mechanism prevents repeated use of the complete UE power budget but remains an order-dependent heuristic rather than a joint power-and-scheduling optimum.
 
-All reference UE classes use fixed total-power mode. Study UEs use 23 dBm. UMa, RMa, and n40 background UEs also use 23 dBm, whereas indoor and n258 background UEs use 10 dBm. Fractional power control has algebraic and UE-level finalization tests but has not yet been calibrated through a packet-level campaign.
+Delivered scenarios use fractional mode. Study UEs use 23 dBm. UMa, RMa, and n40 background UEs also use 23 dBm, whereas indoor and n258 background UEs use 10 dBm. In fractional mode that value is only a ceiling. Fractional power control has algebraic and UE-level finalization tests. A paired packet-level campaign against fixed mode is recorded in `docs/ul-fractional-power-campaign.md`. Historical baseline inputs record `ul_power_mode: fixed`, the new name of the former `set_ul_pow: true` setting, so rerunning them stays in fixed mode.
 
 ### 4.8 Thermal noise and interference
 

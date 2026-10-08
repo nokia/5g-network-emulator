@@ -17,7 +17,7 @@
       "profile": "offline_umi_n258_fwa_high_loss",
       "raw_logs_committed": false,
       "rendered_config": "docs/baselines/phy-v2-o2i-inputs/offline_umi_n258_fwa_high_loss.ini",
-      "rendered_config_sha256": "b468dbf85d1abc11beed3b5aa58844bd3874c831e979cd4f49f5a60b60ed4b7e",
+      "rendered_config_sha256": "f3a10695ecef114e7f415b65233aea85103d4351d4e2636ee078e349e241d094",
       "return_code": 0,
       "run_id": "phy-v2-o2i-rebased-1b55ca1-seed20260927-offline_umi_n258_fwa_high_loss",
       "source_config": "config/offline_umi_n258_fwa_high_loss.ini"

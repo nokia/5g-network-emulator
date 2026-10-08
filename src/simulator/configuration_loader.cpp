@@ -46,6 +46,8 @@ ue_full_config::ue_full_config()
     ue_c.ue_m.n_antennas = N_ANTENNAS_DEFAULT;
     ue_c.ue_m.alpha_ul = ALPHA_UL_DEFAULT;
     ue_c.ue_m.nominal_pusch_p0 = NOMINAL_PUSCH_P0_DEFAULT;
+    ue_c.ue_m.power_mode = ul_power_mode::fixed;
+    ue_c.ue_m.tx_power_ul = TX_POWER_UL_DEFAULT;
     ue_c.ue_m.cqi_period = CQI_PERIOD_DEFAULT;
     ue_c.ue_m.ri_period = RI_PERIOD_DEFAULT;
     // TRAFFIC MODEL CONFIG
@@ -150,12 +152,15 @@ void configuration_loader::load(std::string cfg_file)
                                 ue_c_list.back().ue_c.ue_m.nominal_pusch_p0 = std::stof(value);
                             if (key == "tx_power_ul")
                                 ue_c_list.back().ue_c.ue_m.tx_power_ul = std::stof(value);
-                            if (key == "set_ul_pow")
+                            if (key == "ul_power_mode")
                             {
-                                if (value == "true" || value == "1")
-                                    ue_c_list.back().ue_c.ue_m.set_ul_pow = true;
-                                if (value == "false" || value == "0")
-                                    ue_c_list.back().ue_c.ue_m.set_ul_pow = false;
+                                if (value == "fixed")
+                                    ue_c_list.back().ue_c.ue_m.power_mode = ul_power_mode::fixed;
+                                else if (value == "fractional")
+                                    ue_c_list.back().ue_c.ue_m.power_mode = ul_power_mode::fractional;
+                                else
+                                    throw std::invalid_argument(
+                                        "ul_power_mode must be fixed or fractional");
                             }
                             if (key == "cqi_period")
                                 ue_c_list.back().ue_c.ue_m.cqi_period = std::stoi(value);

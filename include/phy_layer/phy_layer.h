@@ -131,7 +131,7 @@ public:
 private:
     void init_metric(int _index);
     void init_scenario(int _type, float _eNB_h, float _w, float _antenna_h, float _ue_h, float _ue_speed); 
-    void init_phy(float _freq, float _ue_speed, float _target_ber, float _ue_h, int _tx, float _scaling_factor, int _mimo_l, int _numerology, int _n_sc_rbg, bool _mcs_tables, float _gain_tx, float _gain_rx, float _tx_power,float _alpha_ul,float _nominal_pusch_p0,bool _set_ul_pow, float _tx_power_ul, float _power_boost,float _thermal_noise_density,float _NF_UT,float _NF_eNB,int  _num_interf_ues,int  _num_interf_eNBs,float _d_interference, float _interfered_ratio);
+    void init_phy(float _freq, float _ue_speed, float _target_ber, float _ue_h, int _tx, float _scaling_factor, int _mimo_l, int _numerology, int _n_sc_rbg, bool _mcs_tables, float _gain_tx, float _gain_rx, float _tx_power,float _alpha_ul,float _nominal_pusch_p0,ul_power_mode _ul_power_mode, float _tx_power_ul, float _power_boost,float _thermal_noise_density,float _NF_UT,float _NF_eNB,int  _num_interf_ues,int  _num_interf_eNBs,float _d_interference, float _interfered_ratio);
     void estimate_noise_interference(float _tx_power, int _n_ues, float _d_interference, float _interfered_ratio, float _figure, float _gain_tx, float _gain_rx);
     void init_amc(int _modulation_m, int _cqi_m, int _cqi_p);
     void init_rank(int _period, int _n_antennas,int _mimo_layers);
@@ -227,7 +227,7 @@ private:
     float tx_power_eNb;
     float alpha_ul;
     float nominal_pusch_p0;
-    bool set_ul_pow;
+    ul_power_mode power_mode = ul_power_mode::fixed;
     float tx_power_ul;
     int ul_scheduling_prbs = 1;
     float current_tx_power_per_prb_dbm = 0.0f;

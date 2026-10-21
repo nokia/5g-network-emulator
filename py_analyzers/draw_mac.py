@@ -201,7 +201,7 @@ def draw_cdf(output_dir: str, grid_file: str, direction: str = "DL"):
     cdf = np.arange(1, len(sorted_vals) + 1) / len(sorted_vals)
 
     plt.figure(figsize=(8, 6))
-    plt.plot(sorted_vals, cdf, linewidth=2)
+    plt.plot(sorted_vals, cdf, linewidth=2, marker='o')
     plt.xlabel(f"Normalized Average UE Throughput {direction} (Mbps per UE)")
     plt.ylabel("CDF")
     plt.title(f"CDF of Normalized UE Throughput ({direction})")

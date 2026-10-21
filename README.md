@@ -48,6 +48,11 @@ bash run_scripts/run_offline.sh config/offline_umi_n40_npn.ini
 bash run_scripts/run_offline.sh -a config/offline_umi_n40_npn.ini
 ```
 
+For an offline iperf-shaped session on a scenario (the selected UEs are simulated; the `.ini` is not modified):
+```bash
+bash run_scripts/run_iperf.sh -c config/offline_uma_n78_pedestrian.ini --ue studyPedestrian -t 10 -i 1
+```
+
 For real-traffic emulation with Linux namespaces and `NFQUEUE`, use the lab workflow documented in [run_scripts/README.md](run_scripts/README.md), for example:
 
 ```bash

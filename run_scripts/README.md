@@ -13,6 +13,7 @@ The lab and the emulator config are separate concerns:
 - [run_fikore_nfqueue_lab.sh](run_fikore_nfqueue_lab.sh): creates, reuses, inspects, and tears down the lab topology, then launches FikoRE on top of it.
 - [run_docker.sh](run_docker.sh): builds or launches the helper container for Docker backends.
 - [run_offline.sh](run_offline.sh): runs an offline simulation from a positional config file and then generates plots from the latest logs. By default it keeps only the general offline plots; pass `-a` to also generate DualQ/L4S/NFQUEUE-specific plots.
+- [run_iperf.sh](run_iperf.sh): runs an offline iperf-shaped session through `fikore-iperf3`. It creates `transport/.venv` on first use and forwards every argument.
 - [run_emulated.sh](run_emulated.sh): runs the NFQUEUE lab workflow with a positional emulation config file.
 - [run_api.sh](run_api.sh): starts the control API, which serves the web dashboard on `http://localhost:8100/` and collects telemetry over UDP.
 - [python_env.sh](python_env.sh): shared Python environment helper used by the other run scripts.
@@ -31,6 +32,7 @@ This avoids the old destructive behavior where `run` recreated namespaces every 
 
 For real-traffic emulation, use [run_emulated.sh](run_emulated.sh) or the lab script directly.
 For offline simulated traffic, use [run_offline.sh](run_offline.sh).
+For an offline iperf-shaped session on a scenario, use [run_iperf.sh](run_iperf.sh).
 
 ## Topology
 
